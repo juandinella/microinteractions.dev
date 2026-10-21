@@ -1,0 +1,114 @@
+---
+import { author } from '../data/author';
+import { specimens } from '../data/specimens';
+
+interface Props {
+  canonical: URL;
+  title: string;
+  description: string;
+  articleTitle?: string;
+  published?: string;
+  image: URL;
+}
+
+const { canonical, title, description, articleTitle, published, image } = Astro.props;
+const home = new URL('/', canonical).href;
+const personId = `${home}#author`;
+const websiteId = `${home}#website`;
+const pageId = `${canonical.href}#webpage`;
+const articleId = `${canonical.href}#article`;
+const breadcrumbId = `${canonical.href}#breadcrumb`;
+const collectionId = `${home}#studies`;
+const isIndex = canonical.href === home;
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Person',
+      '@id': personId,
+      name: author.name,
+      url: author.url,
+    },
+    {
+      '@type': 'WebSite',
+      '@id': websiteId,
+      name: 'Microinteractions',
+      url: home,
+      inLanguage: 'en',
+      author: { '@id': personId },
+    },
+    {
+      '@type': isIndex ? 'CollectionPage' : 'WebPage',
+      '@id': pageId,
+      url: canonical.href,
+      name: title,
+      description,
+      inLanguage: 'en',
+      isPartOf: { '@id': websiteId },
+      primaryImageOfPage: { '@type': 'ImageObject', url: image.href, width: 1200, height: 630 },
+      ...(isIndex && { mainEntity: { '@id': collectionId } }),
+      ...(articleTitle && {
+        mainEntity: { '@id': articleId },
+        breadcrumb: { '@id': breadcrumbId },
+      }),
+    },
+    ...(isIndex
+      ? [
+          {
+            '@type': 'ItemList',
+            '@id': collectionId,
+            name: 'Microinteraction studies',
+            numberOfItems: specimens.length,
+            itemListElement: specimens.map((specimen, index) => ({
+              '@type': 'ListItem',
+              position: index + 1,
+              name: specimen.title,
+              url: new URL(`/${specimen.id}/`, home).href,
+            })),
+          },
+        ]
+      : []),
+    ...(articleTitle
+      ? [
+          {
+            '@type': 'Article',
+            '@id': articleId,
+            url: canonical.href,
+            headline: articleTitle,
+            description,
+            image: image.href,
+            ...(published && { datePublished: published }),
+            inLanguage: 'en',
+            author: { '@id': personId },
+            isPartOf: { '@id': websiteId },
+            mainEntityOfPage: { '@id': pageId },
+          },
+          {
+            '@type': 'BreadcrumbList',
+            '@id': breadcrumbId,
+            itemListElement: [
+              {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Microinteractions',
+                item: home,
+              },
+              {
+                '@type': 'ListItem',
+                position: 2,
+                name: articleTitle,
+                item: canonical.href,
+              },
+            ],
+          },
+        ]
+      : []),
+  ],
+};
+---
+
+<script
+  type="application/ld+json"
+  set:html={JSON.stringify(structuredData).replace(/</g, '\\u003c')}
+/>

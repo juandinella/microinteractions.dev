@@ -1,0 +1,167 @@
+---
+interface Props {
+  id: string;
+}
+
+const { id } = Astro.props;
+const dots = `${id}-paper-dots`;
+const horizontal = `${id}-paper-x`;
+const vertical = `${id}-paper-y`;
+---
+
+<div class="paper" aria-hidden="true">
+  <svg class="dots" width="100%" height="100%" focusable="false">
+    <defs>
+      <!-- Centers share the rulers' (40.5, 24.5) origin on a 10px grid. -->
+      <pattern
+        id={dots}
+        x="35"
+        y="19"
+        width="10"
+        height="10"
+        patternUnits="userSpaceOnUse"
+      >
+        <circle cx="5.5" cy="5.5" r="0.6"></circle>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill={`url(#${dots})`}></rect>
+  </svg>
+  <svg class="ruler ruler-x" height="25" focusable="false" data-paper-ruler="x">
+    <defs>
+      <pattern
+        id={horizontal}
+        width="100"
+        height="25"
+        patternUnits="userSpaceOnUse"
+      >
+        <path
+          d="M.5 12v12M10.5 20v4M20.5 20v4M30.5 20v4M40.5 20v4M50.5 16v8M60.5 20v4M70.5 20v4M80.5 20v4M90.5 20v4"
+        ></path>
+      </pattern>
+    </defs>
+    <rect width="100%" height="25" fill={`url(#${horizontal})`}></rect>
+    <line x1="0.5" y1="24.5" x2="100%" y2="24.5"></line>
+    <g data-paper-labels></g>
+  </svg>
+  <svg class="ruler ruler-y" width="25" focusable="false" data-paper-ruler="y">
+    <defs>
+      <pattern
+        id={vertical}
+        width="25"
+        height="100"
+        patternUnits="userSpaceOnUse"
+      >
+        <path
+          d="M12 .5h12M20 10.5h4M20 20.5h4M20 30.5h4M20 40.5h4M16 50.5h8M20 60.5h4M20 70.5h4M20 80.5h4M20 90.5h4"
+        ></path>
+      </pattern>
+    </defs>
+    <rect width="25" height="100%" fill={`url(#${vertical})`}></rect>
+    <line x1="24.5" y1="0.5" x2="24.5" y2="100%"></line>
+    <g data-paper-labels></g>
+  </svg>
+</div>
+
+<script>
+  const observer = new ResizeObserver((entries) => {
+    for (const { target, contentRect } of entries) {
+      const horizontal = target.getAttribute('data-paper-ruler') === 'x';
+      const length = horizontal ? contentRect.width : contentRect.height;
+      const labels = target.querySelector('[data-paper-labels]')!;
+      // Keep the entire three-digit label inside the ruler, including its 5px offset.
+      const count = Math.max(0, Math.floor((length - 28) / 100) + 1);
+      if (labels.childElementCount === count) continue;
+      labels.replaceChildren(
+        ...Array.from({ length: count }, (_, index) => {
+          const text = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'text',
+          );
+          const position = index * 100 + 5;
+          if (horizontal) {
+            text.setAttribute('x', String(position));
+            text.setAttribute('y', '10');
+          } else {
+            text.setAttribute(
+              'transform',
+              `translate(10 ${position}) rotate(90)`,
+            );
+          }
+          text.textContent = String(index * 100).padStart(3, '0');
+          return text;
+        }),
+      );
+    }
+  });
+  document
+    .querySelectorAll('[data-paper-ruler]')
+    .forEach((ruler) => observer.observe(ruler));
+</script>
+
+<style>
+  .paper {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    background: var(--bg);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .dots,
+  .ruler {
+    position: absolute;
+    display: block;
+  }
+
+  .dots {
+    inset: 0;
+  }
+
+  .dots circle {
+    fill: oklch(0.65 0.012 258.74 / 0.17);
+  }
+
+  .ruler-x {
+    top: 0;
+    left: 40px;
+    width: calc(100% - 40px);
+  }
+
+  .ruler-y {
+    top: 24px;
+    left: 16px;
+    height: calc(100% - 24px);
+  }
+
+  .ruler path {
+    fill: none;
+    stroke: oklch(0.65 0.012 258.74 / 0.275);
+    stroke-width: 1;
+  }
+
+  .ruler line {
+    stroke: oklch(0.65 0.012 258.74 / 0.12);
+    stroke-width: 1;
+  }
+
+  .ruler :global(text) {
+    fill: oklch(0.65 0.012 258.74 / 0.55);
+    font: 8px var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Narrow stages keep only the top ruler; it starts on the grid's 0.5 column, so the dots stay aligned. */
+  @media (max-width: 780px) {
+    .ruler-x {
+      left: 0;
+      width: 100%;
+    }
+
+    .ruler-y {
+      display: none;
+    }
+  }
+</style>

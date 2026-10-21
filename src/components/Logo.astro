@@ -1,0 +1,126 @@
+---
+interface Props {
+  id: string;
+}
+
+const { id } = Astro.props;
+
+// Outline paths from public/logo.svg. TRACE is a hand-traced centerline of the
+// "m" stroke, extended past both round caps so the 46-unit mask covers them.
+const STROKE =
+  'M0 369C0 280.09 16.2143 189.049 50.4453 119.68C84.6808 50.301 138.534 0 214 0C272.972 0 316.344 27.0626 340.84 70.5205C378.643 29.3891 427.153 0 482 0C540.975 0 586.171 33.3357 612.901 80.0469C617.156 87.4826 620.956 95.275 624.289 103.353C673.301 60.6059 736.301 37 794 37C801.732 37 808 43.268 808 51C808 58.732 801.732 65 794 65C739.108 65 678.718 89.2964 633.964 132.495C643.049 167.841 643.984 206.611 635.667 244.037C635.661 244.066 635.654 244.095 635.647 244.124C630.543 266.423 622.255 283.817 612.172 295.818C602.311 307.555 589.302 315.608 575.245 314.723C560.201 313.775 549.518 303.059 544.536 288.983C539.667 275.226 539.511 257.125 544.35 235.89C554.025 192.412 574.941 155.006 602.441 124.745C598.716 113.872 594.083 103.537 588.599 93.9531C565.829 54.1646 529.025 28 482 28C435.495 28 392.025 54.2047 356.56 94.9424C355.475 96.1879 354.399 97.4454 353.332 98.7148C367.474 140.571 367.426 191.563 353.562 244.469C347.666 267.519 338.562 285.359 327.686 297.521C316.992 309.476 303.25 317.224 288.77 315.946C273.483 314.597 262.439 303.716 257.102 289.121C251.874 274.827 251.488 256.036 256.325 233.998C256.332 233.968 256.339 233.938 256.346 233.908C267.252 185.739 290.017 135.452 321.365 93.9287C320.472 91.9784 319.541 90.0651 318.569 88.1904C299.53 51.441 264.89 28 214 28C153.466 28 107.319 67.6991 75.5547 132.07C43.7857 196.451 28 282.91 28 369C28 376.732 21.732 383 14 383C6.26801 383 0 376.732 0 369ZM332.059 127.312C309.196 161.967 292.347 201.752 283.675 240.002L283.3 241.762C279.583 259.768 280.712 272.16 283.398 279.504C286.061 286.784 289.517 287.903 291.23 288.054C293.75 288.276 299.509 287.024 306.815 278.854C313.938 270.891 321.333 257.48 326.437 237.53C326.444 237.503 326.451 237.476 326.458 237.448C337.084 196.936 338.551 159.169 332.059 127.312ZM610.776 158.494C592.488 182.439 578.679 210.484 571.667 242.037C571.662 242.061 571.656 242.086 571.65 242.11C567.489 260.375 568.458 272.649 570.933 279.642C573.295 286.315 576.174 286.725 577.005 286.777C578.823 286.892 584.002 285.82 590.734 277.807C597.235 270.07 603.937 257.116 608.333 237.963C614.24 211.38 614.834 184.152 610.776 158.494Z';
+const ARROW =
+  'M740.117 25.5179C743.145 18.4033 751.366 15.0901 758.481 18.1175L805.481 38.1175C809.918 40.0055 813.071 44.0438 813.826 48.806C814.582 53.5679 812.834 58.3836 809.2 61.552L770.2 95.552C764.371 100.633 755.528 100.027 750.447 94.1995C745.366 88.3714 745.971 79.5276 751.799 74.4466L773.954 55.1302L747.518 43.8812C740.403 40.8537 737.09 32.6325 740.117 25.5179Z';
+const TRACE =
+  'M14 392 L14 369 C14 282 30 192 63 126 C96 58 146 14 214 14 C268.5 14 308 39 330 80 C348 115 352 185 340 241 C332 272 313 302 290 302 C272 302 263 285 268 245 C279 190 305 125 345 84 C385 41 430 14 482 14 C535 14 576 44 601 87 C620 120 632 180 622 240 C617 262 600 300 577 300 C560 300 548 280 557 240 C566 196 583 160 618 118 C670 76 735 51 794 51 L814 51';
+---
+
+<svg
+  class="logo"
+  viewBox="0 0 814 383"
+  width="46"
+  height="22"
+  aria-hidden="true"
+  focusable="false"
+  data-logo
+>
+  <defs>
+    <mask
+      id={id}
+      maskUnits="userSpaceOnUse"
+      x="-40"
+      y="-40"
+      width="900"
+      height="470"
+    >
+      <path
+        class="logo-trace"
+        d={TRACE}
+        pathLength="1"
+        fill="none"
+        stroke="#fff"
+        stroke-width="46"
+        stroke-dasharray="1 2"></path>
+    </mask>
+  </defs>
+  <path class="logo-stroke" d={STROKE}></path>
+  <path class="logo-redraw" d={STROKE} mask={`url(#${id})`}></path>
+  <path class="logo-arrow" d={ARROW}></path>
+</svg>
+
+<script>
+  const DURATION = 700;
+  const EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
+  const GHOST_OPACITY = 0.12;
+  const ARROW_AT = 0.82;
+  const ARROW_DURATION = 180;
+
+  for (const svg of document.querySelectorAll<SVGSVGElement>('[data-logo]')) {
+    const link = svg.closest('a');
+    if (!link) continue;
+    const trace = svg.querySelector('.logo-trace')!;
+    const stroke = svg.querySelector('.logo-stroke')!;
+    const redraw = svg.querySelector('.logo-redraw')!;
+    const arrow = svg.querySelector('.logo-arrow')!;
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+    let running = false;
+
+    // One-shot: re-entering while it draws doesn't restart it.
+    const play = () => {
+      if (running || reducedMotion.matches) return;
+      running = true;
+      const animations = [
+        trace.animate([{ strokeDashoffset: '1' }, { strokeDashoffset: '0' }], {
+          duration: DURATION,
+          easing: EASE,
+        }),
+        redraw.animate([{ opacity: 1 }, { opacity: 1 }], {
+          duration: DURATION,
+        }),
+        stroke.animate(
+          [{ opacity: GHOST_OPACITY }, { opacity: GHOST_OPACITY }],
+          { duration: DURATION },
+        ),
+        arrow.animate(
+          [
+            { opacity: 0, transform: 'translateX(-56px)' },
+            { opacity: 1, transform: 'translateX(0)' },
+          ],
+          {
+            duration: ARROW_DURATION,
+            delay: DURATION * ARROW_AT,
+            easing: 'cubic-bezier(0.23, 1, 0.32, 1)',
+            fill: 'backwards',
+          },
+        ),
+      ];
+      Promise.all(animations.map((a) => a.finished)).finally(
+        () => (running = false),
+      );
+    };
+
+    link.addEventListener('pointerenter', (event) => {
+      if (event.pointerType === 'mouse' && finePointer.matches) play();
+    });
+    link.addEventListener('focus', () => {
+      if (link.matches(':focus-visible')) play();
+    });
+  }
+</script>
+
+<style>
+  .logo {
+    display: block;
+    overflow: visible;
+    color: var(--brand);
+  }
+
+  .logo path:not(.logo-trace) {
+    fill: currentColor;
+  }
+
+  .logo-redraw {
+    opacity: 0;
+  }
+</style>

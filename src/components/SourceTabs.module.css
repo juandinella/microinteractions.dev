@@ -1,0 +1,188 @@
+.frame {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--ink-text);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 12px;
+  padding: 0 12px;
+  border-bottom: 1px solid color-mix(in oklch, var(--ink-muted) 25%, transparent);
+}
+
+.tabs {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  margin-left: auto;
+}
+
+.tab,
+.action {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: 11px var(--font-mono);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tab {
+  color: var(--ink-muted);
+  transition: color 150ms ease;
+}
+
+.tab[data-active] {
+  color: var(--ink-text);
+}
+
+.staticTab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.staticTab input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.staticTab:has(input:checked) {
+  color: var(--ink-text);
+  box-shadow: inset 0 -2px var(--ink-text);
+}
+
+.staticTab:has(input:focus-visible) {
+  outline: 2px solid var(--ink-text);
+  outline-offset: -4px;
+}
+
+:global([data-static-source]) [data-source-panel] { display: none; }
+:global([data-static-source]:has(input[value='html']:checked)) [data-source-panel='html'],
+:global([data-static-source]:has(input[value='css']:checked)) [data-source-panel='css'],
+:global([data-static-source]:has(input[value='js']:checked)) [data-source-panel='js'],
+:global([data-static-source]:has(input[value='prompt']:checked)) [data-source-panel='prompt'] { display: block; }
+
+.indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--active-tab-width);
+  height: 2px;
+  background: var(--ink-text);
+  translate: var(--active-tab-left) 0;
+  /* Width moves with the slide; the bar is 2px and absolute, so its layout is negligible. */
+  transition: translate 180ms cubic-bezier(0.23, 1, 0.32, 1), width 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Arrow-key moves land instantly; the slide is for pointer clicks. */
+.tabs:has(:focus-visible) .indicator {
+  transition: none;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.copy {
+  min-width: 94px;
+}
+
+.tab:active,
+.action:active {
+  background: color-mix(in oklch, var(--ink-text) 8%, transparent);
+}
+
+.panel {
+  max-height: 380px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--ink-muted) var(--ink);
+}
+
+.panel :global(pre) {
+  margin: 0;
+  padding: 24px;
+  font: 12px/1.8 var(--font-mono);
+  tab-size: 2;
+}
+
+.panel :global(code) {
+  font: inherit;
+}
+
+.status {
+  min-height: 20px;
+  margin: 8px 0 0;
+  color: var(--meta);
+  font: 11px/1.6 var(--font-mono);
+}
+
+.tab:focus-visible,
+.action:focus-visible,
+.panel:focus-visible {
+  outline: 2px solid var(--ink-text);
+  outline-offset: -4px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover,
+  .action:hover {
+    background: color-mix(in oklch, var(--ink-text) 8%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicator {
+    transition: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0 4px;
+  }
+
+  .tab {
+    padding: 0 10px;
+    font-size: 10px;
+  }
+
+  .panel :global(pre) {
+    padding-right: 16px;
+    padding-left: 16px;
+    font-size: 11px;
+  }
+}

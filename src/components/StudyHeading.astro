@@ -1,0 +1,60 @@
+---
+interface Props {
+  id: string;
+}
+
+const { id } = Astro.props;
+---
+
+<h2 id={id} tabindex="-1">
+  <a href={`#${id}`}
+    ><slot /><span class="permalink" aria-hidden="true">#</span></a
+  >
+</h2>
+
+<style>
+  h2 {
+    max-width: 65ch;
+    margin: 0;
+    scroll-margin-top: 32px;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: var(--tracking-headline);
+    line-height: 1.5;
+  }
+
+  a {
+    position: relative;
+    display: inline-block;
+    padding-block: 10px;
+    margin-block: -10px;
+    text-decoration: none;
+    touch-action: manipulation;
+  }
+
+  .permalink {
+    margin-left: 8px;
+    color: var(--quiet);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0;
+  }
+
+  h2:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 4px;
+    border-radius: 2px;
+  }
+
+  a:focus-visible .permalink {
+    opacity: 1;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    a:hover .permalink {
+      opacity: 1;
+    }
+  }
+</style>

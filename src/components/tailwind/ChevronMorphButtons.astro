@@ -1,0 +1,56 @@
+<div
+  class="inline-flex items-center gap-2.5"
+  role="group"
+  aria-label="Carousel navigation"
+>
+  <button
+    type="button"
+    aria-label="Previous item"
+    class="group/morph inline-grid size-11 shrink-0 place-items-center rounded-full border border-transparent bg-morph text-morph-fg p-0 cursor-pointer touch-manipulation transition-[background-color,transform] duration-[190ms,160ms] ease-morph pointer-fine:hover:bg-morph-hover focus-visible:border-morph-fg focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-(--focus-ring,var(--color-morph-fg)) focus-visible:duration-0 motion-safe:active:not-focus-visible:transform-[scale(0.96)] motion-reduce:transition-none"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      class="size-5.5 overflow-visible fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
+    >
+      <path
+        d="M14 7L9 12L14 17"
+        class="transition-transform duration-190 ease-morph pointer-fine:group-hover/morph:transform-[translateX(-2px)] group-focus-visible/morph:transform-[translateX(-2px)] group-focus-visible/morph:duration-0 motion-reduce:transition-none"
+      ></path>
+      <path
+        d="M16 12H8"
+        class="opacity-0 transform-[scaleX(0.5)] transform-fill origin-right transition-[opacity,transform] duration-190 ease-morph pointer-fine:group-hover/morph:opacity-100 pointer-fine:group-hover/morph:transform-[scaleX(1)] group-focus-visible/morph:opacity-100 group-focus-visible/morph:transform-[scaleX(1)] group-focus-visible/morph:duration-0 motion-reduce:transition-none"
+      ></path>
+    </svg>
+  </button>
+
+  <button
+    type="button"
+    aria-label="Next item"
+    class="group/morph inline-grid size-11 shrink-0 place-items-center rounded-full border border-transparent bg-morph text-morph-fg p-0 cursor-pointer touch-manipulation transition-[background-color,transform] duration-[190ms,160ms] ease-morph pointer-fine:hover:bg-morph-hover focus-visible:border-morph-fg focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-(--focus-ring,var(--color-morph-fg)) focus-visible:duration-0 motion-safe:active:not-focus-visible:transform-[scale(0.96)] motion-reduce:transition-none"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      class="size-5.5 overflow-visible fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
+    >
+      <path
+        d="M10 7L15 12L10 17"
+        class="transition-transform duration-190 ease-morph pointer-fine:group-hover/morph:transform-[translateX(2px)] group-focus-visible/morph:transform-[translateX(2px)] group-focus-visible/morph:duration-0 motion-reduce:transition-none"
+      ></path>
+      <path
+        d="M8 12H16"
+        class="opacity-0 transform-[scaleX(0.5)] transform-fill origin-left transition-[opacity,transform] duration-190 ease-morph pointer-fine:group-hover/morph:opacity-100 pointer-fine:group-hover/morph:transform-[scaleX(1)] group-focus-visible/morph:opacity-100 group-focus-visible/morph:transform-[scaleX(1)] group-focus-visible/morph:duration-0 motion-reduce:transition-none"
+      ></path>
+    </svg>
+  </button>
+</div>
+
+<style is:global>
+  @theme {
+    --color-morph: oklch(0.925 0.004 258.74);
+    --color-morph-hover: oklch(0.902 0.004 258.74);
+    --color-morph-fg: oklch(0.23 0.012 258.74);
+    --ease-morph: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+</style>

@@ -1,0 +1,82 @@
+---
+observe: Drag from Tab indicator down to One-time code, then back up to Switch. The rows you back off return to how they were. Press Escape mid-drag to undo the whole drag.
+references:
+  - title: Selecting multiple items with a two-finger pan gesture
+    author: Apple Developer Documentation
+    url: https://developer.apple.com/documentation/uikit/selecting-multiple-items-with-a-two-finger-pan-gesture
+  - title: Capturing pointer events with setPointerCapture()
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Element/setPointerCapture
+  - title: touch-action
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/CSS/touch-action
+prompt:
+  task: "Build a table of checkbox rows that can be selected by pressing a box and dragging down the box column, with a band that shows which rows the drag will set."
+  behavior:
+    - "Keep native `<input type=\"checkbox\">` elements, one per row, each with an `aria-label` that names its row. The inputs are the single source of truth: each row's selected state, the group corners, the header checkbox, and the count are derived state, recomputed from the inputs in one function after every change and on `pageshow`, so boxes restored by the browser still tint their rows."
+    - "Make the whole box cell the drag's hit area: 44px wide, as tall as the row. Rows are 40px, and 44px under `(pointer: coarse)`. Set `touch-action: none` on the box cells only, so a touch there drags while the rest of the table still scrolls."
+    - "On `pointerdown` in a box cell, record the row as the anchor and set the drag's direction from it: an unchecked anchor makes the drag check, a checked one makes it clear. Flip the anchor at once, take a snapshot of every box, and call `setPointerCapture()` on the scroller. Ignore non-primary pointers and presses with Ctrl, Meta, or Alt; Ctrl-click opens the context menu on macOS."
+    - "On `pointermove`, find the row under the pointer's `clientY`, clamped to the first and last rows. Set every row between the anchor and that row to the drag's state, and every other row back to its snapshot. A fast pointer cannot skip a row, and backing off a row restores it."
+    - "End on `pointerup` and keep what the drag set. On `pointercancel`, on `lostpointercapture` without a `pointerup`, on Escape, and when the window loses focus, restore the snapshot instead: the drag was never confirmed."
+    - "Setting `checked` from script fires no events. Fire `input` on each box as the drag changes it, and `change` once when the drag ends, only on the boxes whose final state differs from the snapshot. A cancelled drag fires `input` for the boxes it restores and no `change`. Clicks, Shift+click, and Shift+arrows fire both at once. Set a flag while the component dispatches its own `change` events and skip them in its `change` listener, so a `change` that other code dispatches after setting `checked` still updates the rows."
+    - "The native `click` that follows a handled press would toggle the box a second time. Cancel it in a capture-phase listener on the component, but only for clicks with `event.detail > 0`, so keyboard and assistive-technology clicks still toggle."
+    - "Mark each study name up as `<th scope=\"row\">`. A click anywhere else on a row toggles its box, as a label would. Skip it when the click ends a text selection (`getSelection().isCollapsed` is false) or carries Ctrl, Meta, or Alt. Shift+click, on the box or anywhere on the row, sets every row from the last box changed to the clicked row to the clicked row's new state; prevent the Shift press on text cells so it doesn't select text."
+    - "Put the table in a scroller with `overflow-y: auto`, `overscroll-behavior: contain`, and a sticky header. While a drag is active, scroll on every animation frame when the pointer is within 48px of the scroller's top (below the header) or bottom edge, by `depth² × 14px` per 60Hz frame, where depth runs from 0 at the inner edge of that zone to 1 at the scroller's edge, and at least 1px. Scale it by the time since the last frame, so a 120Hz display scrolls no faster. On `scroll`, recompute the row under the stored pointer position, so autoscroll and wheel scrolling both extend the range."
+    - "Draw the band as three absolutely positioned spans inside the scroller, which is their containing block, so the band scrolls with the rows it measures. Two 14px caps carry the rounded ends and travel with `translateY()`; the body between them is 1px tall and stretches with `scaleY()`. Its side borders keep their width under a vertical scale, so the band animates on `transform` alone. Inset it 6px inside the first and last rows of the range, center it on the box column, and make it 28px wide."
+    - "Give the band an accent outline and an 8% accent fill when the drag checks, and a neutral outline with no fill when it clears. Show it once the range reaches a second row, so a plain click doesn't flash it. Place it without a transition, then fade it in; fade it out when the drag ends."
+    - "Tint selected rows. Round only the outer corners of a run of adjacent selected rows, so a run reads as one block. Use logical properties such as `border-start-start-radius`, so the corners follow right-to-left text."
+    - "Give the scroller `isolation: isolate`. The band (`z-index: 1`) and the sticky header (`z-index: 2`) then compete inside that stacking context, never with the page around the table."
+    - "Handle every row with event delegation: one set of listeners on the component, not one per row. Clean them up with an `AbortController` when the element disconnects."
+  timing:
+    - "Band: `transform` follows the range in 90ms on `cubic-bezier(0.23, 1, 0.32, 1)`; `opacity` fades in and out in 150ms `ease-out`."
+    - "Check: the mark draws in 160ms on `cubic-bezier(0.23, 1, 0.32, 1)` through `stroke-dashoffset` on a path with `pathLength=\"1\"`. Unchecking clears it at once."
+    - "Box fill: `background-color` and `border-color` in 100ms `ease`."
+  accessibility:
+    - "Without JavaScript the boxes still check one by one (progressive enhancement); the drag, row clicks, and the header checkbox need the script."
+    - "Up and Down arrows move focus between boxes. Shift+Up and Shift+Down select a range from the box where the run started, with that box's state and a snapshot, like the drag: backing up shrinks it. Any other key, click, or toggle ends the run. Space toggles natively."
+    - "Describe the row click, the drag, Shift+click, Shift+arrows, and Escape with `aria-describedby` on the table, pointing at visually hidden instructions with a unique id per table. Screen readers in browse mode keep the arrow keys for themselves, so the instructions offer Shift+click too. Show the shortcuts under the table as `<kbd>` keys, hidden from assistive technology and under `(hover: none)`, where there is no Shift key to press."
+    - "Announce the settled count in a live region 250ms after the last change, such as \"4 selected\" or \"None selected\". Never announce each row a drag crosses. Leave the visible count, such as \"4 of 10\", readable, so the current state can be found without waiting for an announcement."
+    - "Keep the header checkbox in sync: checked when every row is, `indeterminate` when some are, disabled when there are no rows. Activating it checks or clears every row."
+    - "A pointer press focuses the anchor's box without showing the focus ring; set `data-pointer-focus` on press and remove it on the next key press or on blur."
+    - "With `prefers-reduced-motion: reduce`, the band jumps between rows and the check appears whole. The fades stay."
+    - "The band's direction is also visible in the boxes themselves, which change as the drag crosses them, so it never depends on color alone. In forced-colors mode, use `Highlight` for checked boxes and the band, and `SelectedItem` for selected rows."
+  avoid:
+    - "Toggling each row the pointer crosses. With mixed rows the result is unpredictable; one direction per drag, set by the first row, is not."
+    - "Painting only the rows the pointer touched. A fast drag skips rows between two `pointermove` events, and backing off a row cannot undo it."
+    - "`touch-action: none` on the whole table, which takes touch scrolling away from it."
+    - "Animating the band's `top` and `height`."
+---
+
+## The first row decides
+
+Pressing a box flips it at once, and that new state becomes the drag's direction. Start on an empty box and the drag checks every row it covers; start on a checked one and it clears them. Toggling each row as the pointer crosses it would turn a mixed selection into noise. A single direction per drag stays predictable.
+
+The drag covers a range, from the row where it started to the row under the pointer, not a trail of the rows it touched. Rows inside the range take the drag's state, and rows outside it return to a snapshot taken on press. Overshooting is harmless: back off a row and it goes back to how it was. A fast pointer can't skip rows either, because the range is recomputed from two indices instead of collected from `pointermove` events.
+
+<Implementation specimen={props.specimenId} />
+
+## A band that shows the range
+
+While the pointer is down, a band surrounds the boxes the drag will set. It answers the question a drag raises before the pointer is released: which rows does this cover? When the drag checks, the band has an accent outline and a light fill. When it clears, the outline is neutral and the fill is gone.
+
+It appears once the drag reaches a second row, so a plain click doesn't flash it.
+
+The band moves on `transform` alone. Two fixed caps carry its rounded ends and slide into place; the body between them is 1px tall and stretches with `scaleY()`. Scaling vertically leaves its side borders at their width, so no frame of the animation needs layout. It follows the range in 90ms on a strong ease-out, which keeps up with a fast drag without jumping row to row.
+
+The band and the sticky header share a stacking context created by `isolation: isolate` on the scroller, so their z-index values never leak into the page around the table.
+
+## Selecting past the edge
+
+The list scrolls on its own when the pointer nears its top or bottom edge, faster the deeper it goes. Because rows move under a still pointer while the list scrolls, every `scroll` event recomputes the row under the last pointer position. Autoscroll and the wheel extend the range the same way.
+
+`setPointerCapture()` keeps the drag alive when the pointer leaves the table. Only the box column sets `touch-action: none`, so a finger on the names still scrolls. `overscroll-behavior: contain` keeps a scroll that hits the end of the list from moving the page.
+
+## Clicks, keys, and announcements
+
+The checkboxes stay native and own the selection. The row tint, the rounded group corners, the header checkbox, and the count are derived from them after every change. Without the script, each box still checks on its own.
+
+A click anywhere on a row toggles its box, like a label, unless it ends a text selection. Shift+click, on the box or the row, extends from the last box changed. On the keyboard, the arrows move between boxes and Shift+arrows select a range from where the run started, the same way the drag does: backing up shrinks it. Escape undoes a drag in progress, and so does the browser cancelling the pointer.
+
+Code around the table hears about a drag the way a form would. Each box fires `input` as the drag changes it, and `change` once when the drag ends, only if its final state differs from where it started. A cancelled drag fires no `change`. It works the other way too: code that sets `checked` and dispatches `change` gets the same row tint, header checkbox, and count as a click.
+
+Screen readers hear the settled count from a live region once the selection stops changing, never once per row. The table's description explains the drag and its keyboard equivalent, and each box's accessible name is its row.

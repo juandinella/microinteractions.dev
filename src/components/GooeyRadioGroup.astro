@@ -1,0 +1,347 @@
+<fieldset class="goo-group">
+  <legend class="goo-legend">Delivery</legend>
+  <div class="goo-options" data-goo>
+    <svg class="goo-filter" aria-hidden="true" focusable="false">
+      <filter>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"></feGaussianBlur>
+        <feColorMatrix
+          in="blur"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
+          result="goo"
+        ></feColorMatrix>
+        <feComposite in="SourceGraphic" in2="goo" operator="atop"></feComposite>
+      </filter>
+    </svg>
+    <span class="goo-drop" aria-hidden="true">
+      <span class="goo-blob" data-goo-blob></span>
+      <span class="goo-blob" data-goo-blob></span>
+      <span class="goo-blob" data-goo-blob></span>
+      <span class="goo-blob" data-goo-blob></span>
+      <span class="goo-blob" data-goo-blob></span>
+      <span class="goo-blob" data-goo-blob></span>
+      <span class="goo-blob" data-goo-blob></span>
+      <span class="goo-blob" data-goo-blob data-trace-progress></span>
+    </span>
+    <label class="goo-option">
+      <input class="goo-input" type="radio" name="delivery" value="standard" checked />
+      <span class="goo-ring" aria-hidden="true"></span>
+      Standard
+    </label>
+    <label class="goo-option">
+      <input class="goo-input" type="radio" name="delivery" value="express" />
+      <span class="goo-ring" aria-hidden="true"></span>
+      Express
+    </label>
+    <label class="goo-option">
+      <input class="goo-input" type="radio" name="delivery" value="next-day" />
+      <span class="goo-ring" aria-hidden="true"></span>
+      Next day
+    </label>
+    <label class="goo-option">
+      <input class="goo-input" type="radio" name="delivery" value="pickup" />
+      <span class="goo-ring" aria-hidden="true"></span>
+      Pickup
+    </label>
+  </div>
+</fieldset>
+
+<script>
+  // The dot pours to the new ring as a drop: a head, a tail on the same curve
+  // 60ms later, and blobs between them that taper from head to tail.
+  const PITCH = 44;
+  const DURATION = 420;
+  const LAG = 60;
+  const FRAMES = 60;
+
+  // A cubic-bezier easing: find the curve's t for x, then return its y.
+  function bezier(x1: number, y1: number, x2: number, y2: number) {
+    const curve = (t: number, a: number, b: number) =>
+      3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+    return (x: number) => {
+      if (x <= 0) return 0;
+      if (x >= 1) return 1;
+      let low = 0;
+      let high = 1;
+      for (let i = 0; i < 20; i++) {
+        const mid = (low + high) / 2;
+        if (curve(mid, x1, x2) < x) low = mid;
+        else high = mid;
+      }
+      return curve((low + high) / 2, y1, y2);
+    };
+  }
+
+  const pour = bezier(0.65, 0, 0.35, 1);
+  // A choice made mid-pour keeps the drop moving: ease-out starts at speed instead of from rest.
+  const redirect = bezier(0.23, 1, 0.32, 1);
+  const clamp = (value: number) => Math.min(Math.max(value, 0), 1);
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let groups = 0;
+
+  document.querySelectorAll<HTMLElement>('[data-goo]').forEach((group) => {
+    const radios = [...group.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+    const blobs = [...group.querySelectorAll<HTMLElement>('[data-goo-blob]')];
+    // The goo only shows while the drop moves, so the script owns the filter and gives each group its own id.
+    const filter = group.querySelector('filter')!;
+    filter.id = `goo-merge-${++groups}`;
+    blobs[0].parentElement!.style.filter = `url(#${filter.id})`;
+    const checked = radios.findIndex((radio) => radio.checked);
+    let current: number | undefined = checked < 0 ? undefined : checked * PITCH;
+    let animations: Animation[] = [];
+    let positionAt: ((ms: number) => [number, number]) | undefined;
+
+    // WebKit drops :focus-visible when arrow keys move between radios, so track the keyboard here.
+    // It stays set until the next pointer press: clearing it on pointer movement would hide Safari's focus ring.
+    group.addEventListener('keydown', () => group.setAttribute('data-keyboard', ''));
+    group.addEventListener('pointerdown', () => group.removeAttribute('data-keyboard'));
+
+    group.addEventListener('change', (event) => {
+      const index = radios.indexOf(event.target as HTMLInputElement);
+      if (index < 0) return;
+      const to = index * PITCH;
+      const from = current;
+      // A new choice mid-pour starts from wherever the head and tail are now.
+      const running = animations[0];
+      const redirected = positionAt !== undefined && running?.playState === 'running';
+      let [head, tail] = [from ?? to, from ?? to];
+      if (redirected) [head, tail] = positionAt!(Number(running.currentTime));
+      animations.forEach((animation) => animation.cancel());
+      animations = [];
+      positionAt = undefined;
+      current = to;
+      // Arrow keys repeat faster than the drop travels, so a keyboard move lands at once.
+      if (group.hasAttribute('data-keyboard') || reduceMotion.matches) return;
+
+      if (from === undefined) {
+        // The first choice has nowhere to pour from, so the dot swells into its ring.
+        // Scale only: the filter's alpha cut would turn a fade into a pop.
+        animations = blobs.map((blob) =>
+          blob.animate(
+            [
+              { transform: `translateY(${to}px) scale(0.3)` },
+              { transform: `translateY(${to}px) scale(1)` },
+            ],
+            { duration: DURATION, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+          ),
+        );
+        return;
+      }
+
+      const ease = redirected ? redirect : pour;
+      const at = (ms: number): [number, number] => [
+        head + (to - head) * ease(clamp(ms / DURATION)),
+        tail + (to - tail) * ease(clamp((ms - LAG) / DURATION)),
+      ];
+      positionAt = at;
+      const keyframes: Keyframe[][] = blobs.map(() => []);
+      for (let frame = 0; frame <= FRAMES; frame++) {
+        const [y1, y2] = at((frame / FRAMES) * (DURATION + LAG));
+        // The tail thins as the drop stretches.
+        const thin = Math.max(1 - Math.abs(y1 - y2) / (PITCH * 2.2), 0.3);
+        blobs.forEach((_, index) => {
+          const share = index / (blobs.length - 1);
+          const scale = thin + (1 - thin) * share * share;
+          keyframes[index].push({
+            transform: `translateY(${y2 + (y1 - y2) * share}px) scale(${scale})`,
+          });
+        });
+      }
+      animations = blobs.map((blob, index) =>
+        blob.animate(keyframes[index], { duration: DURATION + LAG, easing: 'linear' }),
+      );
+    });
+  });
+</script>
+
+<script>
+  // Gallery only: the inspector plays a jump to the farthest option, then puts the selection back.
+  document.querySelectorAll<HTMLElement>('[data-goo]').forEach((group) => {
+    const stage = group.closest('[data-stage]');
+    if (!stage) return;
+    const radios = [...group.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+    let restore: HTMLInputElement | undefined;
+
+    stage.addEventListener('specimen-inspect', () => {
+      const checked = radios.findIndex((radio) => radio.checked);
+      restore = radios[checked];
+      const target = radios[checked < radios.length / 2 ? radios.length - 1 : 0];
+      if (checked < 0) return;
+      group.removeAttribute('data-keyboard');
+      target.checked = true;
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    stage.addEventListener('specimen-release', () => {
+      if (!restore) return;
+      // Keyboard mode lands the restored selection without the drop.
+      group.setAttribute('data-keyboard', '');
+      restore.checked = true;
+      restore.dispatchEvent(new Event('change', { bubbles: true }));
+      restore = undefined;
+    });
+  });
+</script>
+
+<style>
+  .goo-group {
+    --goo-ink: var(--goo-fg, var(--text));
+    --goo-track: var(--goo-ring-color, var(--line-strong));
+    --goo-label: var(--goo-muted, var(--muted));
+
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--goo-ink);
+  }
+
+  .goo-legend {
+    margin-bottom: 6px;
+    padding: 0;
+    color: var(--goo-label);
+    font-size: 12px;
+  }
+
+  .goo-options {
+    --goo-index: 0;
+
+    position: relative;
+    display: grid;
+    isolation: isolate;
+  }
+
+  /* The resting dot follows the checked radio. One rule per option. */
+  .goo-options:has(.goo-option:nth-of-type(2) :checked) {
+    --goo-index: 1;
+  }
+
+  .goo-options:has(.goo-option:nth-of-type(3) :checked) {
+    --goo-index: 2;
+  }
+
+  .goo-options:has(.goo-option:nth-of-type(4) :checked) {
+    --goo-index: 3;
+  }
+
+  .goo-filter {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+
+  /* Only the drop passes through the filter, which the script attaches; the rings and labels stay sharp. */
+  .goo-drop {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    width: 44px;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  /* With nothing checked, there is no dot. */
+  .goo-options:not(:has(:checked)) .goo-drop {
+    opacity: 0;
+  }
+
+  .goo-blob {
+    position: absolute;
+    top: 17px;
+    left: 17px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--goo-ink);
+    transform: translateY(calc(var(--goo-index) * 44px));
+  }
+
+  .goo-option {
+    position: relative;
+    display: flex;
+    height: 44px;
+    align-items: center;
+    padding: 0 16px 0 44px;
+    border-radius: 10px;
+    color: var(--goo-label);
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 140ms ease 150ms;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Each label changes with its ring. */
+  .goo-option:has(:checked) {
+    color: var(--goo-ink);
+    transition-delay: 315ms;
+  }
+
+  .goo-option:has(:focus-visible),
+  .goo-options[data-keyboard] .goo-option:has(:focus) {
+    outline: 2px solid var(--focus-ring, var(--goo-ink));
+    outline-offset: 2px;
+  }
+
+  /* The native radio covers its whole row: it takes the click, the focus, and the arrow keys. */
+  .goo-input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    border-radius: inherit;
+    opacity: 0;
+    cursor: inherit;
+    appearance: none;
+  }
+
+  /* The old ring lets go as the tail leaves it; the new one darkens as the head arrives. */
+  .goo-ring {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--goo-track);
+    border-radius: 50%;
+    transition: border-color 140ms ease 150ms;
+  }
+
+  .goo-option:has(:checked) .goo-ring {
+    border-color: var(--goo-ink);
+    transition-delay: 315ms;
+  }
+
+  /* Hover darkens a second ring on its own clock; the border's delays are for the drop. */
+  .goo-ring::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border: 2px solid var(--goo-label);
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .goo-option:not(:has(:checked)):hover .goo-ring::after {
+      opacity: 1;
+    }
+  }
+
+  /* After a click, hold the hover ring until the ink arrives, so the ring never flashes back to the track. */
+  .goo-option:has(:checked) .goo-ring::after {
+    transition-delay: 315ms;
+  }
+
+  .goo-options[data-keyboard] :is(.goo-option, .goo-ring),
+  .goo-options[data-keyboard] .goo-ring::after {
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .goo-option,
+    .goo-ring,
+    .goo-ring::after {
+      transition: none;
+    }
+  }
+</style>

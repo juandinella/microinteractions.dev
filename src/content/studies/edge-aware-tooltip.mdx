@@ -1,0 +1,54 @@
+---
+observe: Drag to either end. The label stops at the edge while its arrow follows the thumb.
+references:
+  - title: CSS anchor positioning
+    author: Sanyam Punia
+    url: https://x.com/sanyampunia/status/2103533714252902592
+  - title: Aligning to an anchor with justify-self
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/justify-self#anchor-center
+prompt:
+  task: "Build a range slider with an always-visible value label. Keep the label inside the slider's container while its arrow stays aligned with the thumb."
+  behavior:
+    - "Keep the native `<input type=\"range\">` as the control. Draw the track, fill, value label, and arrow as separate elements with `aria-hidden=\"true\"` and `pointer-events: none`."
+    - "On initialization and every `input` event, normalize the value between `min` and `max`, using the native defaults of 0 and 100 when the attributes are absent. Write the result to a `--value` custom property from 0 to 1. Position the fill, label, and arrow from that number."
+    - "Inset the track by half the thumb width, 12px, on each side so its ends line up with the thumb's center at the minimum and maximum. Reveal the fill with `clip-path: inset()` to preserve its rounded end."
+    - "Add an empty 24px-square element that mirrors the native thumb. Place it at `left: calc(var(--value) * 100% - 12px)` inside the track and give it an `anchor-name`. This element provides an anchor independent of browser-specific thumb pseudo-elements."
+    - "Where CSS anchor positioning is supported, center the label on that anchor with `justify-self: anchor-center`. It shifts inward instead of overflowing the container. Position the arrow separately at `calc(anchor(center) - 4px)`, so it stays aligned with the thumb after the label stops."
+    - "Scope the anchor name with `anchor-scope` so each slider on the page finds its own thumb. Apply the anchor rules only when `@supports` passes for `position-anchor`, `justify-self: anchor-center`, and `anchor-scope` together."
+    - "In the fallback, position a 128px label with `left: clamp(0px, calc(12px + (100% - 24px) * var(--value) - 64px), calc(100% - 128px))`. Place the arrow at the thumb's center without clamping it."
+    - "Give the label a fixed width that fits its longest text. Use `font-variant-numeric: tabular-nums` so every digit has the same width."
+  timing:
+    - "0ms. The arrow and fill follow the input directly; the label stops at the container's edge. Set `transition-property: none` on the slider and its descendants to keep updates immediate when global styles set a transition duration."
+  accessibility:
+    - "Let the native range input handle keyboard interaction, including arrow keys, Home, and End."
+    - "Give the input an accessible name with `aria-label` or an associated `<label>`."
+    - "Update `aria-valuetext` with the unit on every `input` event, such as 50 percent. The visual label stays hidden from screen readers so the value is not announced twice."
+    - "Give the input a 44px-high touch target. Set `touch-action: pan-y` to allow vertical scrolling over the slider while horizontal drags adjust the value."
+    - "Show a focus ring around the input on `:focus-visible`."
+    - "Keep updates immediate with `prefers-reduced-motion: reduce`. There are no timed transitions to remove."
+  avoid:
+    - "Transitions or easing on the label, the arrow, or the fill."
+    - "Measuring the label or the container with JavaScript to keep the label in bounds. Both CSS paths handle it."
+    - "Clamping the arrow with the label. Keep it aligned with the thumb at both ends."
+---
+
+## Separate the label from its arrow
+
+The slider's value label is always visible. Centered on the thumb, it would overflow the container near either end. So the label and its arrow are positioned separately: the label stops at the edge and the arrow keeps following the thumb.
+
+On every `input` event, JavaScript turns the value into a number from 0 to 1. CSS uses it to move an empty element that mirrors the native thumb, and that element anchors both the label and the arrow.
+
+`justify-self: anchor-center` centers the label on the anchor and shifts it inward when it would overflow. The arrow reads `anchor(center)` on its own, so it stays on the thumb. `anchor-scope` keeps each slider's anchor name local. Browsers missing any of these features fall back to `clamp()`, which keeps the label inside the same bounds.
+
+<Implementation specimen={props.specimenId} />
+
+## Follow the input directly
+
+The label, arrow, and fill have no transition, because any easing would leave the label trailing the thumb. `transition-property: none` keeps it that way when global styles add a duration. Reduced motion needs no fallback since nothing is timed.
+
+The native range input handles the keyboard, including Home and End. `aria-valuetext` gives screen readers the value with its unit, and the visual label stays hidden so the value isn't announced twice. The input is 44px high, and `touch-action: pan-y` lets people scroll the page vertically over it.
+
+## Different values and units
+
+The 128px label fits "Volume 100%". For longer text, change its width and the fallback's `128px` and `64px` terms together, and update `aria-valuetext` along with the visible unit. Test the longest label at both ends, with and without anchor positioning.

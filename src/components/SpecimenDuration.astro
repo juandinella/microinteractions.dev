@@ -1,0 +1,34 @@
+---
+import { durationLabel, type Specimen } from '../data/specimens';
+
+interface Props {
+  specimen: Specimen;
+}
+
+const { specimen: s } = Astro.props;
+---
+
+<span class="duration">
+  <span
+    >{durationLabel(s)}{s.trigger === 'drag' && <span class="dim"> · direct</span>}{
+      s.release && <span class="dim"> / {s.release}ms out</span>
+    }</span
+  >
+  {
+    s.confirmationDuration && (
+      <span class="dim">+ {s.confirmationDuration}ms confirmation</span>
+    )
+  }
+</span>
+
+<style>
+  .duration {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dim {
+    color: var(--meta);
+  }
+</style>

@@ -1,0 +1,61 @@
+---
+import { curvePoints, type Easing } from '../data/specimens';
+
+interface Props {
+  easing: Easing;
+}
+
+const { easing } = Astro.props;
+const points = curvePoints(easing);
+const w = 32;
+const h = 20;
+const [x1, y1, x2, y2] = points;
+// linear() stops are scaled to peak at the top, so an overshoot stays inside the glyph.
+const d =
+  points.length === 4
+    ? `M0 ${h} C ${x1 * w} ${h - y1 * h} ${x2 * w} ${h - y2 * h} ${w} 0`
+    : `M${points.map((y, i) => `${+((i / (points.length - 1)) * w).toFixed(2)} ${+(h - y * h).toFixed(2)}`).join('L')}`;
+---
+
+<svg
+  class="curve"
+  viewBox={`-1 -1 ${w + 2} ${h + 2}`}
+  width={w + 2}
+  height={h + 2}
+  aria-hidden="true"
+>
+  <path class="curve-axis" d={`M0 ${h}H${w}M0 0V${h}`}></path>
+  <path class="curve-line" d={d}></path>
+  <circle
+    class="curve-dot"
+    r="2.5"
+    transform={`translate(0 ${h})`}
+    data-curve-dot></circle>
+</svg>
+
+<style>
+  .curve {
+    flex: none;
+    overflow: visible;
+  }
+
+  path {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .curve-axis {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+
+  .curve-dot {
+    fill: var(--accent);
+  }
+
+  .curve-line {
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+</style>

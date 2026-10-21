@@ -1,0 +1,788 @@
+---
+import CurveGlyph from './CurveGlyph.astro';
+import SpecimenPaper from './SpecimenPaper.astro';
+import SpecimenDuration from './SpecimenDuration.astro';
+import SpecNote from './SpecNote.tsx';
+import type { Inspection } from '../data/previews';
+import { curvePoints, type Specimen } from '../data/specimens';
+
+interface Props {
+  specimen: Specimen;
+  inspection: Inspection;
+  activeAttribute?: string;
+}
+
+const { specimen: s, inspection, activeAttribute } = Astro.props;
+const isDrag = s.trigger === 'drag';
+const isPosition = inspection === 'position';
+const timelineDuration = s.duration + (s.confirmationDuration ?? 0);
+
+// The scrubber steps in 60fps frames; the last frame is where the transition lands.
+const FRAME = 1000 / 60;
+const frames = Math.ceil(timelineDuration / FRAME);
+const tick =
+  inspection === 'timeline' && timelineDuration > 0
+    ? `${((FRAME / timelineDuration) * 100).toFixed(4)}%`
+    : '10%';
+---
+
+<div
+  class="specimen"
+  data-specimen
+  data-inspection={inspection}
+  data-trigger={s.trigger}
+  data-duration={s.duration}
+  data-confirmation-duration={s.confirmationDuration}
+  data-release={s.release}
+  data-curve={curvePoints(s.easing).join(',')}
+  data-active-attribute={activeAttribute}
+>
+  <div class="stage">
+    <div class="canvas" data-stage>
+      <SpecimenPaper id={`study-${s.id}`} />
+      <p class="hint" aria-hidden="true">
+        {
+          s.trigger === 'hover' ? (
+            <>
+              <>
+                <span class="hint-fine">{s.hint}</span>
+                <span class="hint-touch">
+                  {`${s.touchHint ?? 'Tap the button'}${inspection === 'timeline' ? ' or scrub the timeline' : ''}`}
+                </span>
+              </>
+            </>
+          ) : (
+            s.hint
+          )
+        }
+      </p>
+      <slot />
+    </div>
+    {
+      inspection !== 'none' && (
+        <div class="strip">
+          <label class="strip-label" for={`inspect-${s.id}`}>
+            {isPosition ? 'Position' : 'Inspect'}
+          </label>
+          <div class="scrubber" style={`--tick: ${tick}`}>
+            <span class="track" aria-hidden="true">
+              <span
+                class="fill"
+                data-trace-fill
+                style={isPosition ? 'transform: scaleX(0.5)' : undefined}
+              />
+            </span>
+            <input
+              id={`inspect-${s.id}`}
+              class="scrub"
+              type="range"
+              min="0"
+              max={isPosition ? 100 : timelineDuration}
+              step={isPosition ? '1' : 'any'}
+              value={isPosition ? '50' : '0'}
+              aria-label={
+                isPosition
+                  ? `Position of ${s.title}`
+                  : `Inspect ${s.title} frame by frame`
+              }
+              aria-valuetext={isPosition ? '50%' : `Frame 0 of ${frames}, 0ms`}
+              aria-describedby={`inspect-help-${s.id}`}
+              data-scrub
+              data-frames={frames}
+            />
+          </div>
+          <span class="readout" aria-hidden="true">
+            {!isPosition && (
+              <>
+                <span class="dim">f</span>
+                <span data-trace-frame>
+                  {'0'.padStart(String(frames).length, '0')}
+                </span>
+                <span class="dim"> · </span>
+              </>
+            )}
+            <>
+              <span
+                class="ms"
+                style={`--digits: ${isPosition ? 3 : String(timelineDuration).length}ch`}
+                data-trace-readout
+              >
+                {isPosition ? '50' : '0'}
+              </span>
+              <span class="dim">
+                {' '}
+                / {isPosition ? '100%' : `${timelineDuration}ms`}
+              </span>
+            </>
+          </span>
+        </div>
+      )
+    }
+  </div>
+
+  {
+    inspection !== 'none' && (
+      <p class="inspect-help" id={`inspect-help-${s.id}`}>
+        {isPosition
+          ? 'Drag either slider or use the arrow keys to explore the position.'
+          : 'Drag the timeline or use the arrow keys to inspect frame by frame.'}
+        {s.confirmationDuration &&
+          ` Includes the ${s.confirmationDuration}ms confirmation.`}
+      </p>
+    )
+  }
+
+  <slot name="observation" />
+
+  <dl class="spec">
+    <div>
+      <dt>Trigger</dt>
+      <dd>{s.triggerLabel}</dd>
+    </div>
+    <div>
+      <dt>
+        {isDrag ? 'Response' : 'Duration'}{
+          s.durationNote && (
+            <SpecNote
+              client:load
+              label={isDrag ? 'Response' : 'Duration'}
+              value={`${s.duration}ms`}
+              note={s.durationNote}
+            />
+          )
+        }
+      </dt>
+      <dd><SpecimenDuration specimen={s} /></dd>
+    </div>
+    {
+      s.detail ? (
+        <div>
+          <dt>
+            {s.detail.label}
+            {s.detail.note && (
+              <SpecNote
+                client:load
+                label={s.detail.label}
+                value={s.detail.why ?? s.detail.value}
+                note={s.detail.note}
+              />
+            )}
+          </dt>
+          <dd>{s.detail.value}</dd>
+        </div>
+      ) : (
+        <div>
+          <dt>
+            Easing{
+              s.easingNote && (
+                <SpecNote
+                  client:load
+                  label="Easing"
+                  value={s.easingName}
+                  note={s.easingNote}
+                />
+              )
+            }
+          </dt>
+          <dd class="easing">
+            <CurveGlyph easing={s.easing} />
+            {s.easingName}
+          </dd>
+        </div>
+      )
+    }
+    <div>
+      <dt>
+        {isDrag ? 'Positioning' : 'Animates'}{
+          s.positioningNote && (
+            <SpecNote
+              client:load
+              label="Positioning"
+              value={s.props.join(', ')}
+              note={s.positioningNote}
+            />
+          )
+        }
+      </dt>
+      <dd>{s.props.join(', ')}</dd>
+    </div>
+  </dl>
+</div>
+
+<script>
+  import { curveAt } from '../scripts/ease';
+  import { traceHold } from '../scripts/trace-hold';
+  import { traceHover } from '../scripts/trace-hover';
+  import { traceSelect } from '../scripts/trace-select';
+
+  // Traces each specimen's real duration on the strip under its stage, and its easing on the curve glyph.
+  // Scrubbing the strip pauses the component's own CSS transitions at that moment.
+  const FRAME = 1000 / 60;
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+  document.querySelectorAll<HTMLElement>('[data-specimen]').forEach((root) => {
+    const stage = root.querySelector<HTMLElement>('[data-stage]');
+    const fill = root.querySelector<HTMLElement>('[data-trace-fill]');
+    const readout = root.querySelector<HTMLElement>('[data-trace-readout]');
+    const frameOut = root.querySelector<HTMLElement>('[data-trace-frame]');
+    const scrub = root.querySelector<HTMLInputElement>('[data-scrub]');
+    const dot = root.querySelector<SVGElement>('[data-curve-dot]');
+    if (!stage || !fill || !readout || !scrub) return;
+
+    if (root.dataset.inspection === 'position') {
+      const input = stage.querySelector<HTMLInputElement>(
+        '[data-position-input]',
+      );
+      if (!input) return;
+
+      const renderPosition = () => {
+        const progress =
+          (Number(input.value) - Number(input.min)) /
+          (Number(input.max) - Number(input.min));
+        const percent = Math.round(progress * 100);
+        fill.style.transform = `scaleX(${progress})`;
+        dot?.setAttribute(
+          'transform',
+          `translate(${progress * 32} ${20 - progress * 20})`,
+        );
+        readout.textContent = String(percent);
+        scrub.value = String(percent);
+        scrub.setAttribute('aria-valuetext', `${percent}%`);
+      };
+
+      input.addEventListener('input', renderPosition);
+      scrub.addEventListener('input', () => {
+        input.value = String(
+          Number(input.min) +
+            (Number(scrub.value) / 100) *
+              (Number(input.max) - Number(input.min)),
+        );
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      renderPosition();
+      return;
+    }
+
+    if (!frameOut) return;
+
+    const duration = Number(root.dataset.duration);
+    const confirmationDuration = Number(root.dataset.confirmationDuration || 0);
+    const timelineDuration = duration + confirmationDuration;
+    const release = Number(root.dataset.release || duration);
+    const curve = (root.dataset.curve || '0,0,1,1').split(',').map(Number);
+    const frames = Number(scrub.dataset.frames);
+    const pad = String(frames).length;
+    let frame = 0;
+    // Where the trace sits on the timeline, in ms; counts back down when it reverses.
+    let position = 0;
+    let inspecting = false;
+    let paused: { animation: Animation; offset: number }[] = [];
+    let syncHover: (() => void) | undefined;
+
+    const frameAt = (ms: number) =>
+      ms >= timelineDuration ? frames : Math.floor(ms / FRAME + 1e-6);
+
+    // `curveX` places the glyph's dot when the current element runs for less than the full duration.
+    function render(ms: number, curveX?: number) {
+      position = ms;
+      const f = frameAt(ms);
+      const x = curveX ?? Math.min(ms / duration, 1);
+      fill!.style.transform = `scaleX(${ms / timelineDuration})`;
+      dot?.setAttribute(
+        'transform',
+        `translate(${x * 32} ${20 - curveAt(curve, x) * 20})`,
+      );
+      readout!.textContent = String(Math.round(ms));
+      frameOut!.textContent = String(f).padStart(pad, '0');
+      scrub!.value = String(ms);
+      const phase = confirmationDuration
+        ? ms < duration
+          ? ', Holding'
+          : ms < timelineDuration
+            ? ', Confirming'
+            : ', Confirmed'
+        : '';
+      scrub!.setAttribute(
+        'aria-valuetext',
+        `Frame ${f} of ${frames}, ${Math.round(ms)}ms${phase}`,
+      );
+    }
+
+    function trace(to: number, ms: number) {
+      if (inspecting) return;
+      const d = reduceMotion.matches ? 0 : ms;
+      cancelAnimationFrame(frame);
+      const start = performance.now();
+      const startPosition = position;
+      const endPosition = to * timelineDuration;
+      const tick = () => {
+        const progress =
+          d === 0 ? 1 : Math.min((performance.now() - start) / d, 1);
+        render(startPosition + (endPosition - startPosition) * progress);
+        if (progress < 1) frame = requestAnimationFrame(tick);
+      };
+      tick();
+    }
+
+    const targets = () => stage!.querySelectorAll<HTMLElement>('button, a');
+
+    function enterInspect() {
+      inspecting = true;
+      root.dataset.inspecting = '';
+      cancelAnimationFrame(frame);
+
+      // Land any in-flight transition at rest, then start the active state from zero and hold it.
+      stage!.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+      targets().forEach((el) => (el.dataset.inspect = ''));
+      // Components that animate from script start their inspected motion here, synchronously.
+      stage!.dispatchEvent(new Event('specimen-inspect'));
+      const holding = stage!.getAnimations({ subtree: true });
+      holding.forEach((animation) => {
+        // Keep end frames attached so WebKit can seek backward without starting new transitions.
+        animation.effect!.updateTiming({ fill: 'both' });
+        animation.pause();
+      });
+      paused = holding.map((animation) => ({ animation, offset: 0 }));
+
+      if (confirmationDuration && !reduceMotion.matches) {
+        // Capture the real confirmation transitions after the fill has reached its end.
+        holding.forEach((animation) => {
+          animation.currentTime = Number(
+            animation.effect!.getComputedTiming().endTime,
+          );
+        });
+        targets().forEach((el) => (el.dataset.inspect = 'confirmed'));
+        stage!
+          .getAnimations({ subtree: true })
+          .filter((animation) => !holding.includes(animation))
+          .forEach((animation) => {
+            animation.effect!.updateTiming({ fill: 'both' });
+            animation.pause();
+            paused.push({ animation, offset: duration });
+          });
+      }
+    }
+
+    function seek(ms: number) {
+      if (!inspecting) enterInspect();
+      const t = Math.min(Math.max(ms, 0), timelineDuration);
+      if (confirmationDuration && reduceMotion.matches) {
+        targets().forEach(
+          (el) => (el.dataset.inspect = t >= duration ? 'confirmed' : ''),
+        );
+      }
+      paused.forEach(({ animation, offset }) => {
+        const end = Number(animation.effect?.getComputedTiming().endTime ?? t);
+        animation.currentTime = Math.min(Math.max(t - offset, 0), end);
+      });
+      render(t);
+    }
+
+    function leaveInspect() {
+      if (!inspecting) return;
+      inspecting = false;
+      delete root.dataset.inspecting;
+      // Release inspection-owned transitions before returning control to the live CSS state.
+      targets().forEach((el) => delete el.dataset.inspect);
+      paused.forEach(({ animation }) => animation.cancel());
+      stage!
+        .getAnimations({ subtree: true })
+        .forEach((animation) => animation.cancel());
+      paused = [];
+      stage!.dispatchEvent(new Event('specimen-release'));
+      if (syncHover) {
+        syncHover();
+        return;
+      }
+      const confirmed =
+        root.dataset.trigger === 'hold' &&
+        stage!.querySelector('[data-state="confirmed"]');
+      trace(confirmed ? 1 : 0, root.dataset.trigger === 'hold' ? 0 : release);
+    }
+
+    scrub.addEventListener('input', () => seek(Number(scrub.value)));
+
+    scrub.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        leaveInspect();
+        return;
+      }
+      const current = frameAt(position);
+      const next = {
+        ArrowRight: current + 1,
+        ArrowUp: current + 1,
+        ArrowLeft: current - 1,
+        ArrowDown: current - 1,
+        PageUp: current + 5,
+        PageDown: current - 5,
+        Home: 0,
+        End: frames,
+      }[e.key];
+      if (next === undefined) return;
+      e.preventDefault();
+      seek(next * FRAME);
+    });
+
+    scrub.addEventListener('blur', leaveInspect);
+    // Capture so this runs before the component's own press handlers.
+    document.addEventListener(
+      'pointerdown',
+      (e) => e.target !== scrub && leaveInspect(),
+      true,
+    );
+
+    if (root.dataset.trigger === 'hover') {
+      const attribute = root.dataset.activeAttribute;
+      syncHover = traceHover(
+        stage,
+        (progress, curveX) => {
+          if (!inspecting) render(progress * duration, curveX);
+        },
+        curve,
+        attribute ? { duration, attribute } : undefined,
+      );
+    }
+
+    if (root.dataset.trigger === 'hold') {
+      const button = stage.querySelector<HTMLElement>('button');
+      if (button)
+        traceHold(button, trace, duration, release, confirmationDuration);
+    }
+
+    if (root.dataset.trigger === 'select') {
+      traceSelect(stage, (progress) => {
+        if (!inspecting) render(progress * duration);
+      });
+    }
+  });
+</script>
+
+<style>
+  .specimen {
+    min-width: 0;
+  }
+
+  /* Seeking starts from an empty fill, including during the confirmed state. */
+  .specimen[data-trigger='hold'][data-inspecting]
+    :global(.hold-button:not([data-inspect])) {
+    --hold-confirmed: 0;
+  }
+
+  .specimen[data-trigger='hold'][data-inspecting]
+    :global(.hold-button:not([data-inspect]) .hold-layer-progress) {
+    clip-path: inset(0 100% 0 0);
+    transition: none;
+  }
+
+  .spec {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
+    margin: 28px 0 0;
+    padding: 0 0 28px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .spec div {
+    min-width: 0;
+  }
+
+  dt {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 8px;
+    color: var(--meta);
+    font-size: 10px;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
+  .easing {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dim {
+    color: var(--meta);
+  }
+
+  .stage {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+  }
+
+  .canvas {
+    position: relative;
+    display: grid;
+    flex: 1;
+    min-height: 360px;
+    place-items: center;
+    /* Centers the demo inside the rulers (24px on top, 40px on the left), not in the whole canvas. */
+    padding: 44px 20px 20px 60px;
+    isolation: isolate;
+  }
+
+  .hint {
+    position: absolute;
+    top: 44px;
+    right: 20px;
+    left: 60px;
+    margin: 0;
+    color: var(--meta);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    pointer-events: none;
+  }
+
+  .hint-touch {
+    display: none;
+  }
+
+  /* Touch offers direct activation as well as frame-by-frame inspection. */
+  @media not ((hover: hover) and (pointer: fine)) {
+    .hint-fine {
+      display: none;
+    }
+
+    .hint-touch {
+      display: inline;
+    }
+  }
+
+  .strip {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 45px;
+    padding: 0 16px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  .strip-label {
+    flex: none;
+    color: var(--meta);
+    font-size: 10px;
+    cursor: ew-resize;
+  }
+
+  .inspect-help {
+    margin: 10px 0 0;
+    color: var(--meta);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  .scrubber {
+    position: relative;
+    display: grid;
+    flex: 1;
+    min-width: 44px;
+    height: 100%;
+    align-items: center;
+  }
+
+  /* One tick per 60fps frame, shown while the strip is in reach */
+  .scrubber::before {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 8px;
+    background: linear-gradient(
+        to right,
+        var(--line-strong) 1px,
+        transparent 1px
+      )
+      0 0 / var(--tick) 100% repeat-x;
+    content: '';
+    opacity: 0.5;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: opacity 150ms ease;
+  }
+
+  .track {
+    position: relative;
+    grid-area: 1 / 1;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--line);
+  }
+
+  .fill {
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+
+  .scrub {
+    position: relative;
+    grid-area: 1 / 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    appearance: none;
+    background: transparent;
+    cursor: ew-resize;
+    outline: none;
+  }
+
+  .scrub::-webkit-slider-runnable-track {
+    height: 100%;
+    background: transparent;
+  }
+
+  .scrub::-moz-range-track {
+    height: 100%;
+    background: transparent;
+  }
+
+  .scrub::-webkit-slider-thumb {
+    width: 2px;
+    height: 14px;
+    margin-top: 15px;
+    appearance: none;
+    border: 0;
+    border-radius: 1px;
+    background: var(--quiet);
+    transition: background-color 150ms ease;
+  }
+
+  .scrub::-moz-range-thumb {
+    width: 2px;
+    height: 14px;
+    border: 0;
+    border-radius: 1px;
+    background: var(--quiet);
+    transition: background-color 150ms ease;
+  }
+
+  .scrubber:focus-within .scrub:focus-visible::-webkit-slider-thumb {
+    width: 4px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px oklch(0.55 0.17 256 / 0.2);
+  }
+
+  .scrubber:focus-within .scrub:focus-visible::-moz-range-thumb {
+    width: 4px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px oklch(0.55 0.17 256 / 0.2);
+  }
+
+  .scrubber:focus-within::before,
+  [data-inspecting] .scrubber::before {
+    opacity: 1;
+  }
+
+  .scrubber:focus-within .scrub::-webkit-slider-thumb,
+  [data-inspecting] .scrub::-webkit-slider-thumb {
+    background: var(--text);
+  }
+
+  .scrubber:focus-within .scrub::-moz-range-thumb,
+  [data-inspecting] .scrub::-moz-range-thumb {
+    background: var(--text);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .scrubber:hover::before {
+      opacity: 1;
+    }
+    .scrubber:hover .scrub::-webkit-slider-thumb {
+      background: var(--text);
+    }
+    .scrubber:hover .scrub::-moz-range-thumb {
+      background: var(--text);
+    }
+  }
+
+  .readout {
+    flex: none;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Fixed width so the readout doesn't shift as the digits change */
+  .ms {
+    display: inline-block;
+    min-width: var(--digits);
+    text-align: end;
+  }
+
+  [data-inspection='position'] .readout {
+    min-width: 10ch;
+  }
+
+  @media (max-width: 1100px) {
+    .spec {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* Touch has no arrow keys to explain; the strip label still names the control. */
+  @media not ((hover: hover) and (pointer: fine)) {
+    .inspect-help {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  @media (max-width: 780px) {
+    /* Without the side ruler, the hint sits on the left gutter and the demo centers below it. */
+    .canvas {
+      min-height: 184px;
+      padding: 64px 16px 28px;
+    }
+
+    .hint {
+      top: 36px;
+      right: 16px;
+      left: 16px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .strip {
+      gap: 10px;
+      padding: 0 12px;
+      font-size: 10px;
+    }
+
+    .strip-label {
+      font-size: 9px;
+    }
+
+    .spec {
+      gap: 20px 16px;
+      font-size: 11px;
+    }
+  }
+</style>

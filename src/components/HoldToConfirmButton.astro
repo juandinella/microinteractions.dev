@@ -1,0 +1,530 @@
+<hold-to-confirm class="hold-demo">
+  <button
+    class="hold-button"
+    type="button"
+    aria-label="Hold to confirm"
+    data-state="idle"
+  >
+    <span class="hold-labels" aria-hidden="true">
+      <span class="hold-idle">Hold to confirm</span>
+      <span class="hold-waiting">Keep holding…</span>
+    </span>
+    <span
+      class="hold-layer hold-layer-progress"
+      data-hold-progress
+      aria-hidden="true"
+    >
+      <span class="hold-labels">
+        <span class="hold-idle">Hold to confirm</span>
+        <span class="hold-waiting">Keep holding…</span>
+      </span>
+    </span>
+    <span class="hold-layer hold-layer-done" aria-hidden="true">
+      <svg
+        viewBox="0 0 20 20"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m4.5 10 3.5 3.5 7.5-7.5"></path>
+      </svg>
+      Confirmed
+    </span>
+  </button>
+  <span class="hold-hidden" data-hold-instructions></span>
+  <span class="hold-hidden" role="status"></span>
+  <dialog class="hold-dialog" aria-label="Confirm this action">
+    <form method="dialog">
+      <p>Confirm this action?</p>
+      <div class="hold-dialog-actions">
+        <button value="cancel">Cancel</button>
+        <button value="confirm">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+</hold-to-confirm>
+
+<script>
+  const HOLD_DURATION = 1200;
+  let holdId = 0;
+
+  class HoldToConfirm extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const button = this.querySelector('button');
+      const progress = this.querySelector<HTMLSpanElement>('[data-hold-progress]');
+      const instructions = this.querySelector<HTMLSpanElement>('[data-hold-instructions]');
+      const status = this.querySelector<HTMLSpanElement>('[role="status"]');
+      const dialog = this.querySelector('dialog');
+
+      if (!button || !progress || !instructions || !status || !dialog) {
+        throw new Error('HoldToConfirm: missing required elements.');
+      }
+
+      let activeInput: number | string | null = null;
+      let holdStart = 0;
+      let holdTimer: ReturnType<typeof setTimeout> | undefined;
+      let resetTimer: ReturnType<typeof setTimeout> | undefined;
+      let scrollStyle:
+        | Pick<CSSStyleDeclaration, 'overflow' | 'scrollbarGutter'>
+        | undefined;
+
+      const unlockScroll = () => {
+        if (!scrollStyle) return;
+        Object.assign(document.documentElement.style, scrollStyle);
+        scrollStyle = undefined;
+      };
+
+      button.style.setProperty('--hold-duration', `${HOLD_DURATION}ms`);
+      instructions.id = `hold-instructions-${++holdId}`;
+      instructions.textContent = `Press and hold for ${HOLD_DURATION / 1000} seconds. Release to cancel. Activate to open a confirmation dialog.`;
+      button.setAttribute('aria-describedby', instructions.id);
+
+      const reset = () => {
+        button.dataset.state = 'idle';
+        button.removeAttribute('aria-disabled');
+        status.textContent = '';
+      };
+
+      const startHold = (
+        input: number | string,
+        type: 'pointer' | 'keyboard',
+      ) => {
+        // A new press starts at zero, even if the previous fill is still retracting.
+        progress.getAnimations().forEach((animation) => animation.finish());
+        activeInput = input;
+        holdStart = performance.now();
+        status.textContent = '';
+        button.dataset.input = type;
+        button.dataset.state = 'holding';
+        holdTimer = setTimeout(confirmHold, HOLD_DURATION);
+      };
+
+      const cancelHold = () => {
+        activeInput = null;
+        delete button.dataset.pressed;
+        clearTimeout(holdTimer);
+        if (button.dataset.state !== 'holding') return;
+
+        button.dataset.state = 'idle';
+        if (performance.now() - holdStart > 300)
+          status.textContent = 'Cancelled';
+      };
+
+      const confirmHold = () => {
+        button.dataset.state = 'confirmed';
+        button.setAttribute('aria-disabled', 'true');
+        status.textContent = 'Confirmed';
+        resetTimer = setTimeout(reset, 1400);
+        button.dispatchEvent(new CustomEvent('holdconfirm', { bubbles: true }));
+      };
+
+      button.addEventListener(
+        'pointerdown',
+        (event) => {
+          if (event.button !== 0 || !event.isPrimary) return;
+          // Keep Escape available without WebKit's mouse default blurring the button.
+          event.preventDefault();
+          button.dataset.pointerFocus = '';
+          button.focus({ preventScroll: true });
+          if (activeInput !== null || button.dataset.state === 'confirmed')
+            return;
+
+          button.setPointerCapture(event.pointerId);
+          button.dataset.pressed = '';
+          startHold(event.pointerId, 'pointer');
+        },
+        { signal },
+      );
+
+      // Fires after pointerup and pointercancel, even outside the button.
+      button.addEventListener(
+        'lostpointercapture',
+        (event) => {
+          if (activeInput === event.pointerId) cancelHold();
+        },
+        { signal },
+      );
+      button.addEventListener(
+        'contextmenu',
+        (event) => {
+          if (button.dataset.state === 'holding') event.preventDefault();
+        },
+        { signal },
+      );
+      button.addEventListener(
+        'blur',
+        () => {
+          delete button.dataset.pointerFocus;
+          cancelHold();
+        },
+        { signal },
+      );
+      window.addEventListener('blur', cancelHold, { signal });
+      document.addEventListener(
+        'visibilitychange',
+        () => {
+          if (document.hidden) cancelHold();
+        },
+        { signal },
+      );
+
+      button.addEventListener(
+        'keydown',
+        (event) => {
+          delete button.dataset.pointerFocus;
+          if (event.key === 'Escape' && button.dataset.state === 'holding') {
+            event.preventDefault();
+            event.stopPropagation();
+            cancelHold();
+            return;
+          }
+          if (event.key !== ' ' && event.key !== 'Enter') return;
+          if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+          event.preventDefault();
+          if (
+            event.repeat ||
+            activeInput !== null ||
+            button.dataset.state === 'confirmed'
+          )
+            return;
+          startHold(event.key, 'keyboard');
+        },
+        { signal },
+      );
+
+      button.addEventListener(
+        'keyup',
+        (event) => {
+          // Space clicks on keyup, even after Escape has cancelled its hold.
+          if (event.key === ' ') event.preventDefault();
+          if (activeInput === event.key) cancelHold();
+        },
+        { signal },
+      );
+
+      button.addEventListener(
+        'click',
+        (event) => {
+          if (
+            event.detail !== 0 ||
+            activeInput !== null ||
+            button.dataset.state === 'confirmed'
+          )
+            return;
+
+          status.textContent = '';
+          dialog.returnValue = '';
+          dialog.showModal();
+          const { overflow, scrollbarGutter } = document.documentElement.style;
+          scrollStyle = { overflow, scrollbarGutter };
+          document.documentElement.style.scrollbarGutter = 'stable';
+          document.documentElement.style.overflow = 'hidden';
+        },
+        { signal },
+      );
+
+      dialog.addEventListener(
+        'close',
+        () => {
+          unlockScroll();
+          if (dialog.returnValue !== 'confirm') {
+            status.textContent = 'Cancelled';
+            return;
+          }
+          button.dataset.input = 'virtual';
+          confirmHold();
+        },
+        { signal },
+      );
+
+      signal.addEventListener('abort', () => {
+        unlockScroll();
+        cancelHold();
+        clearTimeout(resetTimer);
+        reset();
+      });
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  const define = () => customElements.define('hold-to-confirm', HoldToConfirm);
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', define);
+  else define();
+</script>
+
+<style>
+  .hold-demo {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .hold-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .hold-button {
+    --hold-ease: cubic-bezier(0.23, 1, 0.32, 1);
+    --hold-confirmed: 0;
+    --hold-state-duration: 0ms;
+    --hold-release-duration: 0ms;
+
+    position: relative;
+    isolation: isolate;
+    display: inline-grid;
+    min-width: 208px;
+    min-height: 48px;
+    place-items: center;
+    padding: 10px 22px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+  }
+
+  .hold-button::before,
+  .hold-layer-progress::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    transition: transform 140ms var(--hold-ease);
+  }
+
+  .hold-button::before {
+    background: var(--surface-strong);
+    transition:
+      background-color 150ms ease,
+      transform 140ms var(--hold-ease);
+  }
+
+  .hold-layer-progress::before {
+    background: var(--text);
+  }
+
+  .hold-button:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 4px;
+  }
+
+  @media (forced-colors: none) {
+    .hold-button[data-pointer-focus] {
+      outline: none;
+    }
+  }
+
+  .hold-button[data-state='confirmed'] {
+    --hold-confirmed: 1;
+  }
+
+  .hold-button[data-inspect] {
+    --hold-confirmed: 0;
+  }
+
+  .hold-button[data-inspect='confirmed'] {
+    --hold-confirmed: 1;
+  }
+
+  .hold-labels {
+    display: inline-grid;
+    opacity: calc(1 - var(--hold-confirmed));
+    transition: opacity var(--hold-state-duration) var(--hold-ease);
+  }
+
+  .hold-idle,
+  .hold-waiting {
+    grid-area: 1 / 1;
+  }
+
+  .hold-waiting {
+    visibility: hidden;
+  }
+
+  .hold-button:is(
+      [data-state='holding'],
+      [data-state='confirmed'],
+      [data-inspect]
+    )
+    .hold-idle {
+    visibility: hidden;
+  }
+
+  .hold-button:is(
+      [data-state='holding'],
+      [data-state='confirmed'],
+      [data-inspect]
+    )
+    .hold-waiting {
+    visibility: visible;
+  }
+
+  .hold-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: inherit;
+    color: var(--bg);
+    pointer-events: none;
+  }
+
+  .hold-layer-progress {
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path var(--hold-release-duration) var(--hold-ease);
+  }
+
+  .hold-layer-done {
+    opacity: var(--hold-confirmed);
+    transform: translateY(calc((1 - var(--hold-confirmed)) * -3px));
+    transition:
+      opacity var(--hold-state-duration) var(--hold-ease),
+      transform var(--hold-state-duration) var(--hold-ease);
+  }
+
+  .hold-button:is([data-state='holding'], [data-inspect]) .hold-layer-progress {
+    clip-path: inset(0);
+    transition: clip-path var(--hold-duration) linear;
+  }
+
+  .hold-button[data-state='confirmed'] .hold-layer-progress {
+    clip-path: inset(0);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .hold-button:hover::before {
+      background: var(--surface-hover);
+    }
+  }
+
+  /* Keyboard, virtual clicks, and reduced motion keep the linear fill but skip the short transitions. */
+  @media (prefers-reduced-motion: no-preference) {
+    .hold-button:is([data-input='pointer'], [data-inspect]) {
+      --hold-state-duration: 160ms;
+      --hold-release-duration: 180ms;
+    }
+
+    .hold-button:is([data-pressed], [data-inspect])::before,
+    .hold-button:is([data-pressed], [data-inspect])
+      .hold-layer-progress::before {
+      transform: scale(0.98);
+    }
+  }
+
+  .hold-dialog {
+    width: min(320px, calc(100vw - 32px));
+    margin: auto;
+    padding: 20px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    background: var(--text);
+    color: var(--bg);
+    font-family: inherit;
+  }
+
+  .hold-dialog::backdrop {
+    background: oklch(0.23 0.012 258.74 / 0.24);
+  }
+
+  .hold-dialog p {
+    margin: 0 0 20px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .hold-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .hold-dialog button {
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .hold-dialog button[value='confirm'] {
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .hold-dialog button:focus-visible {
+    outline: 2px solid var(--bg);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .hold-dialog button[value='cancel']:hover {
+      background: color-mix(in oklch, var(--bg) 12%, transparent);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .hold-button {
+      color: ButtonText;
+      outline: 1px solid ButtonText;
+      outline-offset: 0;
+    }
+
+    .hold-button:focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: 4px;
+    }
+
+    .hold-button::before,
+    .hold-button:hover::before {
+      background: ButtonFace;
+    }
+
+    .hold-layer {
+      color: HighlightText;
+      forced-color-adjust: none;
+    }
+
+    .hold-layer-progress::before {
+      background: Highlight;
+      forced-color-adjust: none;
+    }
+  }
+</style>

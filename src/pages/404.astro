@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+export const prerender = true;
+---
+
+<BaseLayout title="Page not found — Microinteractions" description="This page could not be found. Explore the microinteraction studies from the index." noindex>
+  <h1>Page not found</h1>
+  <p>This page could not be found.</p>
+  <a href="/">Back to index</a>
+</BaseLayout>
+
+<style>
+  h1 { margin: 0; font-size: clamp(24px, 2.6vw, 32px); font-weight: var(--weight-display); letter-spacing: var(--tracking-display); line-height: 1.2; }
+  p { margin: 16px 0; color: var(--muted); font-size: 14px; }
+  a { display: inline-flex; min-height: 44px; align-items: center; color: var(--brand); font: 12px var(--font-mono); text-decoration: underline; text-underline-offset: 4px; touch-action: manipulation; }
+  a:focus-visible { outline: 2px solid var(--text); outline-offset: 4px; }
+</style>

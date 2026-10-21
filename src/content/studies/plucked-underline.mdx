@@ -1,0 +1,66 @@
+---
+observe: Pluck Bio, then Get in touch. The short string settles first, and the long one bends further and rings more slowly.
+references:
+  - title: String vibration
+    author: Wikipedia
+    url: https://en.wikipedia.org/wiki/String_vibration
+  - title: The linear() easing function
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function/linear
+  - title: vector-effect
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/vector-effect
+prompt:
+  task: "Build a row of navigation links whose underlines behave like plucked strings. Each underline bends where the pointer enters, then rings out to a flat line at a speed set by its width."
+  behavior:
+    - "Draw each underline as a 12px-tall inline SVG under its link, so one viewBox unit on y is one pixel: `viewBox=\"0 0 100 12\"`, `preserveAspectRatio=\"none\"`, a single quadratic path from `M0 6` to `100 6`. The control point holds the bend; the rest line is y = 6."
+    - "Flatten the bend with `transform: scaleY()` on the path, centered on the rest line (`transform-box: view-box; transform-origin: 50% 50%`). Animate to `scaleY(0.001)`, and set `vector-effect: non-scaling-stroke` so the stroke stays 1.5px as the shape flattens. Never animate the `d` attribute: Safari does not interpolate path data in CSS."
+    - "Drive the flattening with a `linear()` easing that samples a damped oscillation, so progress overshoots 1 and returns. The negative scale that results flips the bend to the other side of the line, like a string swinging past rest."
+    - "Measure each underline with a `ResizeObserver` and derive its ring duration from its width (see Timing). Store it in a custom property. A single measurement on load goes stale when web fonts arrive or the row wraps. Change only the duration, never the curve: stretching the same curve is what makes a longer string ring slower."
+    - "Pluck on `pointerenter` only when `pointerType` is `\"mouse\"`. Read the pointer's x across the underline as a percentage, clamped to 15–85%, and store it in `--pluck-x`; a control point near an end bends the curve into a hook at that end. Set the bend depth to the underline's width ÷ 18, clamped to 2–5px. A quadratic's peak sits halfway to its control point, so put the control point at y = 6 + 2 × depth."
+    - "Run each pluck in this order: (1) remove `data-plucked` and `data-ringing`, and set `transition: none` inline on the SVG and the path; (2) write `--pluck-x` and the new path `d`; (3) force a style recalculation, for example by reading `getComputedStyle(path).transform`; (4) clear the inline transitions; (5) set `data-plucked` and `data-ringing`. Steps 1–3 commit the starting state, closed at the new point and fully bent, so every transition starts there even while the last pluck is still ringing. Never drive the effect from `:hover`: its transition starts from the state rendered before the pointer arrived, so the underline would open from the previous pluck point."
+    - "`data-plucked` opens the underline: `clip-path: inset()` grows outward from `--pluck-x` and closes back into it. Use -1px side insets when open; at 0 the clip cuts off the round line caps."
+    - "`data-ringing` runs the ring. On `pointerleave`, remove only `data-plucked`, so the string keeps ringing while the underline closes. Remove `data-ringing` when `svg.getAnimations()` is empty, checked right after removing `data-plucked` and again on the SVG's `transitionend`. The first check covers reduced motion, and a leave so soon after the pluck that the browser cancels the opening without running a close or firing `transitionend`. Never stop the ring on leave by switching the path to a delayed `0s` transition: during the delay the path holds its current frame, so the string freezes mid-swing."
+  timing:
+    - "Ring-out: 13ms per pixel of underline width, clamped from 400ms to 1200ms, with `linear()` stops sampled from a damped oscillation (damping ratio 0.2, 2.4 cycles over the duration)."
+    - "Opening: 140ms, `cubic-bezier(0.23, 1, 0.32, 1)`, on `clip-path`. Closing: 110ms on the same curve, faster than the opening because the pointer has already moved on."
+  accessibility:
+    - "Keep real `<a href>` elements inside a `<nav>` with an `aria-label`. Hide the SVG with `aria-hidden=\"true\"` and `pointer-events: none`."
+    - "On `:focus-visible`, show the flat underline immediately with no transition, and add a focus ring. Keyboard users move through links too quickly to wait for the string. When focus leaves, keep the path flat until the underline has closed with a `0s` transition delayed by the closing time; otherwise a curved line shows while it retracts."
+    - "For touch and pen (`pointerType` other than `\"mouse\"`), pluck on `pointerdown` and remove `data-plucked` 400ms after the ring ends, so the settled line shows before it closes. The tap still follows the link."
+    - "Give each link a hit area at least 44px high."
+    - "With `prefers-reduced-motion: reduce`, show and hide the underline without transitions."
+    - "Mark the current page with `aria-current=\"page\"` and a persistent style. The pluck is hover feedback, not a state indicator."
+  avoid:
+    - "Keyframe animations, which restart from zero instead of retargeting."
+    - "One duration for every link. The variation in timing is what makes the effect work."
+    - "Animating `scaleY` to exactly 0 with a non-scaling stroke, which leaves nothing to draw."
+---
+
+## A string tuned by its length
+
+A string's pitch depends on its length, tension, and mass per unit length: f = (1/2L)·√(T/μ). With the same tension and gauge, a longer string vibrates more slowly and rings longer. Each underline here is a string the length of its link.
+
+The motion is one `linear()` curve, a damped oscillation sampled into evenly spaced stops. JavaScript measures each underline and sets its duration to 13ms per pixel, clamped between 400ms and 1200ms. The same 2.4 cycles stretch over more time, so a long link swings slower and settles later. The bend follows the same rule: its depth is the width ÷ 18, between 2px and 5px.
+
+## Flatten the bend, keep the path
+
+The underline is one quadratic curve whose control point holds the bend, and its `d` attribute never changes while it moves. `scaleY()` presses the curve toward the rest line. When the easing overshoots past 1, the scale goes negative and the bend swings above the line before it settles.
+
+`vector-effect: non-scaling-stroke` keeps the stroke at 1.5px while the shape is squeezed. The transform ends at `scaleY(0.001)` because at 0 there is nothing left to stroke.
+
+<Implementation specimen={props.specimenId} />
+
+To recolor the CSS version, set `--pluck-fg` on the nav or any ancestor.
+
+## Pluck where the pointer enters
+
+On `pointerenter`, the script moves the control point to where the pointer crossed the underline, between 15% and 85% of its width. The underline opens outward from there in 140ms. When the pointer leaves, it closes back into the same point in 110ms while the string keeps ringing.
+
+A `data-plucked` attribute opens the underline. With `:hover`, the transition would start from the previous pluck point. The script commits the new starting state with transitions off and then sets the attribute, so each pluck starts clean even while the last one is still ringing. A separate `data-ringing` attribute lets the underline close without freezing the string mid-swing.
+
+## Keyboard, touch, and reduced motion
+
+Keyboard focus shows a flat underline and a focus ring immediately. On touch, a tap plucks the string and the link still navigates. With reduced motion, the underline appears and disappears without moving, and browsers without `linear()`, such as Safari before 17.2, show it flat.
+
+The pluck is hover feedback. Mark the current page with `aria-current="page"` and a style that stays visible without a pointer.

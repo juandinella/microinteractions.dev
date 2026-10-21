@@ -1,0 +1,62 @@
+---
+observe: Release halfway through, then press and hold again. The fill starts over; confirmation requires an uninterrupted hold.
+references:
+  - title: Capturing pointer events with setPointerCapture()
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Element/setPointerCapture
+prompt:
+  task: "Build a button that confirms an action only after a continuous press, and cancels as soon as the press ends early."
+  behavior:
+    - "Start a timer on press and confirm only if the press lasts the full duration without interruption. Releasing early cancels it. The next press restarts the timer and the fill from zero, even while the fill is still retracting."
+    - "Show progress with a fill layer revealed through `clip-path`, from `inset(0 100% 0 0)` to `inset(0)`. The layer has the contrasting background and its own copy of the label, so color and text change along the same edge."
+    - "Set the timer and the CSS fill duration from one constant so they cannot drift apart."
+    - "When the hold starts, swap the idle label for a waiting label. Stack both in one CSS Grid cell so the button keeps the width of the wider label."
+    - "On confirmation, replace the waiting label with a checkmark and a confirmation label. The checkmark shows completion without relying on a color change."
+    - "Call `setPointerCapture()` on press so the button still receives the release outside its bounds. Cancel on `lostpointercapture`, which fires after both `pointerup` and `pointercancel`. Set `touch-action: none` so small finger movements do not turn the hold into a scroll."
+    - "Also cancel when the button or the window loses focus, when the tab becomes hidden, and on Escape. Consume Escape only during a hold, so a second press still closes a surrounding dialog."
+    - "In the active state, scale only the background layers to 0.98 over 140ms. The labels keep their size, so releasing does not shift the text."
+    - "Dispatch one bubbling `holdconfirm` event after a completed hold or an accepted dialog. Plain clicks and cancelled holds never dispatch it. Run the real action from that event, and ignore new presses until it succeeds or fails."
+  timing:
+    - "Fill: 1200ms, linear. Its position represents elapsed time, so any easing would misreport progress."
+    - "Confirmation: 160ms, cubic-bezier(0.23, 1, 0.32, 1). The labels fade out while the checkmark and its label fade in and settle 3px down."
+    - "Release: retract the fill in 180ms on the same curve, so cancelling feels immediate."
+  accessibility:
+    - "Space and Enter hold for the same duration as a pointer press. Ignore repeated `keydown` events, and cancel only when the key that started the hold is released."
+    - "Keep the accessible name fixed while the labels change. Use `aria-describedby` to state the hold duration, that releasing cancels, and that activating the button opens a confirmation dialog."
+    - "Announce results in one live region: Confirmed, or Cancelled after a hold longer than 300ms. Brief taps stay silent."
+    - "Some assistive technologies click without a sustained key or pointer press. Treat a `click` with `event.detail === 0` as that case and open a `<dialog>` with `showModal()`, with focus on Cancel. Accepting reaches the same confirmed state and event."
+    - "Prevent the native click from Space and Enter, and always prevent Space on `keyup`, so neither key opens the dialog by accident."
+    - "Keyboard input and `prefers-reduced-motion: reduce` keep the linear fill but skip the active-state scale, the confirmation transition, and the animated release."
+    - "In forced-colors mode, use system colors for the fill and its label, and outline the button so its boundary stays visible."
+  avoid:
+    - "Easing the fill."
+    - "`window.confirm()` as the alternative. Sandboxed iframes block it without showing anything."
+---
+
+## The fill measures time
+
+Pressing the button starts a cancelable timer, and holding for 1,200ms without letting go confirms the action. The fill moves at a linear rate because its position stands for elapsed time. Any easing would make progress look faster or slower than it is. `HOLD_DURATION` sets both the timer and the CSS `--hold-duration`, so the two can't drift apart.
+
+The fill is a layer with its own copy of the label in a contrasting color, revealed with `clip-path`, so background and text uncover along the same edge. The idle and waiting labels share a grid cell and the button keeps its width when the text changes. On completion a checkmark and a confirmation label appear, which means the result doesn't depend on color.
+
+<Implementation specimen={props.specimenId} />
+
+## Release to cancel
+
+Letting go early cancels the timer and retracts the fill in 180ms. A new press starts from zero, even mid-retraction. The hold also cancels when the button or window loses focus, the tab is hidden, the browser cancels the pointer, or the user presses Escape.
+
+Pointer capture keeps the release on the button when the finger or cursor drifts outside it. `touch-action: none` stops small finger movements from turning the hold into a scroll, so scrolling has to start outside the button.
+
+Space and Enter hold for the same duration, and key repeat doesn't restart the timer. Keyboard holds and reduced motion keep the linear fill, since it carries the information, and drop the press scale and the animated reset.
+
+The accessible name stays fixed, and `aria-describedby` explains the hold. A live region announces the confirmation, or a cancellation after more than 300ms of holding. Brief taps stay silent.
+
+## Connecting a real action
+
+The button emits one bubbling `holdconfirm` event after a completed hold or an accepted dialog, and that's where the action runs. Plain clicks and cancelled holds never emit it. The demo returns to idle after 1,400ms. In a real interface, replace that reset with a pending state that blocks another attempt, then show success or failure.
+
+## An alternative to holding
+
+Some assistive technologies activate a button with a single click and no sustained press. A click with `event.detail === 0` opens a `<dialog>` with focus on Cancel. Accepting confirms and emits the same event. The dialog also works inside sandboxed iframes, where `window.confirm()` is blocked without showing anything.
+
+Name the action in both the button and the dialog so people know what they're confirming.

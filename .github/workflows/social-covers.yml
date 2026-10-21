@@ -1,0 +1,52 @@
+# Renders social covers for new or edited studies and commits them to the pull request.
+# The build fails without a study's cover, so this runs before Cloudflare's preview build matters.
+name: Social covers
+
+on:
+  pull_request:
+    paths:
+      - src/data/specimens.ts
+      - src/data/social-image.json
+      - src/lib/social-image.ts
+      - scripts/generate-social-image.mjs
+      - public/fonts/**
+      - public/logo.svg
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: social-covers-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  covers:
+    # Forks can't receive commits from this token.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.8.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run generate:social
+      - name: Commit changed covers
+        run: |
+          git add public/social-preview.png public/social src/data/social-covers.json
+          if git diff --cached --quiet; then
+            echo "Covers are up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Generate social covers"
+          git push

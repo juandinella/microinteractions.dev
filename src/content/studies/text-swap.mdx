@@ -1,0 +1,39 @@
+---
+observe: Move the pointer off the button mid-transition. Both labels reverse from their current position.
+references:
+  - title: Overlapping items in CSS Grid
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Grid_layout/Basic_concepts#layering_items_with_z-index
+prompt:
+  task: Build a button whose label swaps on hover without changing its width.
+  behavior:
+    - "Stack the current and next label in the same CSS Grid cell (`grid-area: 1 / 1`) so the button always fits the wider label."
+    - On hover, the current label slides down by 120% of its height and fades out while the next label slides in from above. Both blur by up to 5px while they overlap.
+    - Use CSS transitions, not keyframes, so leaving mid-swap reverses from the current position.
+    - Clip overflow on the button so the moving labels stay inside it.
+    - Scale the button to 0.97 while pressed, over 160ms.
+  accessibility:
+    - "Only swap on hover for fine pointers, behind `@media (hover: hover) and (pointer: fine)`."
+    - "`:focus-visible` shows the next label immediately, without a transition, and adds a focus ring."
+    - Give the button a stable `aria-label` that describes the action and includes the visible label. Hide both visual labels with `aria-hidden="true"`.
+    - "With `prefers-reduced-motion: reduce`, crossfade the labels over 150ms linear, without sliding, blurring, or scaling on press."
+  avoid:
+    - Measuring label widths with JavaScript or animating `width`.
+    - Bounce or spring easing.
+---
+
+## Two labels in one grid cell
+
+Both labels sit in the same CSS Grid cell with `grid-area: 1 / 1`. A grid cell sizes to its largest item, and a label at `opacity: 0` still takes up space, so the button fits the wider label in either state and its width never changes. Nothing is measured with JavaScript.
+
+On hover, the current label slides down and fades out while the next one slides in from above. A 5px blur softens the moment they overlap. All three properties share an ease-out curve, so the swap answers the pointer right away and slows as the new label lands. Because these are transitions, leaving mid-swap reverses from wherever the labels are.
+
+Keyboard focus shows the second label at once, with a focus ring. With reduced motion, the labels crossfade without sliding or blurring. Screen readers hear one stable `aria-label` while both visual labels stay hidden from them.
+
+<Implementation specimen={props.specimenId} />
+
+## Using the pattern
+
+Replace the sample labels and test the longest one, translations included. Both labels should describe the same action, and the `aria-label` should name that action and contain the visible text. The transition works on a `<button>` for actions and on an `<a href="…">` for links.
+
+The exported code swaps on hover and keyboard focus, which touch screens don't have. Keep the action on the first tap there. If the second label says something people need before acting, show it next to the control.

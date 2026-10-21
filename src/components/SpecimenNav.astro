@@ -1,0 +1,174 @@
+---
+import { categories, planned, specimens } from '../data/specimens';
+import CategoryIcon from './CategoryIcon.astro';
+import NewLabel from './NewLabel.astro';
+
+interface Props {
+  active?: string;
+}
+
+const { active } = Astro.props;
+---
+
+<nav aria-label="Collection">
+  <a class="index-link" href="/" aria-current={!active ? 'page' : undefined}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      aria-hidden="true"
+    >
+      <rect x="4" y="4" width="5" height="5" rx="1"></rect>
+      <rect x="15" y="4" width="5" height="5" rx="1"></rect>
+      <rect x="4" y="15" width="5" height="5" rx="1"></rect>
+      <rect x="15" y="15" width="5" height="5" rx="1"></rect>
+    </svg>
+    Index
+    <span class="count">{String(specimens.length).padStart(2, '0')}</span>
+  </a>
+
+  {
+    categories.map((category) => {
+      const studies = specimens.filter((s) => s.category === category);
+      return (
+        <section class:list={{ empty: studies.length === 0 }}>
+          <h2>
+            <CategoryIcon category={category} muted={studies.length === 0} />
+            {category}
+          </h2>
+          <ul>
+            {studies.map((s) => (
+              <li>
+                <a
+                  href={`/${s.id}/`}
+                  aria-current={active === s.id ? 'page' : undefined}
+                >
+                  <span class="name">{s.title}</span>
+                  <NewLabel specimen={s} />
+                </a>
+              </li>
+            ))}
+            {planned[category].map((title) => (
+              <li class="planned">
+                <span class="name">{title}</span>
+                <span class="soon">soon</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    })
+  }
+</nav>
+
+<style>
+  nav {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  a {
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    color: var(--muted);
+    touch-action: manipulation;
+  }
+
+  a[aria-current='page'] {
+    background: var(--surface);
+    color: var(--brand);
+  }
+
+  a:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  .index-link {
+    margin-bottom: 40px;
+  }
+
+  .index-link svg {
+    flex: none;
+  }
+
+  section + section {
+    margin-top: 40px;
+  }
+
+  h2 {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 8px;
+    margin: 0 12px 8px;
+    color: var(--meta);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .name {
+    flex: 1;
+  }
+
+  .planned {
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    color: var(--quiet);
+    cursor: default;
+  }
+
+  /* Darker than "soon" so a returning visitor can spot it among the planned rows. */
+  a :global(.new) {
+    color: var(--text);
+  }
+
+  .planned .soon,
+  .empty h2 {
+    color: var(--quiet);
+  }
+
+  .count,
+  .soon {
+    flex: none;
+    margin-left: auto;
+    color: var(--meta);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .soon {
+    font-size: 11px;
+  }
+
+  @media (pointer: coarse) {
+    a {
+      min-height: 44px;
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    a:hover {
+      background: var(--surface);
+      color: var(--text);
+    }
+  }
+</style>

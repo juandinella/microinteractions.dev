@@ -1,0 +1,404 @@
+---
+import "../styles/global.css";
+import Logo from '../components/Logo.astro';
+import SpecimenNav from '../components/SpecimenNav.astro';
+import StructuredData from '../components/StructuredData.astro';
+import { socialImageAlt } from '../lib/social-image';
+
+interface Props {
+  title?: string;
+  description?: string;
+  active?: string;
+  articleTitle?: string;
+  // The study's editorial date, as YYYY-MM-DD.
+  published?: string;
+  image?: string;
+  imageAlt?: string;
+  noindex?: boolean;
+}
+
+const {
+  title = "Microinteraction Examples in CSS & JavaScript",
+  description = "Explore interactive UI microinteractions with live demos, timing notes, accessibility considerations, and copyable HTML, CSS, and JavaScript.",
+  active,
+  articleTitle,
+  published,
+  image = '/social-preview.png',
+  imageAlt = socialImageAlt(),
+  noindex = false,
+} = Astro.props;
+const canonical = new URL(`${Astro.url.pathname.replace(/\/$/, '')}/`, Astro.site);
+const socialImage = new URL(image, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fdfdff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121417" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical.href} />}
+    {!noindex && <link rel="alternate" type="text/markdown" href={`/markdown/${active ?? 'index'}.md`} />}
+    <meta property="og:title" content={title} />
+    <meta property="og:site_name" content="Microinteractions" />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={articleTitle ? 'article' : 'website'} />
+    <meta property="og:url" content={canonical.href} />
+    <meta property="og:image" content={socialImage.href} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content={imageAlt} />
+    {published && <meta property="article:published_time" content={published} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={socialImage.href} />
+    <meta name="twitter:image:alt" content={imageAlt} />
+    {!noindex && <StructuredData canonical={canonical} title={title} description={description} articleTitle={articleTitle} published={published} image={socialImage} />}
+    {!noindex && <link rel="alternate" type="application/rss+xml" title="Microinteractions" href="/rss.xml" />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/fonts/martian-grotesk.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/martian-mono.woff2" as="font" type="font/woff2" crossorigin />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label="Microinteractions Gallery, index">
+          <Logo id="mobile-logo-trace" />
+          <span>Microinteractions</span>
+        </a>
+
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-index">
+          Studies
+          <svg class="icon-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+          <svg class="icon-close" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="mobile-index" class="mobile-index" hidden><SpecimenNav active={active} /></div>
+
+    <div class="site-shell">
+      <aside class="sidebar">
+        <a class="brand sidebar-brand" href="/" aria-label="Microinteractions Gallery, index">
+          <Logo id="sidebar-logo-trace" />
+          <span>Microinteractions</span>
+        </a>
+        <div class="sidebar-scroll"><SpecimenNav active={active} /></div>
+      </aside>
+
+      <main id="main" tabindex="-1">
+        <slot />
+      </main>
+    </div>
+    <script>
+      import '../scripts/webmcp';
+
+      const panel = document.querySelector<HTMLElement>('#mobile-index')!;
+      const toggle = document.querySelector<HTMLButtonElement>('.menu-toggle')!;
+      const setOpen = (open: boolean) => {
+        toggle.setAttribute('aria-expanded', String(open));
+        panel.hidden = !open;
+      };
+      toggle.addEventListener('click', () => setOpen(panel.hidden));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !panel.hidden) {
+          setOpen(false);
+          toggle.focus();
+        }
+      });
+
+      const list = document.querySelector<HTMLElement>('.sidebar-scroll')!;
+      const current = list.querySelector<HTMLElement>('a[aria-current="page"]');
+      if (current) {
+        const offset = current.getBoundingClientRect().top - list.getBoundingClientRect().top;
+        list.scrollTop = offset - list.clientHeight / 2 + current.offsetHeight / 2;
+      }
+
+      for (const link of document.querySelectorAll<HTMLAnchorElement>('a[href^="http"]')) {
+        if (new URL(link.href).origin !== location.origin) {
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        }
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    display: none;
+    height: 64px;
+    background: var(--bg);
+  }
+
+  .header-inner {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 0 20px;
+  }
+
+  .brand {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+
+  .brand :global(.logo) {
+    width: 46px;
+    height: auto;
+    color: var(--brand);
+  }
+
+  .site-shell {
+    display: grid;
+    grid-template-columns: 224px minmax(0, 1fr);
+    align-items: start;
+    gap: 48px;
+    padding: 20px 32px 24px 0;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 20px;
+    display: flex;
+    height: calc(100dvh - 44px);
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .sidebar-brand {
+    flex: none;
+    align-self: flex-start;
+    gap: 8px;
+    margin: 0 20px 24px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .sidebar-brand :global(.logo) {
+    width: 36px;
+    flex: none;
+  }
+
+  .sidebar-scroll {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 8px 16px;
+    scrollbar-width: none;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Edge fades follow the scroll position: none at the top edge you're resting on,
+     none at the bottom once you reach the end. */
+  @property --fade-top {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+  }
+
+  @property --fade-bottom {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .sidebar-scroll {
+      mask-image: linear-gradient(
+        #0000,
+        #0000001a calc(var(--fade-top) * 0.25),
+        #00000059 calc(var(--fade-top) * 0.5),
+        #000000b3 calc(var(--fade-top) * 0.75),
+        #000 var(--fade-top) calc(100% - var(--fade-bottom)),
+        #000000b3 calc(100% - var(--fade-bottom) * 0.75),
+        #00000059 calc(100% - var(--fade-bottom) * 0.5),
+        #0000001a calc(100% - var(--fade-bottom) * 0.25),
+        #0000
+      );
+      animation: sidebar-fade linear both;
+      animation-timeline: scroll(self);
+    }
+  }
+
+  @keyframes sidebar-fade {
+    0% {
+      --fade-top: 0px;
+      --fade-bottom: 3rem;
+    }
+
+    8% {
+      --fade-top: 3rem;
+    }
+
+    92% {
+      --fade-bottom: 3rem;
+    }
+
+    100% {
+      --fade-top: 3rem;
+      --fade-bottom: 0px;
+    }
+  }
+
+  main {
+    width: 100%;
+    max-width: 900px;
+    min-width: 0;
+    justify-self: center;
+    padding-top: 24px;
+    padding-bottom: 56px;
+    scroll-margin-top: 80px;
+  }
+
+  .menu-toggle,
+  .mobile-index {
+    display: none;
+  }
+
+  .skip-link {
+    position: fixed;
+    z-index: 3;
+    top: 12px;
+    left: 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--text);
+    border-radius: 7px;
+    background: var(--bg);
+    transform: translateY(-150%);
+  }
+
+  .skip-link:focus {
+    transform: none;
+  }
+
+  a:focus-visible,
+  .menu-toggle:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--text);
+    outline-offset: 4px;
+  }
+
+  @media (max-width: 1100px) {
+    .site-shell {
+      grid-template-columns: 204px minmax(0, 1fr);
+      gap: 36px;
+    }
+  }
+
+  @media (max-width: 780px) {
+    .site-header {
+      display: block;
+      height: 56px;
+    }
+
+    .header-inner,
+    .site-shell {
+      padding-inline: 20px;
+    }
+
+    .site-shell {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 28px;
+      padding-top: 16px;
+    }
+
+    .sidebar {
+      display: none;
+    }
+
+    .menu-toggle {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      gap: 8px;
+      margin-right: -8px;
+      padding: 0 8px;
+      border: 0;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      touch-action: manipulation;
+    }
+
+    .menu-toggle svg {
+      flex: none;
+    }
+
+    .menu-toggle[aria-expanded='true'] {
+      color: var(--text);
+    }
+
+    .menu-toggle:active {
+      background: var(--surface-strong);
+      color: var(--text);
+    }
+
+    .icon-close,
+    .menu-toggle[aria-expanded='true'] .icon-open {
+      display: none;
+    }
+
+    .menu-toggle[aria-expanded='true'] .icon-close {
+      display: block;
+    }
+
+    .mobile-index:not([hidden]) {
+      display: block;
+      padding: 4px 8px 24px;
+      border-bottom: 1px solid var(--line);
+      transition: opacity 160ms ease-out;
+
+      @starting-style {
+        opacity: 0;
+      }
+    }
+
+    main {
+      padding-top: 0;
+      scroll-margin-top: 84px;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .header-inner,
+    .site-shell {
+      padding-inline: 16px;
+    }
+
+    .mobile-index:not([hidden]) {
+      padding-inline: 4px;
+    }
+
+    .brand {
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .brand :global(.logo) {
+      width: 36px;
+    }
+  }
+</style>

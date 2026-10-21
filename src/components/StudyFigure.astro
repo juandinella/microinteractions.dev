@@ -1,0 +1,56 @@
+---
+interface Props {
+  caption: string;
+  layout?: 'single' | 'comparison';
+}
+
+const { caption, layout = 'single' } = Astro.props;
+---
+
+<figure>
+  <div class:list={['figure-content', { comparison: layout === 'comparison' }]}>
+    <slot />
+  </div>
+  <figcaption>{caption}</figcaption>
+</figure>
+
+<style>
+  figure {
+    min-width: 0;
+    margin: 0;
+  }
+  .figure-content {
+    display: grid;
+    min-width: 0;
+    gap: 24px;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+  }
+
+  .figure-content > :global(*) {
+    min-width: 0;
+  }
+  .comparison {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  figcaption {
+    max-width: 65ch;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+    text-wrap: pretty;
+  }
+
+  @media (max-width: 600px) {
+    .figure-content {
+      padding: 20px;
+    }
+    .comparison {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

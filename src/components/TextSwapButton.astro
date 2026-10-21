@@ -1,0 +1,111 @@
+<button class="swap" type="button" aria-label="Download for macOS, 42 MB">
+  <span class="swap-labels" aria-hidden="true">
+    <span class="swap-layer swap-current">Download</span>
+    <span class="swap-layer swap-next" data-trace-progress>macOS · 42 MB</span>
+  </span>
+</button>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.swap').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        button.toggleAttribute('data-touch-active');
+      }
+    });
+    button.addEventListener('blur', () =>
+      button.removeAttribute('data-touch-active'),
+    );
+    document.addEventListener('pointerdown', (event) => {
+      if (!button.contains(event.target as Node))
+        button.removeAttribute('data-touch-active');
+    });
+  });
+</script>
+
+<style>
+  .swap {
+    --swap-bg: var(--text);
+    --swap-fg: var(--bg);
+    --swap-ring: var(--focus-ring, var(--swap-bg));
+    --swap-ease: cubic-bezier(0.23, 1, 0.32, 1);
+    --swap-state: 0;
+
+    touch-action: manipulation;
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: var(--swap-bg);
+    color: var(--swap-fg);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: transform 160ms var(--ease-smooth);
+  }
+
+  .swap[data-inspect],
+  .swap[data-touch-active] {
+    --swap-state: 1;
+  }
+
+  .swap:focus-visible {
+    --swap-state: 1;
+    outline: 2px solid var(--swap-ring);
+    outline-offset: 4px;
+  }
+
+  .swap-labels {
+    display: inline-grid;
+  }
+
+  .swap-layer {
+    grid-area: 1 / 1;
+    text-align: center;
+    transition-property: opacity, transform, filter;
+    transition-duration: 220ms;
+    transition-timing-function: var(--swap-ease);
+  }
+
+  .swap-current {
+    opacity: calc(1 - var(--swap-state));
+    filter: blur(calc(var(--swap-state) * 5px));
+    transform: translateY(calc(var(--swap-state) * 120%));
+  }
+
+  .swap-next {
+    opacity: var(--swap-state);
+    filter: blur(calc((1 - var(--swap-state)) * 5px));
+    transform: translateY(calc((var(--swap-state) - 1) * 120%));
+  }
+
+  .swap:focus-visible .swap-layer {
+    transition-duration: 0ms;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .swap:hover {
+      --swap-state: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .swap:active:not(:focus-visible) {
+      transform: scale(0.97);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .swap-layer {
+      transform: none;
+      filter: none;
+      transition: opacity 150ms linear;
+    }
+  }
+</style>

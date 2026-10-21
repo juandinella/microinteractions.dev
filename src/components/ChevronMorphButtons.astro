@@ -1,0 +1,173 @@
+<div class="chevron-morph-group" role="group" aria-label="Carousel navigation">
+  <button
+    class="morph-button morph-button-left"
+    type="button"
+    aria-label="Previous item"
+  >
+    <svg class="morph-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="morph-chevron" d="M14 7L9 12L14 17"></path>
+      <path class="morph-stem" d="M16 12H8" data-trace-progress></path>
+    </svg>
+  </button>
+
+  <button
+    class="morph-button morph-button-right"
+    type="button"
+    aria-label="Next item"
+  >
+    <svg class="morph-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="morph-chevron" d="M10 7L15 12L10 17"></path>
+      <path class="morph-stem" d="M8 12H16" data-trace-progress></path>
+    </svg>
+  </button>
+</div>
+
+<script>
+  document
+    .querySelectorAll<HTMLButtonElement>('.morph-button')
+    .forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!matchMedia('(hover: hover) and (pointer: fine)').matches) {
+          button.toggleAttribute('data-touch-active');
+        }
+      });
+      button.addEventListener('blur', () =>
+        button.removeAttribute('data-touch-active'),
+      );
+      document.addEventListener('pointerdown', (event) => {
+        if (!button.contains(event.target as Node))
+          button.removeAttribute('data-touch-active');
+      });
+    });
+</script>
+
+<style>
+  .chevron-morph-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .morph-button {
+    --morph-bg: var(--chevron-bg, var(--surface-strong));
+    --morph-bg-hover: var(--chevron-bg-hover, var(--surface-hover));
+    --morph-fg: var(--chevron-fg, var(--text));
+    --morph-ring: var(--focus-ring, var(--morph-fg));
+    --morph-duration: 190ms;
+    --morph-ease: cubic-bezier(0.19, 1, 0.22, 1);
+
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    place-items: center;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--morph-bg);
+    color: var(--morph-fg);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition:
+      background-color var(--morph-duration) var(--morph-ease),
+      transform 160ms var(--morph-ease);
+  }
+
+  .morph-button:focus-visible {
+    border-color: var(--morph-fg);
+    outline: 2px solid var(--morph-ring);
+    outline-offset: 3px;
+    transition-duration: 0ms;
+  }
+
+  .morph-icon {
+    width: 22px;
+    height: 22px;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .morph-chevron {
+    transition: transform var(--morph-duration) var(--morph-ease);
+  }
+
+  .morph-stem {
+    opacity: 0;
+    transform: scaleX(0.5);
+    transform-box: fill-box;
+    transition:
+      opacity var(--morph-duration) var(--morph-ease),
+      transform var(--morph-duration) var(--morph-ease);
+  }
+
+  .morph-button-left .morph-stem {
+    transform-origin: right center;
+  }
+
+  .morph-button-right .morph-stem {
+    transform-origin: left center;
+  }
+
+  .morph-button-left:is(:focus-visible, [data-inspect], [data-touch-active])
+    .morph-chevron {
+    transform: translateX(-2px);
+  }
+
+  .morph-button-right:is(:focus-visible, [data-inspect], [data-touch-active])
+    .morph-chevron {
+    transform: translateX(2px);
+  }
+
+  .morph-button:is(:focus-visible, [data-inspect], [data-touch-active])
+    .morph-stem {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  .morph-button:focus-visible .morph-chevron,
+  .morph-button:focus-visible .morph-stem {
+    transition-duration: 0ms;
+  }
+
+  .morph-button[data-inspect],
+  .morph-button[data-touch-active] {
+    background: var(--morph-bg-hover);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .morph-button:hover {
+      background: var(--morph-bg-hover);
+    }
+
+    .morph-button-left:hover .morph-chevron {
+      transform: translateX(-2px);
+    }
+
+    .morph-button-right:hover .morph-chevron {
+      transform: translateX(2px);
+    }
+
+    .morph-button:hover .morph-stem {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .morph-button:active:not(:focus-visible) {
+      transform: scale(0.96);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .morph-button,
+    .morph-chevron,
+    .morph-stem {
+      transition: none;
+    }
+  }
+</style>

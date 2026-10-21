@@ -1,0 +1,42 @@
+---
+observe: Watch the stem as you hover. Its tail stays fixed while it extends toward the chevron.
+references:
+  - title: SVG transform reference boxes
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/transform-box#svg_transform-origin_scoping
+prompt:
+  task: "Build a pair of round previous and next icon buttons whose chevrons extend into arrows on hover."
+  behavior:
+    - "Draw the chevron and the stem as separate SVG paths and animate them only with `transform` and `opacity`. Keep the `d` values fixed, because Safari does not animate path data in CSS."
+    - "On hover, move the chevron 2px in the direction it points. At the same time, fade the stem in and scale it from `scaleX(0.5)` to `scaleX(1)`."
+    - "Set `transform-box: fill-box` on the stem so it scales around its own bounds, and anchor it at its tail with `transform-origin: right center` on the previous button and `left center` on the next. The tail stays put while the stem grows toward the chevron."
+    - "Use CSS transitions, not keyframes, so moving the pointer away mid-morph reverses from the current state."
+    - "Make each button a 44px circle, the minimum touch target. Its hover state changes the background over the same 190ms, and its active state scales it to 0.96 over 160ms."
+  accessibility:
+    - "Only morph on hover for fine pointers, behind `@media (hover: hover) and (pointer: fine)`. The chevron already shows direction at rest, so the first tap on a touch screen navigates."
+    - "`:focus-visible` shows the arrow immediately, without a transition, and adds a focus ring. Keyboard users move between controls too quickly to wait for the morph."
+    - "Give each button an `aria-label` that describes its action, such as Previous item, and set `aria-hidden=\"true\"` on the SVG. Wrap the pair in an element with `role=\"group\"` and its own `aria-label`."
+    - "With `prefers-reduced-motion: reduce`, change state instantly and skip the active-state scale."
+  avoid:
+    - "Animating the path `d` attribute or swapping icons on hover."
+    - "Waiting for the icon to finish changing before navigating."
+    - "Bounce or spring easing. The stem should settle at full length, not overshoot it."
+---
+
+## The stem makes the arrow
+
+The chevron and the stem are separate SVG paths. On hover, the chevron moves 2px in the direction it points while the stem fades in and grows from half to full length, and together they read as an arrow. Only `transform` and `opacity` change. The path data stays fixed because Safari doesn't animate `d` in CSS.
+
+The stem grows from its tail. `transform-box: fill-box` makes it scale around its own bounds, and `transform-origin` pins the tail (`right center` on the previous button, `left center` on the next), so the stem reaches toward the chevron instead of growing from its middle. Both paths share an ease-out curve, and CSS transitions reverse from the current state when the pointer leaves.
+
+Each button is a 44px circle. Keyboard focus shows the arrow immediately, with a focus ring. With reduced motion, the state changes without animating.
+
+<Implementation specimen={props.specimenId} />
+
+To recolor the CSS version, set `--chevron-bg`, `--chevron-bg-hover`, and `--chevron-fg` on the group or any ancestor.
+
+## Using it for navigation
+
+Use a `<button>` to change slides and an `<a href="…">` to follow a link. Give each control an `aria-label` that names the action and hide the SVG with `aria-hidden="true"`. In a carousel, point `aria-controls` at the carousel's `id`.
+
+Navigate as soon as the button is activated. The chevron already shows direction at rest, so nobody needs to wait for the morph, and on a touch screen the first tap moves to the next item.

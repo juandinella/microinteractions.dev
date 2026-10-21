@@ -1,0 +1,577 @@
+<resizable-sidebar class="rsb">
+  <div class="rsb-side" data-side>
+    <p class="rsb-heading">Studies</p>
+    <ul class="rsb-list">
+      <li class="rsb-item">Text swap button</li>
+      <li class="rsb-item">Hold to confirm button</li>
+      <li class="rsb-item">Edge-aware tooltip</li>
+      <li class="rsb-item" data-current>Drag to select</li>
+      <li class="rsb-item">Gooey radio group</li>
+      <li class="rsb-item">Plucked underline</li>
+    </ul>
+  </div>
+  <div
+    class="rsb-handle"
+    role="separator"
+    tabindex="0"
+    aria-orientation="vertical"
+    aria-label="Resize sidebar"
+    data-handle
+    data-state="idle"
+  >
+    <span class="rsb-grip" data-grip></span>
+  </div>
+  <div class="rsb-main">
+    <p class="rsb-meta">Direct manipulation</p>
+    <p class="rsb-title">Drag to select</p>
+    <p class="rsb-text">
+      Check a run of table rows in one drag down the boxes.
+    </p>
+  </div>
+</resizable-sidebar>
+
+<script>
+  // Sidebar widths in pixels; the starting width is --rsb-width in the CSS.
+  // Below half the minimum, a drag collapses the sidebar.
+  const MIN_WIDTH = 120;
+  const MAX_WIDTH = 320;
+  const STEP = 12;
+  const LARGE_STEP = 48;
+  // Snaps run on the drawer curve below; the grip's own transitions use --rsb-ease in the CSS.
+  const SNAP = 240;
+  // The grip never touches the divider's ends.
+  const GRIP_INSET = 8;
+
+  let sidebarId = 0;
+
+  const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
+  const pixel = (value: number) => Math.round(value * devicePixelRatio) / devicePixelRatio;
+
+  // cubic-bezier(0.32, 0.72, 0, 1): find the curve's t for x, then return its y.
+  function drawer(x: number) {
+    const curve = (t: number, a: number, b: number) =>
+      3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+    let low = 0;
+    let high = 1;
+    for (let i = 0; i < 24; i++) {
+      const mid = (low + high) / 2;
+      if (curve(mid, 0.32, 0) < x) low = mid;
+      else high = mid;
+    }
+    return curve((low + high) / 2, 0.72, 1);
+  }
+
+  type Drag = {
+    id: number;
+    x: number;
+    width: number;
+    before: { collapsed: boolean };
+    // The last pointer position, for Escape and blur, which end the drag without a pointer event.
+    point: { x: number; y: number; type: string };
+  };
+
+  class ResizableSidebar extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const side = this.querySelector<HTMLElement>('[data-side]');
+      const handle = this.querySelector<HTMLElement>('[data-handle]');
+      const grip = this.querySelector<HTMLElement>('[data-grip]');
+
+      if (!side || !handle || !grip) {
+        throw new Error('ResizableSidebar: missing required elements.');
+      }
+
+      side.id = `resizable-sidebar-${++sidebarId}`;
+      handle.setAttribute('aria-controls', side.id);
+      handle.setAttribute('aria-valuemin', '0');
+
+      const page = document.documentElement;
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+      // The width the sidebar starts at, and returns to on double-click: --rsb-width in the CSS, in px.
+      const style = getComputedStyle(this);
+      const initial = parseFloat(style.getPropertyValue('--rsb-width'));
+      // The main pane never gets narrower than --rsb-main-min, which the CSS also applies before the script runs.
+      const mainMin = parseFloat(style.getPropertyValue('--rsb-main-min'));
+      // `preferred` is the width the user chose; `width` is what fits the container now.
+      // A narrow container squeezes `width`, and `preferred` comes back when there is room, or after a collapse.
+      let preferred = initial;
+      let width = initial;
+      let collapsed = false;
+      let drag: Drag | null = null;
+      // A snap animates an offset that decays to zero, added to the width the pointer asks for.
+      // The pointer keeps driving the width mid-snap, and a new snap starts from what is on screen.
+      let snap: { offset: number; start: number } | null = null;
+      let shown = width;
+      let frame = 0;
+      // Half the handle's width: the handle never sits closer to the left edge than this.
+      let edge = 0;
+
+      // The container's width, kept by the ResizeObserver so a drag never reads layout.
+      let available = this.clientWidth;
+
+      const limits = () => {
+        const max = clamp(Math.floor(available) - mainMin, 0, MAX_WIDTH);
+        return { min: Math.min(MIN_WIDTH, max), max };
+      };
+
+      const render = () => {
+        frame = 0;
+        let offset = 0;
+        if (snap) {
+          const progress = (performance.now() - snap.start) / SNAP;
+          if (progress >= 1) snap = null;
+          else offset = snap.offset * (1 - drawer(progress));
+        }
+        shown = Math.max(0, width + offset);
+        // One property places both the column and the handle.
+        this.style.setProperty('--rsb-width', `${shown}px`);
+        // The handle stops at the left edge, so the line can no longer follow a narrower sidebar and hides.
+        // The collapse hides it in its last frames, not when it starts.
+        this.toggleAttribute('data-collapsed', shown < edge);
+        if (snap) frame = requestAnimationFrame(render);
+      };
+
+      // The cursor shows which way the divider can still move.
+      const updateCursor = () => {
+        const cursor = collapsed ? 'e-resize' : width >= limits().max ? 'w-resize' : 'col-resize';
+        handle.style.cursor = cursor;
+        if (drag) page.style.cursor = cursor;
+      };
+
+      const setWidth = (next: number, animate = false) => {
+        if (animate && !reduceMotion.matches) snap = { offset: shown - next, start: performance.now() };
+        width = next;
+        cancelAnimationFrame(frame);
+        render();
+        // A container with no room for the sidebar hides it as surely as a collapse.
+        const closed = collapsed || width === 0;
+        side.inert = closed;
+        handle.setAttribute('aria-valuenow', String(width));
+        handle.setAttribute('aria-valuetext', closed ? 'Collapsed' : `${width} pixels`);
+        updateCursor();
+      };
+
+      const setCollapsed = (on: boolean, animate: boolean) => {
+        if (on === collapsed) return;
+        collapsed = on;
+        setWidth(on ? 0 : clamp(preferred, limits().min, limits().max), animate);
+      };
+
+      // A width the user settled on: keys, double-click, and the end of a drag.
+      const choose = (next: number, animate = false) => {
+        collapsed = false;
+        preferred = next;
+        setWidth(clamp(next, limits().min, limits().max), animate);
+      };
+
+      // Below half the minimum the sidebar collapses; dragging back past it reopens at the minimum.
+      const resize = (proposed: number) => {
+        const { min, max } = limits();
+        if (proposed < min / 2) {
+          setCollapsed(true, true);
+          return;
+        }
+        // clientX can be fractional; a whole-pixel width keeps the 1px line sharp.
+        const next = clamp(Math.round(proposed), min, max);
+        if (collapsed) {
+          collapsed = false;
+          setWidth(next, true);
+        } else if (next !== width) setWidth(next);
+      };
+
+      // The grip appears where the pointer meets the divider and follows it along the edge.
+      const placeGrip = (y: number) => grip.style.setProperty('--rsb-grip-y', `${pixel(y)}px`);
+      const center = () => placeGrip((handle.clientHeight - grip.offsetHeight) / 2);
+      const follow = (event: PointerEvent) => {
+        // Touch has no hover, so its grip stays visible at the middle.
+        if (event.pointerType === 'touch') return;
+        const box = handle.getBoundingClientRect();
+        const length = grip.offsetHeight;
+        placeGrip(clamp(event.clientY - box.top - length / 2, GRIP_INSET, box.height - length - GRIP_INSET));
+      };
+
+      const end = (keep: boolean, event?: PointerEvent) => {
+        if (!drag) return;
+        const { id, before, point } = drag;
+        drag = null;
+        // Escape ends the drag while the button is still down.
+        if (handle.hasPointerCapture(id)) handle.releasePointerCapture(id);
+        page.style.removeProperty('cursor');
+        page.style.removeProperty('user-select');
+        page.style.removeProperty('-webkit-user-select');
+        // A drag commits its width only when it ends, so a collapse keeps the width from before the drag
+        // and a cancelled drag leaves the chosen width as it was.
+        if (keep && !collapsed) preferred = width;
+        if (!keep) {
+          // Back to the chosen width, fitted to the container as it is now; it may have changed mid-drag.
+          collapsed = before.collapsed;
+          setWidth(collapsed ? 0 : clamp(preferred, limits().min, limits().max), true);
+        }
+        const { x, y, type } = event ? { x: event.clientX, y: event.clientY, type: event.pointerType } : point;
+        const box = handle.getBoundingClientRect();
+        const over = type !== 'touch' && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+        handle.dataset.state = over ? 'hover' : 'idle';
+      };
+
+      handle.addEventListener(
+        'pointerenter',
+        (event) => {
+          if (drag) return;
+          follow(event);
+          handle.dataset.state = 'hover';
+        },
+        { signal },
+      );
+
+      handle.addEventListener(
+        'pointerleave',
+        () => {
+          if (!drag) handle.dataset.state = 'idle';
+        },
+        { signal },
+      );
+
+      handle.addEventListener(
+        'pointerdown',
+        (event) => {
+          // A second finger or button mid-drag would make the divider jump. Ctrl-click opens the context menu on macOS.
+          if (drag || !event.isPrimary || event.button !== 0 || event.ctrlKey) return;
+          event.preventDefault();
+          handle.setPointerCapture(event.pointerId);
+          const current = collapsed ? 0 : width;
+          drag = {
+            id: event.pointerId,
+            x: event.clientX,
+            width: current,
+            before: { collapsed },
+            point: { x: event.clientX, y: event.clientY, type: event.pointerType },
+          };
+          follow(event);
+          handle.dataset.state = 'drag';
+          page.style.userSelect = 'none';
+          page.style.setProperty('-webkit-user-select', 'none');
+          updateCursor();
+        },
+        { signal },
+      );
+
+      handle.addEventListener(
+        'pointermove',
+        (event) => {
+          if (handle.dataset.state === 'idle') return;
+          follow(event);
+          if (drag?.id !== event.pointerId) return;
+          drag.point = { x: event.clientX, y: event.clientY, type: event.pointerType };
+          resize(drag.width + event.clientX - drag.x);
+        },
+        { signal },
+      );
+
+      handle.addEventListener('pointerup', (event) => drag?.id === event.pointerId && end(true, event), {
+        signal,
+      });
+      // A cancelled pointer, or capture lost without a pointerup, never confirmed the drag.
+      handle.addEventListener('pointercancel', (event) => drag?.id === event.pointerId && end(false, event), {
+        signal,
+      });
+      handle.addEventListener('lostpointercapture', (event) => drag?.id === event.pointerId && end(false, event), {
+        signal,
+      });
+
+      handle.addEventListener(
+        'dblclick',
+        () => choose(initial, true),
+        { signal },
+      );
+
+      // Window splitter keys, never animated. The component is laid out left to right, so the arrows are physical.
+      // The arrows adjust and stop at the limits; Home and Enter collapse, so one press never hides the sidebar by accident.
+      handle.addEventListener(
+        'keydown',
+        (event) => {
+          // Modified arrows belong to the browser: Alt+Left and Cmd+Left go back.
+          if (event.altKey || event.metaKey || event.ctrlKey) return;
+          const { min, max } = limits();
+          const step = event.shiftKey ? LARGE_STEP : STEP;
+          if (event.key === 'ArrowLeft') {
+            if (!collapsed) choose(Math.max(min, width - step));
+          } else if (event.key === 'ArrowRight') choose(collapsed ? min : Math.min(max, width + step));
+          // Home collapses, matching aria-valuemin="0".
+          else if (event.key === 'Home') setCollapsed(true, false);
+          else if (event.key === 'End') choose(max);
+          else if (event.key === 'Enter') setCollapsed(!collapsed, false);
+          else return;
+          event.preventDefault();
+        },
+        { signal },
+      );
+
+      // Escape puts the sidebar back where the drag started, with the same snap as a collapse.
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === 'Escape' && drag) end(false);
+        },
+        { signal },
+      );
+      window.addEventListener('blur', () => end(false), { signal });
+
+      // Keyboard focus has no pointer to follow, so the grip shows at the middle.
+      handle.addEventListener(
+        'focus',
+        () => {
+          if (handle.dataset.state === 'idle') center();
+        },
+        { signal },
+      );
+
+      // Keep the sidebar inside its limits when the container changes size.
+      const fit = () => {
+        edge = handle.offsetWidth / 2;
+        const { min, max } = limits();
+        handle.setAttribute('aria-valuemax', String(max));
+        setWidth(collapsed ? 0 : clamp(drag ? width : preferred, min, max));
+        if (handle.dataset.state === 'idle') center();
+      };
+      const observer = new ResizeObserver(([entry]) => {
+        available = entry.contentRect.width;
+        fit();
+      });
+      observer.observe(this);
+      fit();
+
+      // Moving the element in the DOM starts it over from the CSS, not from the width the script left inline.
+      signal.addEventListener('abort', () => {
+        end(false);
+        observer.disconnect();
+        cancelAnimationFrame(frame);
+        snap = null;
+        this.style.removeProperty('--rsb-width');
+        this.removeAttribute('data-collapsed');
+      });
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('resizable-sidebar')) customElements.define('resizable-sidebar', ResizableSidebar);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
+</script>
+
+<style>
+  .rsb {
+    --rsb-ease: cubic-bezier(0.23, 1, 0.32, 1);
+    --rsb-width: 160px;
+    --rsb-main-min: 140px;
+    --rsb-hit: 12px;
+    --rsb-reveal: 1;
+
+    position: relative;
+    display: grid;
+    /* The same limit the script applies, so a narrow container doesn't shift when the script runs. */
+    grid-template-columns: min(var(--rsb-width), 100% - var(--rsb-main-min)) minmax(0, 1fr);
+    /* Clips a sidebar narrower than the corner radius to the rounded corners. */
+    overflow: hidden;
+    width: min(100%, 640px);
+    height: 220px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  @media (pointer: coarse) {
+    .rsb {
+      --rsb-hit: 24px;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rsb {
+      --rsb-reveal: 0.5;
+    }
+  }
+
+  .rsb-side {
+    min-width: 0;
+    overflow: hidden;
+    padding: 10px 0;
+    background: var(--surface);
+  }
+
+  .rsb-heading,
+  .rsb-meta {
+    margin: 0;
+    overflow: hidden;
+    color: var(--quiet);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rsb-heading {
+    padding: 4px 14px 6px;
+  }
+
+  .rsb-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rsb-item {
+    margin: 0 6px;
+    padding: 5px 8px;
+    overflow: hidden;
+    border-radius: 6px;
+    color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rsb-item[data-current] {
+    background: var(--surface-strong);
+    color: var(--text);
+  }
+
+  .rsb-main {
+    min-width: 0;
+    overflow: hidden;
+    padding: 18px 20px;
+  }
+
+  .rsb-title {
+    margin: 6px 0 8px;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+
+  .rsb-text {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  /* The handle straddles the divider: its center is the sidebar's right edge. */
+  .rsb-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--rsb-hit) / -2);
+    z-index: 1;
+    width: var(--rsb-hit);
+    /* Never past the left edge, so a collapsed sidebar keeps the whole hit area inside the container. */
+    translate: max(var(--rsb-width), var(--rsb-hit) / 2) 0;
+    cursor: col-resize;
+    outline: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Without the script there is nothing to drag. */
+  .rsb:not(:defined) .rsb-handle {
+    display: none;
+  }
+
+  .rsb-handle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(50% - 1px);
+    width: 1px;
+    background: var(--line);
+    pointer-events: none;
+  }
+
+  /* A closed sidebar leaves the edge to the container's border. */
+  .rsb[data-collapsed] .rsb-handle::before {
+    opacity: 0;
+  }
+
+  .rsb-handle:focus-visible::before {
+    background: var(--text);
+  }
+
+  .rsb-grip {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 4px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--quiet);
+    opacity: 0;
+    /* Centered on the 1px line, which sits half a pixel left of the handle's center. */
+    translate: calc(-50% - 0.5px) var(--rsb-grip-y, 0px);
+    scale: 1 var(--rsb-reveal);
+    pointer-events: none;
+    transition:
+      opacity 100ms ease-out,
+      scale 100ms var(--rsb-ease),
+      background-color 120ms ease-out,
+      width 100ms var(--rsb-ease);
+  }
+
+  .rsb-handle:is([data-state='hover'], [data-state='drag'], :focus-visible) .rsb-grip {
+    opacity: 1;
+    scale: 1;
+    transition-duration: 120ms, 120ms, 120ms, 100ms;
+  }
+
+  /* Longer than a pointer takes to cross the handle, so moving between panes doesn't flash the grip. */
+  .rsb-handle[data-state='hover'] .rsb-grip {
+    transition-delay: 60ms, 60ms, 0s, 0s;
+  }
+
+  .rsb-handle[data-state='drag'] .rsb-grip,
+  .rsb-handle:focus-visible .rsb-grip {
+    background: var(--text);
+  }
+
+  /* Pressing widens the grip instead of scaling it, so its rounded ends keep their shape. */
+  .rsb-handle[data-state='drag'] .rsb-grip {
+    width: 6px;
+  }
+
+  /* Reduced motion keeps the fades and the wider, darker press; the press widens at once. */
+  @media (prefers-reduced-motion: reduce) {
+    .rsb-grip {
+      transition-property: opacity, scale, background-color;
+    }
+  }
+
+  @media (hover: none) {
+    .rsb-grip {
+      opacity: 1;
+      scale: 1;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .rsb-grip {
+      background: CanvasText;
+    }
+
+    .rsb-handle:focus-visible::before,
+    .rsb-handle:focus-visible .rsb-grip {
+      background: Highlight;
+    }
+  }
+</style>

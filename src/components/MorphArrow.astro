@@ -1,0 +1,73 @@
+---
+interface Props {
+  direction?: 'left' | 'right';
+}
+
+const { direction = 'right' } = Astro.props;
+---
+
+<!-- The chevron morph study: on hover/focus of the enclosing link, the chevron slides 2px
+     and a stem draws out of it to make an arrow. "left" mirrors the whole glyph. -->
+<svg
+  class:list={['morph-arrow', { left: direction === 'left' }]}
+  viewBox="0 0 16 16"
+  aria-hidden="true"
+>
+  <path class="chevron" d="M7 4.5L10.5 8L7 11.5"></path>
+  <path class="stem" d="M2 8H9.5"></path>
+</svg>
+
+<style>
+  .morph-arrow {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    overflow: visible;
+  }
+
+  .left {
+    transform: scaleX(-1);
+  }
+
+  /* 16-unit grid drawn at 16px, so the chevron moves by whole pixels. */
+  .chevron,
+  .stem {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* The stem rides with the chevron, so whatever the clip still shows stays under its tip.
+     The exit is quicker than the entrance, and the stem retracts instead of fading. */
+  .chevron,
+  .stem {
+    transition:
+      transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
+      clip-path 140ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .stem {
+    clip-path: inset(0 0 0 100%);
+  }
+
+  :global(a:focus-visible) :is(.chevron, .stem) {
+    transform: translateX(2px);
+  }
+
+  :global(a:focus-visible) .stem {
+    clip-path: inset(0);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :global(a:hover) :is(.chevron, .stem) {
+      transform: translateX(2px);
+      transition-duration: 180ms;
+    }
+
+    :global(a:hover) .stem {
+      clip-path: inset(0);
+    }
+  }
+</style>

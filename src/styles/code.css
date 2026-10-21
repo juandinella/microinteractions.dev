@@ -1,0 +1,12 @@
+.code-frame,
+.study-body > pre {
+  --code-bg: var(--ink);
+  --code-text: var(--ink-text);
+  --code-muted: var(--ink-muted);
+  --code-keyword: oklch(0.8 0.07 300);
+  --code-tag: oklch(0.82 0.07 250);
+  --code-attribute: oklch(0.84 0.05 200);
+  --code-string: oklch(0.83 0.06 155);
+  --code-function: oklch(0.86 0.06 85);
+  --code-number: oklch(0.82 0.07 55);
+}

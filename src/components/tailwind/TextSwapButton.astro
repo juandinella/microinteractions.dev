@@ -1,0 +1,28 @@
+<button
+  type="button"
+  aria-label="Download for macOS, 42 MB"
+  class="group/swap inline-flex min-h-11 items-center justify-center overflow-hidden rounded-xl border border-transparent px-5 py-2.5 bg-swap text-swap-fg font-sans text-base/[1.2] font-medium whitespace-nowrap cursor-pointer touch-manipulation transition-transform duration-160 ease-press [--swap-state:0] pointer-fine:hover:[--swap-state:1] focus-visible:[--swap-state:1] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--focus-ring,var(--color-swap)) motion-safe:active:not-focus-visible:scale-[0.97]"
+>
+  <span
+    aria-hidden="true"
+    class="inline-grid *:col-start-1 *:row-start-1 *:text-center *:transition-[opacity,transform,filter] *:duration-220 *:ease-swap motion-reduce:*:transform-none motion-reduce:*:filter-none motion-reduce:*:transition-opacity motion-reduce:*:duration-150 motion-reduce:*:ease-linear group-focus-visible/swap:*:duration-0"
+  >
+    <span
+      class="opacity-[calc(1-var(--swap-state))] blur-[calc(var(--swap-state)*5px)] transform-[translateY(calc(var(--swap-state)*120%))]"
+      >Download</span
+    >
+    <span
+      class="opacity-(--swap-state) blur-[calc((1-var(--swap-state))*5px)] transform-[translateY(calc((var(--swap-state)-1)*120%))]"
+      >macOS · 42 MB</span
+    >
+  </span>
+</button>
+
+<style is:global>
+  @theme {
+    --color-swap: oklch(0.23 0.012 258.74);
+    --color-swap-fg: oklch(0.995 0.002 258.74);
+    --ease-swap: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-press: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+</style>

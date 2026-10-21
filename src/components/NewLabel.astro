@@ -1,0 +1,31 @@
+---
+import { newUntil, type Specimen } from '../data/specimens';
+
+interface Props {
+  specimen: Specimen;
+}
+
+const until = newUntil(Astro.props.specimen);
+---
+
+{Date.now() < until && (
+  <span class="new" data-new-until={until}><span class="sr-only">, </span>new</span>
+)}
+
+<script>
+  // Pages are built ahead of time, so a label can outlive its window until the next deploy.
+  document.querySelectorAll<HTMLElement>('[data-new-until]').forEach((label) => {
+    if (Date.now() >= Number(label.dataset.newUntil)) label.remove();
+  });
+</script>
+
+<style>
+  .new {
+    flex: none;
+    color: var(--meta);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: normal;
+  }
+</style>

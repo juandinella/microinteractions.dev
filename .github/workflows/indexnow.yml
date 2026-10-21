@@ -1,0 +1,52 @@
+# After Cloudflare deploys a push to main, tells IndexNow engines (Bing and others)
+# which studies were added, edited, or removed.
+name: IndexNow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/data/specimens.ts
+      - src/content/studies/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Wait for the Cloudflare deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 60); do
+            result=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
+              --jq '[.check_runs[] | select(.name | startswith("Workers Builds"))][0] | "\(.status) \(.conclusion)"' || true)
+            case "$result" in
+              "completed success") echo "Deployed."; exit 0 ;;
+              "completed cancelled") echo "A newer push replaced this deploy."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0 ;;
+              completed*) echo "Deploy finished with: $result"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "Timed out waiting for the deploy."
+          exit 1
+      - uses: actions/setup-node@v4
+        if: env.SKIP != '1'
+        with:
+          node-version: 22
+      - name: Submit changed URLs
+        if: env.SKIP != '1'
+        run: |
+          before="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "$before" ] && ! echo "$before" | grep -q '^0*$'; then
+            node scripts/indexnow.mjs --since "$before"
+          else
+            node scripts/indexnow.mjs
+          fi

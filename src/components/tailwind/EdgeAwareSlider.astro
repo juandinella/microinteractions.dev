@@ -1,0 +1,60 @@
+<div
+  class="w-full max-w-90 rounded-[14px] border border-edge-line bg-edge-bg px-5 pt-16 pb-4 font-sans"
+>
+  <div
+    class="relative h-11 [anchor-scope:--volume-thumb] transition-none **:transition-none"
+    data-edge-tooltip
+    style="--value: 0.5"
+  >
+    <div
+      class="pointer-events-none absolute inset-x-3 top-5 h-1 rounded-xs bg-edge-line"
+      aria-hidden="true"
+    >
+      <span
+        class="absolute inset-0 bg-edge-ink [clip-path:inset(0_calc((1-var(--value))*100%)_0_0_round_2px)]"
+      ></span>
+      <span
+        class="absolute -top-2.5 left-[calc(var(--value)*100%-12px)] size-6 [anchor-name:--volume-thumb]"
+      ></span>
+    </div>
+
+    <span
+      aria-hidden="true"
+      class="pointer-events-none absolute bottom-11.5 left-[clamp(0px,calc(12px+(100%-24px)*var(--value)-64px),calc(100%-128px))] w-32 rounded-lg bg-edge-tooltip px-3 py-2.25 text-center text-sm/5 font-medium text-edge-tooltip-fg tabular-nums whitespace-nowrap anchor-ready:[position-anchor:--volume-thumb] anchor-ready:bottom-[calc(anchor(top)+12px)] anchor-ready:left-auto anchor-ready:[justify-self:anchor-center]"
+      >Volume <span data-volume>50</span>%</span
+    >
+    <span
+      aria-hidden="true"
+      class="pointer-events-none absolute bottom-10.5 left-[calc(12px+(100%-24px)*var(--value)-4px)] size-2 rotate-45 bg-edge-tooltip anchor-ready:[position-anchor:--volume-thumb] anchor-ready:bottom-[calc(anchor(top)+8px)] anchor-ready:left-[calc(anchor(center)-4px)]"
+    ></span>
+
+    <input
+      class="relative m-0 block h-11 w-full cursor-ew-resize touch-pan-y appearance-none bg-transparent p-0 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-edge-ink [&::-webkit-slider-runnable-track]:h-6 [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:h-6 [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-edge-ink [&::-webkit-slider-thumb]:bg-edge-bg [&::-moz-range-thumb]:box-border [&::-moz-range-thumb]:size-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-edge-ink [&::-moz-range-thumb]:bg-edge-bg"
+      type="range"
+      min="0"
+      max="100"
+      step="1"
+      value="50"
+      aria-label="Volume"
+      aria-valuetext="50 percent"
+      data-position-input
+    />
+  </div>
+</div>
+
+<style is:global>
+  @theme {
+    --color-edge-bg: oklch(0.995 0.002 258.74);
+    --color-edge-line: oklch(0.9 0.003 258.74);
+    --color-edge-ink: oklch(0.23 0.012 258.74);
+    --color-edge-tooltip: oklch(0.24 0.016 258.74);
+    --color-edge-tooltip-fg: oklch(0.93 0.012 250);
+  }
+
+  @custom-variant anchor-ready {
+    @supports (position-anchor: --volume-thumb) and
+      (justify-self: anchor-center) and (anchor-scope: --volume-thumb) {
+      @slot;
+    }
+  }
+</style>

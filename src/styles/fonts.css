@@ -1,0 +1,26 @@
+/*
+  Martian Grotesk and Martian Mono (Evil Martians, SIL OFL 1.1; licenses in public/fonts).
+  Latin subsets of the variable fonts, weight axis kept at 300–700. Grotesk is pinned to
+  standard width, Mono to Narrow (wdth 87.5) so metadata stays compact.
+
+  Both faces are cap-centered (equal room above cap height and below the baseline), so labels
+  sit optically centered in controls without per-size padding fixes. Their cap height is 80% of
+  the em; size-adjust brings it to 70.5%, SF Pro's, so the px sizes across the site keep their scale.
+*/
+@font-face {
+  font-family: "Martian Grotesk";
+  src: url("/fonts/martian-grotesk.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 88.1%;
+}
+
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/fonts/martian-mono.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 88.1%;
+}

@@ -1,0 +1,44 @@
+<resizable-sidebar class="group/rsb relative grid h-55 w-[min(100%,640px)] grid-cols-[min(var(--rsb-width),100%-var(--rsb-main-min))_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-rsb-line bg-rsb-paper font-sans text-[13px] text-rsb-ink [--rsb-width:160px] [--rsb-main-min:140px] [--rsb-hit:12px] [--rsb-reveal:1] pointer-coarse:[--rsb-hit:24px] motion-safe:[--rsb-reveal:0.5]">
+  <div class="min-w-0 overflow-hidden bg-rsb-surface py-2.5" data-side>
+    <p class="m-0 truncate px-3.5 pt-1 pb-1.5 font-mono text-[11px] text-rsb-quiet">Studies</p>
+    <ul class="m-0 list-none p-0">
+      <li class="mx-1.5 truncate rounded-md px-2 py-1.25 text-rsb-muted">Text swap button</li>
+      <li class="mx-1.5 truncate rounded-md px-2 py-1.25 text-rsb-muted">Hold to confirm button</li>
+      <li class="mx-1.5 truncate rounded-md px-2 py-1.25 text-rsb-muted">Edge-aware tooltip</li>
+      <li class="mx-1.5 truncate rounded-md bg-rsb-selected px-2 py-1.25 text-rsb-ink" data-current>Drag to select</li>
+      <li class="mx-1.5 truncate rounded-md px-2 py-1.25 text-rsb-muted">Gooey radio group</li>
+      <li class="mx-1.5 truncate rounded-md px-2 py-1.25 text-rsb-muted">Plucked underline</li>
+    </ul>
+  </div>
+  <div
+    class="group/handle absolute inset-y-0 left-[calc(var(--rsb-hit)/-2)] z-1 w-(--rsb-hit) translate-x-[max(var(--rsb-width),var(--rsb-hit)/2)] cursor-col-resize touch-none outline-none select-none [-webkit-tap-highlight-color:transparent] group-not-[&:defined]/rsb:hidden before:pointer-events-none before:absolute before:inset-y-0 before:left-[calc(50%-1px)] before:w-px before:bg-rsb-line before:content-[''] group-data-collapsed/rsb:before:opacity-0 focus-visible:before:bg-rsb-ink forced-colors:focus-visible:before:bg-[Highlight]"
+    role="separator"
+    tabindex="0"
+    aria-orientation="vertical"
+    aria-label="Resize sidebar"
+    data-handle
+    data-state="idle"
+  >
+    <span class="pointer-events-none absolute top-0 left-1/2 h-8 w-1 -translate-x-[calc(50%+0.5px)] translate-y-(--rsb-grip-y) scale-y-(--rsb-reveal) rounded-full bg-rsb-quiet opacity-0 transition-[opacity,scale,background-color,width] motion-reduce:transition-[opacity,scale,background-color] duration-[100ms,100ms,120ms,100ms] ease-[ease-out,var(--ease-rsb),ease-out,var(--ease-rsb)] group-focus-visible/handle:scale-y-100 group-focus-visible/handle:bg-rsb-ink group-focus-visible/handle:opacity-100 group-focus-visible/handle:duration-[120ms,120ms,120ms,100ms] group-data-[state=hover]/handle:scale-y-100 group-data-[state=hover]/handle:opacity-100 group-data-[state=hover]/handle:delay-[60ms,60ms,0s,0s] group-data-[state=hover]/handle:duration-[120ms,120ms,120ms,100ms] group-data-[state=drag]/handle:w-1.5 group-data-[state=drag]/handle:scale-y-100 group-data-[state=drag]/handle:bg-rsb-ink group-data-[state=drag]/handle:opacity-100 group-data-[state=drag]/handle:duration-[120ms,120ms,120ms,100ms] [@media(hover:none)]:scale-y-100 [@media(hover:none)]:opacity-100 forced-colors:bg-[CanvasText] forced-colors:group-focus-visible/handle:bg-[Highlight]" data-grip></span>
+  </div>
+  <div class="min-w-0 overflow-hidden px-5 py-4.5">
+    <p class="m-0 truncate font-mono text-[11px] text-rsb-quiet">Direct manipulation</p>
+    <p class="mt-1.5 mb-2 text-[17px] tracking-[-0.01em]">Drag to select</p>
+    <p class="m-0 leading-[1.6] text-pretty text-rsb-muted">
+      Check a run of table rows in one drag down the boxes.
+    </p>
+  </div>
+</resizable-sidebar>
+
+<style is:global>
+  @theme {
+    --color-rsb-ink: oklch(0.23 0.012 258.74);
+    --color-rsb-muted: oklch(0.44 0.014 258.74);
+    --color-rsb-quiet: oklch(0.55 0.012 258.74);
+    --color-rsb-line: oklch(0.9 0.003 258.74);
+    --color-rsb-paper: oklch(0.995 0.002 258.74);
+    --color-rsb-surface: oklch(0.972 0.002 258.74);
+    --color-rsb-selected: oklch(0.925 0.004 258.74);
+    --ease-rsb: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+</style>
