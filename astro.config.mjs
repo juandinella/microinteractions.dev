@@ -16,6 +16,9 @@ import { transform } from 'esbuild';
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
+  // No sessions: otherwise the Cloudflare adapter adds a SESSION KV binding without
+  // an id, which `wrangler preview` rejects on branch builds.
+  session: false,
   compressHTML: true,
   security: {
     csp: {
