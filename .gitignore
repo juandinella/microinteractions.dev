@@ -44,3 +44,4 @@ src/drafts/
 src/pages/drafts/
 video/
 .npmrc
+astro.local.mjs

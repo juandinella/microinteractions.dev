@@ -13,6 +13,10 @@ import cloudflare from '@astrojs/cloudflare';
 import { access, readFile, writeFile } from 'node:fs/promises';
 import { transform } from 'esbuild';
 
+// Optional gitignored Vite plugins for local tooling; forced to dev-only so they never reach a build.
+const localConfig = new URL('./astro.local.mjs', import.meta.url);
+const localPlugins = await access(localConfig).then(async () => (await import(localConfig.href)).default, () => []);
+
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
@@ -95,7 +99,7 @@ export default defineConfig({
         }
         return `export default ${JSON.stringify(source)}`;
       },
-    }]
+    }, ...localPlugins.map((plugin) => ({ ...plugin, apply: 'serve' }))]
   },
 
   adapter: cloudflare()
