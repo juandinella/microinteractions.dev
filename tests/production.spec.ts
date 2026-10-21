@@ -191,6 +191,9 @@ test('RSS feed lists every study and is discoverable', async ({ page, request })
   expect(body).toContain('<link>https://microinteractions.dev/resize-handle/</link>');
   await page.goto('/text-swap/');
   await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/rss.xml');
+  const conventional = await request.get('/sitemap.xml', { maxRedirects: 0 });
+  expect(conventional.status()).toBe(301);
+  expect(conventional.headers().location).toBe('/sitemap-index.xml');
   const sitemap = await (await request.get('/sitemap-0.xml')).text();
   expect(sitemap).toContain('<loc>https://microinteractions.dev/text-swap/</loc><lastmod>2026-09-29');
 });
