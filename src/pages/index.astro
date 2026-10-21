@@ -2,6 +2,7 @@
 import CategoryIcon from '../components/CategoryIcon.astro';
 import SpecimenRow from '../components/SpecimenRow.astro';
 import { author } from '../data/author';
+import { repository } from '../data/repository';
 import { categories, categorySlug, specimens } from '../data/specimens';
 import BaseLayout from '../layouts/BaseLayout.astro';
 
@@ -15,7 +16,7 @@ const groups = categories
 <BaseLayout>
   <header class="intro">
     <h1>Microinteractions</h1>
-    <p class="description">A collection of small UI experiments. I built these to explore how timing changes the way an interaction feels. Each experiment includes notes and source code.</p>
+    <p class="description">A collection of small UI experiments. I built these to explore how timing changes the way an interaction feels. Each experiment includes notes and source code. The site is open source <a href={repository.url} target="_blank" rel="noopener noreferrer">on GitHub</a>.</p>
     <p class="byline">
       A project by <a href={author.url} target="_blank" rel="noopener noreferrer" aria-label={`${author.name} — juandinella.com`}>
         <span class="author-name" aria-hidden="true">{author.name}</span>
@@ -65,6 +66,25 @@ const groups = categories
     font-size: 14px;
     line-height: 1.7;
     text-wrap: pretty;
+  }
+
+  .description a {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
+  }
+
+  .description a:focus-visible {
+    border-radius: 3px;
+    outline: 2px solid var(--text);
+    outline-offset: 4px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .description a:hover {
+      text-decoration-color: currentColor;
+    }
   }
 
   .byline {
