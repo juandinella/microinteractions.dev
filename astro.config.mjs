@@ -54,7 +54,7 @@ export default defineConfig({
         const headers = await readFile(headersFile, 'utf8');
         const securityRule = Object.entries(securityHeaders).map(([name, value]) => `  ${name}: ${value}`).join('\n');
         await writeFile(headersFile, `${headers}\n/*\n${securityRule}\n`);
-        const rules = ['/index.html / 301', '/index / 301'];
+        const rules = ['/index.html / 301', '/index / 301', '/sitemap.xml /sitemap-index.xml 301'];
         for (const { pathname } of pages) {
           const slug = pathname.replace(/^\/|\/$/g, '');
           if (!slug || slug === '404' || slug === '500' || slug.includes('.')) continue;
