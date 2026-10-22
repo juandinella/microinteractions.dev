@@ -40,7 +40,7 @@ const { observe, references } = study.data;
 ---
 
 <BaseLayout title={`${specimen.seoTitle} — Microinteractions`} description={specimen.seoDescription} active={specimen.id} articleTitle={specimen.title} published={specimen.published} image={`/social/${specimen.id}.png`} imageAlt={socialImageAlt(specimen)}>
-  <article>
+  <article style={`--accent: var(--category-${categorySlug(specimen.category)})`}>
     <header class="study-header">
       <div class="breadcrumb">
         <a href="/">Index</a>

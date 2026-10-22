@@ -523,7 +523,7 @@ const tick =
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: 14px;
-    background: var(--surface);
+    background: color-mix(in oklch, var(--surface), var(--accent) 3%);
   }
 
   .canvas {
@@ -682,13 +682,13 @@ const tick =
   .scrubber:focus-within .scrub:focus-visible::-webkit-slider-thumb {
     width: 4px;
     background: var(--accent);
-    box-shadow: 0 0 0 3px oklch(0.55 0.17 256 / 0.2);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 20%, transparent);
   }
 
   .scrubber:focus-within .scrub:focus-visible::-moz-range-thumb {
     width: 4px;
     background: var(--accent);
-    box-shadow: 0 0 0 3px oklch(0.55 0.17 256 / 0.2);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 20%, transparent);
   }
 
   .scrubber:focus-within::before,

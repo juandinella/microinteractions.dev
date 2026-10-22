@@ -37,7 +37,7 @@ prompt:
 
 Pressing the button starts a cancelable timer, and holding for 1,200ms without letting go confirms the action. The fill moves at a linear rate because its position stands for elapsed time. Any easing would make progress look faster or slower than it is. `HOLD_DURATION` sets both the timer and the CSS `--hold-duration`, so the two can't drift apart.
 
-The fill is a layer with its own copy of the label in a contrasting color, revealed with `clip-path`, so background and text uncover along the same edge. The idle and waiting labels share a grid cell and the button keeps its width when the text changes. On completion a checkmark and a confirmation label appear, which means the result doesn't depend on color.
+The fill is a layer with its own copy of the label in a contrasting color, revealed with `clip-path`, so background and text uncover along the same edge. To recolor it, set `--hold-fill` on the button or any ancestor. It uses `--accent` when that is set, and the text color otherwise. The idle and waiting labels share a grid cell and the button keeps its width when the text changes. On completion a checkmark and a confirmation label appear, which means the result doesn't depend on color.
 
 <Implementation specimen={props.specimenId} />
 

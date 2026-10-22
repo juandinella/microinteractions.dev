@@ -27,7 +27,7 @@ const groups = categories
 
   <div class="collection">
     {groups.map(({ category, studies }) => (
-      <section id={`category-${categorySlug(category)}`} aria-labelledby={`heading-${categorySlug(category)}`}>
+      <section id={`category-${categorySlug(category)}`} style={`--accent: var(--category-${categorySlug(category)})`} aria-labelledby={`heading-${categorySlug(category)}`}>
         <h2 id={`heading-${categorySlug(category)}`}>
           <CategoryIcon category={category} />
           {category}

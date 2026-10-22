@@ -15,14 +15,15 @@
   --ink-muted: oklch(0.73 0.02 250);
   --accent: oklch(0.55 0.17 256);
   --brand: oklch(0.40828 0.15418 258.74);
-  --category-actions: oklch(0.58 0.19 25);
-  --category-values: oklch(0.56 0.13 60);
-  --category-navigation: oklch(0.55 0.11 95);
-  --category-toggles-choices: oklch(0.54 0.16 145);
-  --category-disclosure: oklch(0.54 0.09 190);
-  --category-direct-manipulation: oklch(0.55 0.09 215);
-  --category-input: oklch(0.57 0.19 300);
-  --category-feedback: oklch(0.58 0.19 340);
+  /* Lightness is just dark enough for 4.5:1 as text on the page, the specimen surface, a 3% accent mix, and the tab hover fill. Chroma is the highest in-gamut value near the previous token. */
+  --category-actions: oklch(0.553 0.189 25);
+  --category-values: oklch(0.539 0.126 60);
+  --category-navigation: oklch(0.529 0.109 95);
+  --category-toggles-choices: oklch(0.514 0.159 145);
+  --category-disclosure: oklch(0.518 0.089 190);
+  --category-direct-manipulation: oklch(0.522 0.089 215);
+  --category-input: oklch(0.551 0.189 300);
+  --category-feedback: oklch(0.554 0.189 340);
   --font-sans: "Martian Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --weight-display: 400;

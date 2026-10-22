@@ -151,7 +151,7 @@
 <style>
   /* --pluck-ease is a damped oscillation: past flat, back, and settled in about 2.5 cycles. */
   .pluck-nav {
-    --pluck-color: var(--pluck-fg, var(--text));
+    --pluck-color: var(--pluck-fg, var(--accent, var(--text)));
     --pluck-open: 140ms;
     --pluck-close: 110ms;
     --pluck-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
