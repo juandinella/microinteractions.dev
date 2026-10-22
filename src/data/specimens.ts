@@ -159,7 +159,7 @@ export const specimens: Specimen[] = [
     title: 'Hold to confirm button',
     category: 'Actions',
     summary: 'Deliberate confirmation, with a quick way back.',
-    seoTitle: 'JavaScript Hold-to-Confirm Button',
+    seoTitle: 'JavaScript hold-to-confirm button',
     seoDescription:
       'Build a hold-to-confirm button with a cancelable timer, keyboard support, and status feedback. Try the demo and learn how to connect a real action.',
     trigger: 'hold',
@@ -255,7 +255,7 @@ export const specimens: Specimen[] = [
     title: 'Edge-aware tooltip',
     category: 'Values',
     summary: "Keep a slider's value label inside its container.",
-    seoTitle: 'Range Slider Tooltip Positioning',
+    seoTitle: 'Range slider tooltip positioning',
     seoDescription:
       'Keep a range slider’s value label inside its container with CSS anchor positioning and a clamped fallback. Try the demo and copy the implementation.',
     trigger: 'drag',

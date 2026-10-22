@@ -19,6 +19,7 @@ export const GET: APIRoute = ({ site }) => {
       `<link>${url}</link>`,
       `<guid isPermaLink="true">${url}</guid>`,
       `<pubDate>${rfc822(specimen.published)}</pubDate>`,
+      `<dc:creator>${escape(author.name)}</dc:creator>`,
       `<category>${escape(specimen.category)}</category>`,
       `<description>${escape(specimen.seoDescription)}</description>`,
       '</item>',
@@ -27,7 +28,7 @@ export const GET: APIRoute = ({ site }) => {
 
   return new Response([
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
+    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">',
     '<channel>',
     '<title>Microinteractions</title>',
     `<link>${new URL('/', site).href}</link>`,
