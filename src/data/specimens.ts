@@ -205,7 +205,7 @@ export const specimens: Specimen[] = [
     summary: 'Pluck a link underline like a string tuned by its length.',
     seoTitle: 'CSS plucked string link underline animation',
     seoDescription:
-      'Animate a navigation underline like a plucked string, with a CSS linear() spring whose ring time scales with each link’s width. Includes keyboard, touch, and reduced-motion support.',
+      'Animate a nav underline like a plucked string, with a CSS linear() spring whose ring time scales with each link’s width. Works with keyboard and touch.',
     trigger: 'hover',
     triggerLabel: 'Hover, tap',
     hint: 'Hover across the links',
@@ -236,7 +236,7 @@ export const specimens: Specimen[] = [
     summary: 'Pour the selection from one option to the next.',
     seoTitle: 'Gooey radio button animation with an SVG filter',
     seoDescription:
-      'Pour a radio group’s selection into the next option as a liquid drop, with an SVG goo filter, native radios, and the Web Animations API. Includes keyboard, Safari focus, and reduced-motion support.',
+      'Pour a radio group’s selection into the next option as a liquid drop, using an SVG goo filter, native radios, and the Web Animations API.',
     trigger: 'select',
     triggerLabel: 'Click, tap, arrow keys',
     hint: 'Pick another option',
@@ -278,7 +278,7 @@ export const specimens: Specimen[] = [
     summary: 'Check a run of table rows in one drag down the boxes.',
     seoTitle: 'Drag to select checkboxes in a table',
     seoDescription:
-      'Select a range of table rows by dragging down their checkboxes, with a band that shows what the drag will set, autoscroll, Escape to cancel, and keyboard support.',
+      'Select table rows by dragging down their checkboxes, with a band that previews the result, autoscroll, Escape to cancel, and keyboard support.',
     trigger: 'select',
     triggerLabel: 'Drag, click, Shift+arrows',
     hint: 'Drag down the boxes',
@@ -332,9 +332,9 @@ export const specimens: Specimen[] = [
     title: 'Tab indicator',
     category: 'Navigation',
     summary: 'Slide the underline to the chosen tab without moving the labels.',
-    seoTitle: 'Sliding tab underline and bold labels without layout shift',
+    seoTitle: 'Tab underline and bold labels, no layout shift',
     seoDescription:
-      'Slide a tab underline to the chosen tab with one transform that turns mid-move, and bold the selected label without layout shift. Includes keyboard, touch, and reduced-motion support.',
+      'Slide a tab underline to the chosen tab with one transform that turns mid-move, and bold the selected label without layout shift.',
     trigger: 'select',
     triggerLabel: 'Click, tap, arrow keys',
     hint: 'Pick another tab',
