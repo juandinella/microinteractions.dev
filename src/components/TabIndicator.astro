@@ -1,0 +1,428 @@
+<tab-indicator class="tbi">
+  <div class="tbi-list" role="tablist" aria-label="Categories" data-list>
+    <button class="tbi-tab" type="button" role="tab" aria-selected="true" data-tab>
+      <span class="tbi-label" data-text="Actions"><span>Actions</span></span>
+      <span class="tbi-count">5<span class="tbi-vh"> studies</span></span>
+    </button>
+    <button class="tbi-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-tab>
+      <span class="tbi-label" data-text="Navigation"><span>Navigation</span></span>
+      <span class="tbi-count">5<span class="tbi-vh"> studies</span></span>
+    </button>
+    <button class="tbi-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-tab>
+      <span class="tbi-label" data-text="Values"><span>Values</span></span>
+      <span class="tbi-count">5<span class="tbi-vh"> studies</span></span>
+    </button>
+    <button class="tbi-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-tab>
+      <span class="tbi-label" data-text="Feedback"><span>Feedback</span></span>
+      <span class="tbi-count">9<span class="tbi-vh"> studies</span></span>
+    </button>
+    <span class="tbi-line" aria-hidden="true" data-line data-trace-progress></span>
+  </div>
+  <div class="tbi-panel" role="tabpanel" tabindex="0" data-panel>
+    <ul class="tbi-rows">
+      <li>Text swap button</li>
+      <li>Hold to confirm button</li>
+      <li>Copy to clipboard</li>
+    </ul>
+    <p class="tbi-more">2 more</p>
+  </div>
+  <div class="tbi-panel" role="tabpanel" tabindex="0" hidden data-panel>
+    <ul class="tbi-rows">
+      <li>Chevron morph buttons</li>
+      <li>Plucked underline</li>
+      <li>Tab indicator</li>
+    </ul>
+    <p class="tbi-more">2 more</p>
+  </div>
+  <div class="tbi-panel" role="tabpanel" tabindex="0" hidden data-panel>
+    <ul class="tbi-rows">
+      <li>Edge-aware tooltip</li>
+      <li>Range</li>
+      <li>Stepper</li>
+    </ul>
+    <p class="tbi-more">2 more</p>
+  </div>
+  <div class="tbi-panel" role="tabpanel" tabindex="0" hidden data-panel>
+    <ul class="tbi-rows">
+      <li>Loader</li>
+      <li>Progress</li>
+      <li>Toast</li>
+    </ul>
+    <p class="tbi-more">6 more</p>
+  </div>
+</tab-indicator>
+
+<script>
+  // Width of the edge fade; a tab scrolled into view clears it.
+  const FADE = 32;
+
+  let listId = 0;
+
+  class TabIndicator extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const list = this.querySelector<HTMLElement>('[data-list]');
+      const tabs = [...this.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+      const panels = [...this.querySelectorAll<HTMLElement>('[data-panel]')];
+      const line = this.querySelector<HTMLElement>('[data-line]');
+
+      if (!list || !line || !tabs.length || tabs.length !== panels.length) {
+        throw new Error('TabIndicator: needs a list, a line, and one panel per tab.');
+      }
+
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+      let selected = Math.max(0, tabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true'));
+
+      // Only missing ids are generated, so ids from the markup or an earlier run stay.
+      const id = ++listId;
+      tabs.forEach((tab, i) => {
+        tab.id ||= `tab-indicator-${id}-tab-${i}`;
+        panels[i].id ||= `tab-indicator-${id}-panel-${i}`;
+        tab.setAttribute('aria-controls', panels[i].id);
+        panels[i].setAttribute('aria-labelledby', tab.id);
+      });
+
+      // Measured from the boxes rather than offsetLeft/offsetWidth, which round to whole pixels.
+      // Boxes come back scaled by any transformed ancestor; dividing by the list's scale returns to the line's own units.
+      const measure = (tab: HTMLElement) => {
+        const listBox = list.getBoundingClientRect();
+        const scale = listBox.width / list.offsetWidth || 1;
+        const box = tab.getBoundingClientRect();
+        return { x: (box.left - listBox.left) / scale + list.scrollLeft, width: box.width / scale };
+      };
+
+      // The line is 1px wide and scaled to the tab, so a move is one transform.
+      // A transition retargets from wherever the line is when another tab is chosen mid-move.
+      const place = (instant: boolean) => {
+        const { x, width } = measure(tabs[selected]);
+        if (instant) line.style.transition = 'none';
+        line.style.transform = `translateX(${x}px) scaleX(${width})`;
+        if (instant) {
+          void line.offsetWidth;
+          line.style.transition = '';
+        }
+      };
+
+      const sync = () => {
+        tabs.forEach((tab, i) => {
+          tab.setAttribute('aria-selected', String(i === selected));
+          tab.tabIndex = i === selected ? 0 : -1;
+        });
+        panels.forEach((panel, i) => (panel.hidden = i !== selected));
+      };
+
+      // Scrolls the list only, never the page, and keeps the tab clear of the edge fade.
+      const reveal = (tab: HTMLElement) => {
+        const { x, width } = measure(tab);
+        const left = Math.min(Math.max(list.scrollLeft, x + width + FADE - list.clientWidth), x - FADE);
+        if (Math.abs(left - list.scrollLeft) < 1) return;
+        list.scrollTo({ left, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+      };
+
+      const select = (index: number, animate: boolean) => {
+        if (index === selected) return;
+        selected = index;
+        sync();
+        place(!animate || reduceMotion.matches);
+        reveal(tabs[index]);
+      };
+
+      tabs.forEach((tab, i) => tab.addEventListener('click', () => select(i, true), { signal }));
+
+      // Arrow keys move focus and selection together. Keyboard changes are not animated.
+      list.addEventListener(
+        'keydown',
+        (event) => {
+          const current = tabs.indexOf(event.target as HTMLButtonElement);
+          if (current < 0) return;
+          let next: number | undefined;
+          if (event.key === 'ArrowRight') next = (current + 1) % tabs.length;
+          else if (event.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = tabs.length - 1;
+          if (next === undefined) return;
+          event.preventDefault();
+          // reveal() does the scrolling, clear of the edge fade.
+          tabs[next].focus({ preventScroll: true });
+          select(next, false);
+        },
+        { signal },
+      );
+
+      // When the tabs overflow, fade the edge that has more of them.
+      const edges = () => {
+        this.toggleAttribute('data-more-start', list.scrollLeft > 1);
+        this.toggleAttribute('data-more-end', list.scrollLeft + list.clientWidth < list.scrollWidth - 1);
+      };
+      list.addEventListener('scroll', edges, { passive: true, signal });
+
+      // Font loading and container changes move the tabs; the line follows without animating,
+      // unless it is already moving, in which case the transition retargets.
+      const observer = new ResizeObserver(() => {
+        place(!line.getAnimations().length);
+        edges();
+      });
+      observer.observe(list);
+      tabs.forEach((tab) => observer.observe(tab));
+      signal.addEventListener('abort', () => observer.disconnect());
+
+      sync();
+      place(true);
+      this.toggleAttribute('data-ready', true);
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('tab-indicator')) customElements.define('tab-indicator', TabIndicator);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
+</script>
+
+<script>
+  // Gallery only: reports tab changes to the stage's trace, and gives the inspector a move to scrub.
+  const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+
+  document.querySelectorAll<HTMLElement>('tab-indicator').forEach((component) => {
+    const stage = component.closest('[data-stage], [data-row-stage]');
+    const list = component.querySelector<HTMLElement>('[data-list]');
+    const line = component.querySelector<HTMLElement>('[data-line]');
+    if (!stage || !list || !line) return;
+    const tabs = [...component.querySelectorAll<HTMLElement>('[data-tab]')];
+    const changed = () => list.dispatchEvent(new Event('change', { bubbles: true }));
+    let restore: HTMLElement | undefined;
+
+    list.addEventListener('click', changed);
+    list.addEventListener('keydown', (event) => keys.includes(event.key) && changed());
+
+    // Inspecting plays a move to the farthest tab, then puts the selection back without animating.
+    stage.addEventListener('specimen-inspect', () => {
+      const current = tabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
+      restore = tabs[current];
+      tabs[current < tabs.length / 2 ? tabs.length - 1 : 0].click();
+    });
+
+    stage.addEventListener('specimen-release', () => {
+      if (!restore) return;
+      restore.click();
+      line.getAnimations().forEach((animation) => animation.finish());
+      restore = undefined;
+    });
+  });
+</script>
+
+<style>
+  .tbi {
+    --tbi-color: var(--tbi-fg, var(--text));
+    --tbi-ease: cubic-bezier(0.23, 1, 0.32, 1);
+    --tbi-move: 250ms;
+    --tbi-weight: 600;
+    --tbi-pad: 8px;
+
+    display: block;
+    overflow: hidden;
+    width: min(100%, 520px);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--bg);
+  }
+
+  .tbi-list {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    padding: var(--tbi-pad);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tbi[data-more-end] .tbi-list {
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  }
+
+  .tbi[data-more-start] .tbi-list {
+    mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+  }
+
+  .tbi[data-more-start][data-more-end] .tbi-list {
+    mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  }
+
+  .tbi-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tbi-tab {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    /* Lighter than the count badge, so the badge keeps its shape on the hovered tab. */
+    .tbi-tab:hover {
+      background: color-mix(in oklch, var(--surface) 50%, var(--surface-strong));
+      color: var(--tbi-color);
+    }
+  }
+
+  /* Reaches into the list's padding: 40px tall for a mouse, 44px for touch. Tabs sit side by side, so it only grows vertically. */
+  .tbi-tab::before {
+    position: absolute;
+    inset: -4px 0;
+    content: '';
+  }
+
+  @media (pointer: coarse) {
+    .tbi-tab::before {
+      inset: -6px 0;
+    }
+  }
+
+  .tbi-tab:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--tbi-color));
+    outline-offset: 2px;
+  }
+
+  .tbi-tab[aria-selected='true'] {
+    color: var(--tbi-color);
+  }
+
+  /* The label and a hidden copy at the selected weight share one grid cell,
+     so each tab is always as wide as its bold version and nothing shifts. */
+  .tbi-label {
+    display: inline-grid;
+  }
+
+  .tbi-label > span,
+  .tbi-label::after {
+    grid-area: 1 / 1;
+  }
+
+  .tbi-label::after {
+    height: 0;
+    overflow: hidden;
+    font-weight: var(--tbi-weight);
+    content: attr(data-text);
+    visibility: hidden;
+    user-select: none;
+  }
+
+  .tbi-tab[aria-selected='true'] .tbi-label > span {
+    font-weight: var(--tbi-weight);
+  }
+
+  .tbi-vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tbi-count {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--surface-strong);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .tbi-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    height: 2px;
+    background: var(--tbi-color);
+    transform-origin: 0 0;
+    pointer-events: none;
+  }
+
+  .tbi[data-ready] .tbi-line {
+    transition: transform var(--tbi-move) var(--tbi-ease);
+  }
+
+  /* Until the script measures the tabs, the selected tab draws its own underline, so first paint is already right. */
+  .tbi:not([data-ready]) .tbi-line {
+    visibility: hidden;
+  }
+
+  .tbi:not([data-ready]) .tbi-tab[aria-selected='true']::after {
+    position: absolute;
+    right: 0;
+    bottom: calc(var(--tbi-pad) * -1);
+    left: 0;
+    height: 2px;
+    background: var(--tbi-color);
+    content: '';
+  }
+
+  .tbi-panel {
+    padding: 4px 8px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  /* Inside the panel: the component clips anything drawn outside it. */
+  .tbi-panel:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--tbi-color));
+    outline-offset: -2px;
+  }
+
+  .tbi-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tbi-rows li {
+    padding: 9px 8px;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  .tbi-rows li:last-child {
+    border-bottom: 0;
+  }
+
+  .tbi-more {
+    margin: 0;
+    padding: 9px 8px;
+    border-top: 1px solid var(--line);
+    color: var(--quiet);
+    font-size: 14px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tbi[data-ready] .tbi-line {
+      transition: none;
+    }
+  }
+</style>

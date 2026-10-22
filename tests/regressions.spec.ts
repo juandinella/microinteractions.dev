@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-const slugs = ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group'];
-const scripted = ['hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group'];
+const slugs = ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'tab-indicator'];
+const scripted = ['hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'tab-indicator'];
 
 test.describe('hold focus indicator', () => {
   test.use({ hasTouch: true });
@@ -732,5 +732,61 @@ test.describe('resize handle', () => {
     await expect(handle(standalone)).toHaveAttribute('aria-valuenow', '200');
     expect(errors).toEqual([]);
     await standalone.close();
+  });
+});
+
+test.describe('tab indicator', () => {
+  const component = (page: import('@playwright/test').Page) => page.locator('[data-stage] tab-indicator');
+  const offset = (tabIndicator: import('@playwright/test').Locator) => tabIndicator.evaluate((el) => {
+    const line = el.querySelector('[data-line]')!.getBoundingClientRect();
+    const tab = el.querySelector('[aria-selected="true"]')!.getBoundingClientRect();
+    return Math.max(Math.abs(line.left - tab.left), Math.abs(line.width - tab.width));
+  });
+
+  test('the line lands under the chosen tab and no tab changes width', async ({ page }) => {
+    await page.goto('/tab-indicator/');
+    const tabIndicator = component(page);
+    const tabs = tabIndicator.getByRole('tab');
+    const widths = () => tabs.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
+    const before = await widths();
+    await tabs.nth(3).click();
+    await expect(tabs.nth(3)).toHaveAttribute('aria-selected', 'true');
+    await expect(tabIndicator.getByRole('tabpanel')).toHaveCount(1);
+    await expect.poll(() => tabIndicator.locator('[data-line]').evaluate((line) => line.getAnimations().length)).toBe(0);
+    expect(await offset(tabIndicator)).toBeLessThan(0.5);
+    expect(await widths()).toEqual(before);
+  });
+
+  test('arrow keys move focus and selection at once, and Tab enters the panel', async ({ page }) => {
+    await page.goto('/tab-indicator/');
+    const tabIndicator = component(page);
+    const tabs = tabIndicator.getByRole('tab');
+    await tabs.first().focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    expect(await tabIndicator.locator('[data-line]').evaluate((line) => line.getAnimations().length)).toBe(0);
+    expect(await offset(tabIndicator)).toBeLessThan(0.5);
+    await page.keyboard.press('End');
+    await expect(tabs.last()).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Tab');
+    await expect(tabIndicator.getByRole('tabpanel')).toBeFocused();
+  });
+
+  test('the Tailwind version shares the script and its hooks', async ({ page }) => {
+    await page.goto('/tab-indicator/');
+    const code: Record<string, Record<string, string>> = {};
+    for (const format of ['css', 'tailwind']) {
+      await page.locator(`[data-source-format][value="${format}"]`).check();
+      const variant = page.locator(`[data-source-variant="${format}"]`);
+      code[format] = {};
+      for (const language of ['HTML', 'JavaScript']) {
+        await variant.getByRole('tab', { name: language, exact: true }).click();
+        code[format][language] = (await variant.getByRole('tabpanel', { name: language, exact: true }).locator('code').textContent())!;
+      }
+    }
+    expect(code.tailwind.JavaScript).toBe(code.css.JavaScript);
+    for (const hook of ['data-list', 'data-tab', 'data-panel', 'data-line', 'role="tablist"']) expect(code.tailwind.HTML).toContain(hook);
+    expect(code.css.HTML).not.toContain('data-trace-progress');
   });
 });

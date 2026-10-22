@@ -11,7 +11,8 @@ export type SpecimenId =
   | 'plucked-underline'
   | 'gooey-radio-group'
   | 'drag-select'
-  | 'resize-handle';
+  | 'resize-handle'
+  | 'tab-indicator';
 
 export const categories = [
   'Actions',
@@ -32,7 +33,7 @@ export const categorySlug = (category: Category) =>
 // Studies not built yet. The nav lists them as unavailable under their category.
 export const planned: Record<Category, string[]> = {
   Actions: ['Copy to clipboard', 'Like', 'Submit states'],
-  Navigation: ['Tab indicator', 'Hover highlight', 'Scroll progress'],
+  Navigation: ['Hover highlight', 'Scroll progress'],
   'Toggles & choices': [
     'Switch',
     'Checkbox',
@@ -324,5 +325,28 @@ export const specimens: Specimen[] = [
       why: 'follow the pointer',
       note: 'The hit area is 12px wide and the line 1px. The grip appears where the pointer meets the line and follows it along the edge, marking where a press will land. Keyboard focus shows it at the middle.',
     },
+  },
+  {
+    id: 'tab-indicator',
+    published: '2026-10-22',
+    title: 'Tab indicator',
+    category: 'Navigation',
+    summary: 'Slide the underline to the chosen tab without moving the labels.',
+    seoTitle: 'Sliding tab underline and bold labels without layout shift',
+    seoDescription:
+      'Slide a tab underline to the chosen tab with one transform that turns mid-move, and bold the selected label without layout shift. Includes keyboard, touch, and reduced-motion support.',
+    trigger: 'select',
+    triggerLabel: 'Click, tap, arrow keys',
+    hint: 'Pick another tab',
+    duration: 250,
+    durationNote:
+      'The line reaches the chosen tab in 250ms, and the label turns bold at the click. A tab chosen mid-move takes over from wherever the line is. Hover fills a tab in 120ms, and the arrow keys move the line without animating.',
+    easing: [0.23, 1, 0.32, 1],
+    easingName: 'ease-out-quint',
+    easingNote:
+      'Starts at full speed, so the line leaves the old tab as the click lands, then slows into the new one.',
+    props: ['transform'],
+    positioningNote:
+      'The line is 1px wide. translateX moves it to the tab’s measured position and scaleX stretches it to the tab’s width, so every move is a single transform.',
   },
 ];
