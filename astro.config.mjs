@@ -32,9 +32,12 @@ export default defineConfig({
         "object-src 'none'",
         "form-action 'self' https://codepen.io",
         "img-src 'self' data:",
+        // Cloudflare Web Analytics posts its beacons here.
+        "connect-src 'self' https://cloudflareinsights.com",
       ],
       // Shiki and the live demos use inline styles; scripts remain hash-restricted.
       styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
+      scriptDirective: { resources: ["'self'", 'https://static.cloudflareinsights.com/beacon.min.js'] },
     },
   },
   site: 'https://microinteractions.dev',
