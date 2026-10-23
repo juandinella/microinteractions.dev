@@ -905,6 +905,47 @@ test.describe('worm dots', () => {
     expect(state).toMatchObject({ snap: '', scrubbing: false, pressed: 0 });
   });
 
+  test('keyboard focus rings the worm and follows a swipe to the current dot', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    await wormDots.getByRole('button', { name: 'Slide 1 of 6' }).focus();
+    const worm = wormDots.locator('[data-worm]');
+    await expect(worm).toHaveCSS('outline-style', 'solid');
+    await expect(worm).toHaveCSS('outline-width', '2px');
+    await wormDots.locator('[data-track]').evaluate((track: HTMLElement) => {
+      const slides = track.querySelectorAll<HTMLElement>('[data-slide]');
+      track.scrollTo({ left: (slides[1].offsetLeft - slides[0].offsetLeft) * 3, behavior: 'instant' });
+    });
+    await expect(wormDots.getByRole('button', { name: 'Slide 4 of 6' })).toBeFocused();
+    await expect(worm).toHaveCSS('outline-style', 'solid');
+  });
+
+  test('forced colors draws the dots and the worm with system colors', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Forced colors emulation is Chromium only.');
+    await page.emulateMedia({ forcedColors: 'active' });
+    await page.goto('/worm-dots/');
+    const colors = await component(page).evaluate((el) => {
+      const probe = document.createElement('span');
+      el.append(probe);
+      const system = (color: string) => {
+        probe.style.color = color;
+        return getComputedStyle(probe).color;
+      };
+      const result = {
+        worm: getComputedStyle(el.querySelector('[data-worm]')!).backgroundColor,
+        dot: getComputedStyle(el.querySelector('[data-dot]')!, '::before').backgroundColor,
+        canvasText: system('CanvasText'),
+        grayText: system('GrayText'),
+        canvas: system('Canvas'),
+      };
+      probe.remove();
+      return result;
+    });
+    expect(colors.worm).toBe(colors.canvasText);
+    expect(colors.dot).toBe(colors.grayText);
+    expect(colors.dot).not.toBe(colors.canvas);
+  });
+
   test('both versions share a valid script and its hooks', async ({ page }) => {
     await page.goto('/worm-dots/');
     const code: Record<string, Record<string, string>> = {};

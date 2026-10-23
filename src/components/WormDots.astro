@@ -130,16 +130,18 @@
         halo.removeAttribute('data-visible');
       };
 
-      // Screen readers hear the slide once the scroll settles. Focus already announces keyboard and tap changes,
-      // so those mark the slide as spoken before they move.
+      // Once the scroll settles, the new slide is announced. If focus was on a dot, it moves to the current one
+      // instead, which announces it, so the tab stop agrees with the worm. Keyboard and tap changes move focus
+      // themselves and mark the slide as spoken before they move.
       let spoken = 0;
       let quiet = 0;
       const announceLater = () => {
         clearTimeout(quiet);
         quiet = window.setTimeout(() => {
-          if (pointer !== undefined || current === spoken || !status) return;
+          if (pointer !== undefined || current === spoken) return;
           spoken = current;
-          status.textContent = `Slide ${current + 1} of ${count}`;
+          if (strip.contains(document.activeElement)) dots[current].focus({ preventScroll: true });
+          else if (status) status.textContent = `Slide ${current + 1} of ${count}`;
         }, ANNOUNCE_AFTER);
       };
 
@@ -557,18 +559,6 @@
     outline: none;
   }
 
-  /* The focused dot is the current one, so the ring wraps the worm rather than the dot. */
-  .wd-dot:focus-visible::after {
-    position: absolute;
-    top: calc(50% - var(--wd-dot) / 2 - 4px);
-    left: calc(50% - var(--wd-pill) / 2 - 4px);
-    width: calc(var(--wd-pill) + 8px);
-    height: calc(var(--wd-dot) + 8px);
-    border-radius: 999px;
-    box-shadow: 0 0 0 2px var(--focus-ring, var(--wd-color));
-    content: '';
-  }
-
   /* Placed and sized from the scroll position on every frame, so it never transitions.
      Same box, radius, and vertical placement as the dots, so both snap to the same pixels. */
   .wd-worm {
@@ -582,6 +572,12 @@
     background: var(--wd-color);
     pointer-events: none;
     transform: translateX(calc(var(--wd-gap) / 2 - var(--wd-pill) / 2));
+  }
+
+  /* Keyboard focus rings the worm, so the ring stretches and moves with it during a swipe. */
+  .wd-strip:has(.wd-dot:focus-visible) .wd-worm {
+    outline: 2px solid var(--focus-ring, var(--wd-color));
+    outline-offset: 2px;
   }
 
   /* Behind the dots: the dot nearest the mouse, ringed. Glides on a short ease-out that retargets mid-move. */
@@ -627,6 +623,32 @@
   @media (prefers-reduced-motion: reduce) {
     .wd-ring {
       transition: opacity 80ms ease-out;
+    }
+  }
+
+  /* Forced colors would paint every background with Canvas and erase the dots and the worm.
+     The strip opts out and uses system colors instead, so it follows the user's theme. */
+  @media (forced-colors: active) {
+    .wd-strip {
+      forced-color-adjust: none;
+    }
+
+    .wd-dot::before {
+      background: GrayText;
+    }
+
+    .wd-dot[data-pressed]::before,
+    .wd-worm {
+      background: CanvasText;
+    }
+
+    .wd-ring {
+      background: transparent;
+      box-shadow: inset 0 0 0 1px CanvasText;
+    }
+
+    .wd-strip:has(.wd-dot:focus-visible) .wd-worm {
+      outline-color: Highlight;
     }
   }
 </style>
