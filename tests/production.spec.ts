@@ -154,7 +154,7 @@ test('Markdown content negotiation and complete Tailwind exports', () => {
 
 test('content routes expose valid social images', async ({ page, request }) => {
   const covers: Record<string, string> = { '/': '/social-preview.png' };
-  for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator']) covers[`/${id}/`] = `/social/${id}.png`;
+  for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator', 'worm-dots']) covers[`/${id}/`] = `/social/${id}.png`;
   for (const [path, cover] of Object.entries(covers)) {
     await page.goto(path);
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://microinteractions.dev${cover}`);
@@ -187,7 +187,7 @@ test('RSS feed lists every study and is discoverable', async ({ page, request })
   expect(feed.status()).toBe(200);
   expect(feed.headers()['content-type']).toContain('application/rss+xml');
   const body = await feed.text();
-  expect(body.match(/<item>/g)).toHaveLength(9);
+  expect(body.match(/<item>/g)).toHaveLength(10);
   expect(body).toContain('<link>https://microinteractions.dev/resize-handle/</link>');
   await page.goto('/text-swap/');
   await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/rss.xml');

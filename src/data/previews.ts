@@ -7,6 +7,7 @@ import GooeyRadioGroup from '../components/GooeyRadioGroup.astro';
 import DragSelectTable from '../components/DragSelectTable.astro';
 import ResizableSidebar from '../components/ResizableSidebar.astro';
 import TabIndicator from '../components/TabIndicator.astro';
+import WormDots from '../components/WormDots.astro';
 import textSwapSource from '../components/TextSwapButton.astro?raw';
 import textSwapTailwindSource from '../components/tailwind/TextSwapButton.astro?raw';
 import chevronMorphSource from '../components/ChevronMorphButtons.astro?raw';
@@ -25,6 +26,8 @@ import resizeHandleSource from '../components/ResizableSidebar.astro?raw';
 import resizeHandleTailwindSource from '../components/tailwind/ResizableSidebar.astro?raw';
 import tabIndicatorSource from '../components/TabIndicator.astro?raw';
 import tabIndicatorTailwindSource from '../components/tailwind/TabIndicator.astro?raw';
+import wormDotsSource from '../components/WormDots.astro?raw';
+import wormDotsTailwindSource from '../components/tailwind/WormDots.astro?raw';
 import type { SpecimenId } from './specimens';
 import type { ReducedMotion } from './source';
 
@@ -123,6 +126,15 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'TabIndicator.astro',
     includeScript: true,
     inspection: 'timeline',
+    reducedMotion: 'component',
+  },
+  'worm-dots': {
+    component: WormDots,
+    source: wormDotsSource,
+    tailwindSource: wormDotsTailwindSource,
+    filename: 'WormDots.astro',
+    includeScript: true,
+    inspection: 'none',
     reducedMotion: 'component',
   },
 };

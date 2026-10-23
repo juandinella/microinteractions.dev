@@ -790,3 +790,139 @@ test.describe('tab indicator', () => {
     expect(code.css.HTML).not.toContain('data-trace-progress');
   });
 });
+
+test.describe('worm dots', () => {
+  const component = (page: import('@playwright/test').Page) => page.locator('[data-stage] worm-dots');
+  const geometry = (wormDots: import('@playwright/test').Locator) => wormDots.evaluate((el) => {
+    const center = (dot: Element) => {
+      const box = dot.getBoundingClientRect();
+      return box.left + box.width / 2;
+    };
+    const worm = el.querySelector('[data-worm]')!.getBoundingClientRect();
+    const dots = [...el.querySelectorAll('[data-dot]')].map(center);
+    return { left: worm.left, right: worm.right, dots };
+  });
+
+  test('the worm is drawn from the scroll position and stays stretched mid-swipe', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    await wormDots.locator('[data-track]').evaluate(async (track: HTMLElement) => {
+      const slides = track.querySelectorAll<HTMLElement>('[data-slide]');
+      track.style.scrollSnapType = 'none';
+      track.scrollLeft = (slides[1].offsetLeft - slides[0].offsetLeft) * 2.5;
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+    const { left, right, dots } = await geometry(wormDots);
+    // Halfway between slides 3 and 4, it reaches from 6px before dot 3 to 6px past dot 4.
+    expect(Math.abs(left - (dots[2] - 6))).toBeLessThan(0.5);
+    expect(Math.abs(right - (dots[3] + 6))).toBeLessThan(0.5);
+    await expect(wormDots.getByRole('button', { name: 'Slide 4 of 6' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  test('dragging along the dots scrubs and snaps to the nearest dot', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    const first = await wormDots.getByRole('button', { name: 'Slide 1 of 6' }).boundingBox();
+    const fifth = await wormDots.getByRole('button', { name: 'Slide 5 of 6' }).boundingBox();
+    const y = first!.y + first!.height / 2;
+    await page.mouse.move(first!.x + first!.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(fifth!.x + fifth!.width / 2 + 4, y, { steps: 8 });
+    await page.mouse.up();
+    const current = wormDots.getByRole('button', { name: 'Slide 5 of 6' });
+    await expect(current).toHaveAttribute('aria-current', 'true');
+    await expect(wormDots.locator('[data-counter]')).toHaveText('5 / 6');
+    await expect.poll(async () => {
+      const { left, right, dots } = await geometry(wormDots);
+      return Math.abs((left + right) / 2 - dots[4]);
+    }).toBeLessThan(0.5);
+    await expect(wormDots.locator('[data-track]')).toHaveCSS('scroll-snap-type', 'x mandatory');
+  });
+
+  test('one tab stop moves with the arrow keys, Home, and End', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    const dot = (n: number) => wormDots.getByRole('button', { name: `Slide ${n} of 6` });
+    await expect(wormDots.locator('[data-dot][tabindex="0"]')).toHaveCount(1);
+    await dot(1).focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(dot(1)).toHaveAttribute('aria-current', 'true');
+    await page.keyboard.press('ArrowRight');
+    await expect(dot(2)).toBeFocused();
+    await expect(dot(2)).toHaveAttribute('aria-current', 'true');
+    await page.keyboard.press('End');
+    await expect(dot(6)).toBeFocused();
+    await expect(wormDots.locator('[data-counter]')).toHaveText('6 / 6');
+    await page.keyboard.press('Home');
+    await expect(dot(1)).toHaveAttribute('aria-current', 'true');
+    await expect(wormDots.locator('[data-dot][tabindex="0"]')).toHaveCount(1);
+  });
+
+  test('a settled swipe is announced, a keyboard move is not repeated', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    const status = wormDots.locator('[data-status]');
+    await wormDots.locator('[data-track]').evaluate((track: HTMLElement) => {
+      const slides = track.querySelectorAll<HTMLElement>('[data-slide]');
+      track.scrollTo({ left: (slides[1].offsetLeft - slides[0].offsetLeft) * 2, behavior: 'instant' });
+    });
+    await expect(status).toHaveText('Slide 3 of 6');
+    await wormDots.getByRole('button', { name: 'Slide 3 of 6' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(wormDots.getByRole('button', { name: 'Slide 4 of 6' })).toBeFocused();
+    await page.waitForTimeout(400);
+    await expect(status).toHaveText('Slide 3 of 6');
+  });
+
+  test('removed mid-scrub, it reconnects clean, and a hidden one draws no NaN', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    const first = await wormDots.getByRole('button', { name: 'Slide 1 of 6' }).boundingBox();
+    const y = first!.y + first!.height / 2;
+    await page.mouse.move(first!.x + first!.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(first!.x + 60, y, { steps: 4 });
+    await expect(wormDots).toHaveAttribute('data-scrubbing', '');
+    const state = await wormDots.evaluate((el) => {
+      const parent = el.parentElement!;
+      const hidden = document.createElement('div');
+      hidden.style.display = 'none';
+      document.body.append(hidden);
+      hidden.append(el);
+      const worm = el.querySelector<HTMLElement>('[data-worm]')!;
+      const whileHidden = worm.style.transform + ' ' + worm.style.width;
+      parent.append(el);
+      hidden.remove();
+      return {
+        whileHidden,
+        snap: el.querySelector<HTMLElement>('[data-track]')!.style.scrollSnapType,
+        scrubbing: el.hasAttribute('data-scrubbing'),
+        pressed: el.querySelectorAll('[data-pressed]').length,
+      };
+    });
+    await page.mouse.up();
+    expect(state.whileHidden).not.toContain('NaN');
+    expect(state).toMatchObject({ snap: '', scrubbing: false, pressed: 0 });
+  });
+
+  test('both versions share a valid script and its hooks', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const code: Record<string, Record<string, string>> = {};
+    for (const format of ['css', 'tailwind']) {
+      await page.locator(`[data-source-format][value="${format}"]`).check();
+      const variant = page.locator(`[data-source-variant="${format}"]`);
+      code[format] = {};
+      for (const language of ['HTML', 'CSS', 'JavaScript']) {
+        await variant.getByRole('tab', { name: language, exact: true }).click();
+        code[format][language] = (await variant.getByRole('tabpanel', { name: language, exact: true }).locator('code').textContent())!;
+      }
+      expect(code[format].CSS, format).not.toMatch(/data-(?:inspect|touch-active)/);
+    }
+    expect(() => new Function(code.css.JavaScript)).not.toThrow();
+    expect(code.tailwind.JavaScript).toBe(code.css.JavaScript);
+    for (const hook of ['data-track', 'data-slide', 'data-strip', 'data-ring', 'data-worm', 'data-dot', 'data-counter', 'data-status', 'group-data-scrubbing/wd', 'data-pressed:', 'data-visible:']) {
+      expect(code.tailwind.HTML).toContain(hook);
+    }
+    for (const size of ['--wd-dot', '--wd-pill', '--wd-gap', '--wd-ring']) expect(code.tailwind.CSS).toContain(`@property ${size}`);
+  });
+});

@@ -1,0 +1,632 @@
+<worm-dots class="wd" role="region" aria-roledescription="carousel" aria-label="Slides">
+  <div class="wd-track" tabindex="-1" data-track>
+    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="1 of 6" data-slide>01</div>
+    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="2 of 6" data-slide>02</div>
+    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="3 of 6" data-slide>03</div>
+    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="4 of 6" data-slide>04</div>
+    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="5 of 6" data-slide>05</div>
+    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="6 of 6" data-slide>06</div>
+  </div>
+  <div class="wd-pager">
+    <div class="wd-strip" role="group" aria-label="Choose slide" data-strip>
+      <span class="wd-ring" aria-hidden="true" data-ring></span>
+      <span class="wd-worm" aria-hidden="true" data-worm></span>
+      <button class="wd-dot" type="button" aria-label="Slide 1 of 6" aria-current="true" data-dot></button>
+      <button class="wd-dot" type="button" aria-label="Slide 2 of 6" tabindex="-1" data-dot></button>
+      <button class="wd-dot" type="button" aria-label="Slide 3 of 6" tabindex="-1" data-dot></button>
+      <button class="wd-dot" type="button" aria-label="Slide 4 of 6" tabindex="-1" data-dot></button>
+      <button class="wd-dot" type="button" aria-label="Slide 5 of 6" tabindex="-1" data-dot></button>
+      <button class="wd-dot" type="button" aria-label="Slide 6 of 6" tabindex="-1" data-dot></button>
+    </div>
+    <p class="wd-counter" aria-hidden="true" data-counter>1 / 6</p>
+  </div>
+  <p class="wd-vh" aria-live="polite" data-status></p>
+</worm-dots>
+
+<script>
+  // Where the trailing edge starts moving, as a fraction of a swipe. The leading edge reaches the next dot by then,
+  // and each edge's move lasts the rest: halfway through, the worm spans both dots.
+  const TRAIL_START = 0.5;
+  // A press that moves less than this is a tap.
+  const SLOP = 4;
+  // Release snap, and a tap's travel plus a little per extra dot crossed, so a long jump crawls instead of smearing.
+  const SNAP = 180;
+  const TRAVEL = 280;
+  const PER_DOT = 40;
+  // While scrubbing, the scroll closes in on the pointer with this time constant instead of jumping to it.
+  const CATCH_UP = 60;
+  // The slide is announced once the scroll has been still this long, never mid-swipe.
+  const ANNOUNCE_AFTER = 250;
+
+  // cubic-bezier(0.23, 1, 0.32, 1), solved for x.
+  const easeOut = (t: number) => {
+    const at = (a: number, b: number, s: number) => 3 * a * s * (1 - s) ** 2 + 3 * b * s * s * (1 - s) + s ** 3;
+    let lo = 0;
+    let hi = 1;
+    let s = t;
+    for (let i = 0; i < 20; i++) {
+      const x = at(0.23, 0.32, s);
+      if (Math.abs(x - t) < 1e-5) break;
+      if (x < t) lo = s;
+      else hi = s;
+      s = (lo + hi) / 2;
+    }
+    return at(1, 1, s);
+  };
+
+  const clamp = (value: number, min = 0, max = 1) => Math.min(Math.max(value, min), max);
+  const smoothstep = (t: number) => t * t * (3 - 2 * t);
+
+  // Left to right only: in dir="rtl", scrollLeft runs negative and the mapping would need mirroring.
+  class WormDots extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const track = this.querySelector<HTMLElement>('[data-track]');
+      const strip = this.querySelector<HTMLElement>('[data-strip]');
+      const worm = this.querySelector<HTMLElement>('[data-worm]');
+      const halo = this.querySelector<HTMLElement>('[data-ring]');
+      const counter = this.querySelector<HTMLElement>('[data-counter]');
+      const status = this.querySelector<HTMLElement>('[data-status]');
+      const slides = [...this.querySelectorAll<HTMLElement>('[data-slide]')];
+      const dots = [...this.querySelectorAll<HTMLButtonElement>('[data-dot]')];
+
+      if (!track || !strip || !worm || !halo || slides.length < 2 || slides.length !== dots.length) {
+        throw new Error('WormDots: needs a track, a strip, a worm, a ring, and one dot per slide.');
+      }
+
+      const count = slides.length;
+      const last = count - 1;
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+      const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+
+      // Sizes come from the CSS. The custom properties are registered as <length>, so they compute to px
+      // whatever unit they're written in. The distance between slides is cached here and refreshed on resize,
+      // so no frame reads layout between its scrollLeft writes.
+      let size = { dot: 0, pill: 0, gap: 0, ring: 0, step: 0 };
+      const measure = () => {
+        const style = getComputedStyle(this);
+        const read = (name: string) => parseFloat(style.getPropertyValue(name)) || 0;
+        size = {
+          dot: read('--wd-dot'),
+          pill: read('--wd-pill'),
+          gap: read('--wd-gap'),
+          ring: read('--wd-ring'),
+          step: slides[1].offsetLeft - slides[0].offsetLeft,
+        };
+      };
+
+      // One value drives everything: the track's scroll position, in slides. A hidden component has no step yet.
+      const position = () => (size.step > 0 ? clamp(track.scrollLeft / size.step, 0, last) : 0);
+
+      let current = -1;
+      // The position last drawn, so a resize can restore it, fraction included.
+      let drawn = 0;
+      let frame = 0;
+      let driving = false;
+      let pointer: number | undefined;
+
+      // Hover: one ring behind the dots marks the dot nearest the mouse, the same one a click there picks,
+      // and glides between dots instead of blinking. During a scrub it keeps following, showing where a release snaps.
+      let hovered = -1;
+
+      const placeRing = (index: number, instant: boolean) => {
+        hovered = index;
+        const pad = size.ring - size.dot;
+        const width = index === current ? Math.max(size.ring, size.pill + pad) : size.ring;
+        if (instant) halo.style.transition = 'none';
+        halo.style.transform = `translateX(${index * size.gap + size.gap / 2 - width / 2}px)`;
+        halo.style.width = `${width}px`;
+        if (instant) {
+          void halo.offsetWidth;
+          halo.style.transition = '';
+        }
+      };
+
+      const hideRing = () => {
+        hovered = -1;
+        halo.removeAttribute('data-visible');
+      };
+
+      // Screen readers hear the slide once the scroll settles. Focus already announces keyboard and tap changes,
+      // so those mark the slide as spoken before they move.
+      let spoken = 0;
+      let quiet = 0;
+      const announceLater = () => {
+        clearTimeout(quiet);
+        quiet = window.setTimeout(() => {
+          if (pointer !== undefined || current === spoken || !status) return;
+          spoken = current;
+          status.textContent = `Slide ${current + 1} of ${count}`;
+        }, ANNOUNCE_AFTER);
+      };
+
+      // The worm is a function of the scroll position and nothing else, so it never runs on its own clock:
+      // let go of a swipe halfway and it stays stretched halfway. Scrolling back, the other edge leads by the same rule.
+      const render = () => {
+        const p = position();
+        drawn = p;
+        const i = Math.min(Math.floor(p), last);
+        const f = p - i;
+        const span = 1 - TRAIL_START;
+        const lead = smoothstep(clamp(f / span));
+        const trail = smoothstep(clamp((f - TRAIL_START) / span));
+        const left = i * size.gap + size.gap / 2 - size.pill / 2 + size.gap * trail;
+        const right = i * size.gap + size.gap / 2 + size.pill / 2 + size.gap * lead;
+        // A box with the dots' radius rather than a clip-path, so both snap to the same pixels on a half-pixel row.
+        worm.style.transform = `translateX(${left}px)`;
+        worm.style.width = `${right - left}px`;
+
+        const nearest = Math.round(p);
+        if (nearest === current) return;
+        current = nearest;
+        dots.forEach((dot, index) => {
+          dot.tabIndex = index === nearest ? 0 : -1;
+          if (index === nearest) dot.setAttribute('aria-current', 'true');
+          else dot.removeAttribute('aria-current');
+        });
+        if (counter) counter.textContent = `${nearest + 1} / ${count}`;
+        if (hovered >= 0) placeRing(hovered, false);
+      };
+
+      track.addEventListener(
+        'scroll',
+        () => {
+          render();
+          announceLater();
+        },
+        { passive: true, signal },
+      );
+
+      // While the strip drives the scroll, snapping is off, or the browser would pull it back to a slide.
+      const takeOver = () => {
+        cancelAnimationFrame(frame);
+        driving = true;
+        track.style.scrollSnapType = 'none';
+      };
+
+      const release = () => {
+        cancelAnimationFrame(frame);
+        driving = false;
+        track.style.scrollSnapType = '';
+      };
+
+      const jump = (index: number) => {
+        takeOver();
+        track.scrollLeft = index * size.step;
+        release();
+      };
+
+      const travel = (index: number, duration: number) => {
+        const from = position();
+        if (reduceMotion.matches || Math.abs(index - from) < 0.001) return jump(index);
+        takeOver();
+        const start = performance.now();
+        const tick = (now: number) => {
+          const t = clamp((now - start) / duration);
+          track.scrollLeft = (from + (index - from) * easeOut(t)) * size.step;
+          if (t < 1) frame = requestAnimationFrame(tick);
+          else release();
+        };
+        frame = requestAnimationFrame(tick);
+      };
+
+      // A mouse press focuses the dot under it; focus moves to the dot the strip settles on, so it matches the tab stop.
+      const settle = (index: number, duration: number) => {
+        if (strip.contains(document.activeElement)) {
+          spoken = index;
+          dots[index].focus({ preventScroll: true });
+        }
+        travel(index, duration);
+      };
+
+      // Touching the track hands the scroll back to the browser mid-travel.
+      const yieldToTrack = () => driving && pointer === undefined && release();
+      track.addEventListener('pointerdown', yieldToTrack, { signal });
+      track.addEventListener('wheel', yieldToTrack, { passive: true, signal });
+
+      // Measured from the first dot, so the strip's padding extends the hit area past both ends without shifting the mapping.
+      const toPosition = (clientX: number) =>
+        clamp((clientX - dots[0].getBoundingClientRect().left - size.gap / 2) / size.gap, 0, last);
+
+      // Scrub: press anywhere on the strip. A press that doesn't move is a tap and travels to the nearest dot;
+      // once it moves past the slop, the scroll follows the pointer in fractions and snaps on release.
+      let downX = 0;
+      let goal = 0;
+      let scrubbing = false;
+      let pressed: HTMLElement | undefined;
+
+      const unpress = () => {
+        pressed?.removeAttribute('data-pressed');
+        pressed = undefined;
+      };
+
+      const follow = () => {
+        let then = performance.now();
+        const tick = (now: number) => {
+          // Input is aligned to frames, so the frame's timestamp can precede the press that started the scrub.
+          const elapsed = Math.max(now - then, 0);
+          then = now;
+          const p = position();
+          const blend = reduceMotion.matches ? 1 : 1 - Math.exp(-elapsed / CATCH_UP);
+          track.scrollLeft = (p + (goal - p) * blend) * size.step;
+          frame = requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
+      };
+
+      strip.addEventListener(
+        'pointerdown',
+        (event) => {
+          // A second finger would make the scrub jump between them.
+          if (pointer !== undefined || event.button !== 0) return;
+          pointer = event.pointerId;
+          downX = event.clientX;
+          pressed = (event.target as HTMLElement).closest<HTMLElement>('[data-dot]') ?? undefined;
+          pressed?.setAttribute('data-pressed', '');
+          strip.setPointerCapture(event.pointerId);
+        },
+        { signal },
+      );
+
+      strip.addEventListener(
+        'pointermove',
+        (event) => {
+          if (event.pointerId !== pointer) return;
+          if (!scrubbing) {
+            if (Math.abs(event.clientX - downX) < SLOP) return;
+            scrubbing = true;
+            unpress();
+            takeOver();
+            this.toggleAttribute('data-scrubbing', true);
+            follow();
+          }
+          goal = toPosition(event.clientX);
+        },
+        { signal },
+      );
+
+      // A release commits: a tap travels to its dot, a scrub snaps to where the pointer let go.
+      // A cancel, such as the page taking over a vertical swipe, commits nothing and settles where the scroll is.
+      const end = (event: PointerEvent) => {
+        if (event.pointerId !== pointer) return;
+        const committed = event.type === 'pointerup';
+        pointer = undefined;
+        unpress();
+        this.removeAttribute('data-scrubbing');
+        if (hovered >= 0 && !strip.matches(':hover')) hideRing();
+        const wasScrubbing = scrubbing;
+        scrubbing = false;
+        cancelAnimationFrame(frame);
+        if (!committed) {
+          if (wasScrubbing) travel(Math.round(position()), SNAP);
+          return;
+        }
+        if (!wasScrubbing) {
+          const index = Math.round(toPosition(event.clientX));
+          settle(index, TRAVEL + PER_DOT * Math.max(Math.abs(index - position()) - 1, 0));
+          return;
+        }
+        // From where the pointer let go, not where the catch-up has reached: a quick scrub can end before it arrives.
+        settle(Math.round(goal), SNAP);
+      };
+
+      strip.addEventListener('pointerup', end, { signal });
+      strip.addEventListener('pointercancel', end, { signal });
+      strip.addEventListener('lostpointercapture', end, { signal });
+
+      // Keyboard: Enter or Space on a dot goes there, arrows, Home, and End move one tab stop. None of it animates.
+      strip.addEventListener(
+        'click',
+        (event) => {
+          const dot = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-dot]');
+          if (!dot || event.detail !== 0) return;
+          spoken = dots.indexOf(dot);
+          jump(spoken);
+        },
+        { signal },
+      );
+
+      strip.addEventListener(
+        'keydown',
+        (event) => {
+          let next: number | undefined;
+          if (event.key === 'ArrowRight') next = Math.min(current + 1, last);
+          else if (event.key === 'ArrowLeft') next = Math.max(current - 1, 0);
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = last;
+          if (next === undefined) return;
+          event.preventDefault();
+          spoken = next;
+          jump(next);
+          render();
+          dots[next].focus({ preventScroll: true });
+        },
+        { signal },
+      );
+
+      // Each visit fades in at the nearest dot rather than sliding over from where the last one ended.
+      strip.addEventListener(
+        'pointerenter',
+        (event) => {
+          if (event.pointerType !== 'mouse' || !finePointer.matches) return;
+          placeRing(Math.round(toPosition(event.clientX)), true);
+          halo.setAttribute('data-visible', '');
+        },
+        { signal },
+      );
+
+      strip.addEventListener(
+        'pointermove',
+        (event) => {
+          if (hovered < 0 || event.pointerType !== 'mouse') return;
+          const index = Math.round(toPosition(event.clientX));
+          if (index !== hovered) placeRing(index, false);
+        },
+        { signal },
+      );
+
+      strip.addEventListener('pointerleave', () => pointer === undefined && hideRing(), { signal });
+
+      // Container changes resize the slides: keep the same position, fraction included, and redraw.
+      const observer = new ResizeObserver(() => {
+        measure();
+        if (!driving) track.scrollLeft = drawn * size.step;
+        render();
+      });
+      observer.observe(track);
+
+      // Removed mid-interaction, nothing should be left half done for the next connection.
+      signal.addEventListener('abort', () => {
+        observer.disconnect();
+        cancelAnimationFrame(frame);
+        clearTimeout(quiet);
+        track.style.scrollSnapType = '';
+        unpress();
+        hideRing();
+        this.removeAttribute('data-scrubbing');
+      });
+
+      measure();
+      render();
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('worm-dots')) customElements.define('worm-dots', WormDots);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
+</script>
+
+<style>
+  /* Registered, so the script reads them in px whatever unit they're written in. */
+  @property --wd-dot {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 6px;
+  }
+
+  @property --wd-pill {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 12px;
+  }
+
+  @property --wd-gap {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 24px;
+  }
+
+  @property --wd-ring {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 16px;
+  }
+
+  .wd {
+    --wd-color: var(--wd-fg, var(--text));
+    --wd-dot: 6px;
+    --wd-pill: 12px;
+    /* Each dot's button is this wide: 24px meets the minimum target size, and the strip is 40px tall. */
+    --wd-gap: 24px;
+    --wd-hit: 40px;
+    --wd-reach: 12px;
+    --wd-ring: 16px;
+
+    display: grid;
+    width: min(100%, 360px);
+    gap: 6px;
+    container-type: inline-size;
+  }
+
+  /* Container units resolve where they're used, against the component's width, so both children declare them. */
+  .wd-track,
+  .wd-pager {
+    --wd-peek: clamp(16px, 8cqi, 36px);
+    --wd-slide: min(100cqi - 2 * var(--wd-peek), 280px);
+  }
+
+  /* Wider than a slide, so neighbors peek in and the edges fade instead of cutting the corners mid-swipe. */
+  .wd-track {
+    display: flex;
+    gap: 12px;
+    padding-inline: calc((100cqi - var(--wd-slide)) / 2);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--wd-peek),
+      #000 calc(100% - var(--wd-peek)),
+      transparent
+    );
+  }
+
+  .wd-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Placeholder slides: quiet on purpose, so the dots carry the demo. */
+  .wd-slide {
+    flex: 0 0 var(--wd-slide);
+    height: 140px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--quiet);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
+
+  /* As wide as a slide, so the counter lines up with its edge. */
+  .wd-pager {
+    display: grid;
+    justify-self: center;
+    width: var(--wd-slide);
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+
+  /* The whole strip is the hit area: each dot's button fills its slot, and the padding reaches past both ends. */
+  .wd-strip {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    grid-column: 2;
+    padding-inline: var(--wd-reach);
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wd[data-scrubbing] .wd-strip {
+    cursor: grabbing;
+  }
+
+  @media (pointer: coarse) {
+    .wd-strip {
+      --wd-hit: 44px;
+    }
+  }
+
+  .wd-dot {
+    position: relative;
+    width: var(--wd-gap);
+    height: var(--wd-hit);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: inherit;
+  }
+
+  .wd-dot::before {
+    position: absolute;
+    top: calc(50% - var(--wd-dot) / 2);
+    left: calc(50% - var(--wd-dot) / 2);
+    width: var(--wd-dot);
+    height: var(--wd-dot);
+    border-radius: 999px;
+    background: var(--quiet);
+    content: '';
+    transition: background-color 150ms ease-out;
+  }
+
+  .wd-dot[data-pressed]::before {
+    background: var(--muted);
+  }
+
+  .wd-dot:focus-visible {
+    outline: none;
+  }
+
+  /* The focused dot is the current one, so the ring wraps the worm rather than the dot. */
+  .wd-dot:focus-visible::after {
+    position: absolute;
+    top: calc(50% - var(--wd-dot) / 2 - 4px);
+    left: calc(50% - var(--wd-pill) / 2 - 4px);
+    width: calc(var(--wd-pill) + 8px);
+    height: calc(var(--wd-dot) + 8px);
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px var(--focus-ring, var(--wd-color));
+    content: '';
+  }
+
+  /* Placed and sized from the scroll position on every frame, so it never transitions.
+     Same box, radius, and vertical placement as the dots, so both snap to the same pixels. */
+  .wd-worm {
+    position: absolute;
+    top: calc(50% - var(--wd-dot) / 2);
+    left: var(--wd-reach);
+    z-index: 1;
+    width: var(--wd-pill);
+    height: var(--wd-dot);
+    border-radius: 999px;
+    background: var(--wd-color);
+    pointer-events: none;
+    transform: translateX(calc(var(--wd-gap) / 2 - var(--wd-pill) / 2));
+  }
+
+  /* Behind the dots: the dot nearest the mouse, ringed. Glides on a short ease-out that retargets mid-move. */
+  .wd-ring {
+    position: absolute;
+    top: calc(50% - var(--wd-ring) / 2);
+    left: var(--wd-reach);
+    width: var(--wd-ring);
+    height: var(--wd-ring);
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--wd-color) 8%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 80ms ease-out,
+      width 80ms ease-out,
+      opacity 80ms ease-out;
+  }
+
+  .wd-ring[data-visible] {
+    opacity: 1;
+  }
+
+  .wd-vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .wd-counter {
+    justify-self: end;
+    margin: 0;
+    color: var(--quiet);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wd-ring {
+      transition: opacity 80ms ease-out;
+    }
+  }
+</style>

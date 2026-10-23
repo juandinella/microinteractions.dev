@@ -12,7 +12,8 @@ export type SpecimenId =
   | 'gooey-radio-group'
   | 'drag-select'
   | 'resize-handle'
-  | 'tab-indicator';
+  | 'tab-indicator'
+  | 'worm-dots';
 
 export const categories = [
   'Actions',
@@ -348,5 +349,36 @@ export const specimens: Specimen[] = [
     props: ['transform'],
     positioningNote:
       'The line is 1px wide. translateX moves it to the tab’s measured position and scaleX stretches it to the tab’s width, so every move is a single transform.',
+  },
+  {
+    id: 'worm-dots',
+    published: '2026-10-23',
+    title: 'Worm dots',
+    category: 'Navigation',
+    summary: 'Drag along the dots to scrub the slides, with a worm that follows the scroll.',
+    seoTitle: 'Draggable carousel dots with a worm indicator',
+    seoDescription:
+      'Carousel dots you can drag to scrub through the slides, with a worm indicator that stretches between dots in step with the scroll. Includes keyboard, touch, and reduced-motion support.',
+    trigger: 'drag',
+    triggerLabel: 'Drag, swipe, tap, arrow keys',
+    hint: 'Drag along the dots',
+    touchHint: 'Drag along the dots or swipe the slides',
+    duration: 440,
+    minDuration: 80,
+    durationNote:
+      'The worm has no duration of its own: it follows the scroll. A release snaps to the nearest dot in 180ms, a tap travels in 280ms plus 40ms for each extra dot it crosses, and the hover ring glides in 80ms. The arrow keys jump without animating.',
+    easing: [0.23, 1, 0.32, 1],
+    easingName: 'ease-out-quint',
+    easingNote:
+      'Starts at speed, so a release or a tap moves at once, then slows into the slide.',
+    props: ['transform', 'width'],
+    positioningNote:
+      'The worm is a box with the dots’ radius. translateX moves its trailing edge and width sets its length, both computed from the scroll position on every frame.',
+    detail: {
+      label: 'Indicator',
+      value: 'Follows the scroll',
+      why: 'follow the scroll',
+      note: 'Halfway through a swipe the worm spans both dots; let go there and it stays there. Its leading edge reaches the next dot first, then the trailing edge follows.',
+    },
   },
 ];

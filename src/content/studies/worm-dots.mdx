@@ -1,0 +1,69 @@
+---
+observe: Drag along the dots and let go between two. The worm stays stretched where you left it.
+references:
+  - title: CarouselDots
+    author: Fluid Functionalism
+    url: https://www.fluidfunctionalism.com/docs/carousel-dots
+  - title: Carousel with markers
+    author: Bramus
+    url: https://scroll-driven-animations.style/demos/carousel-with-markers/css/view-timeline
+  - title: Carousel Pattern
+    author: WAI-ARIA Authoring Practices Guide
+    url: https://www.w3.org/WAI/ARIA/apg/patterns/carousel/
+prompt:
+  task: "Build carousel dots you can drag to scrub through the slides, with a worm indicator that stretches between dots in step with the scroll."
+  behavior:
+    - "Make the slides a horizontal scroll container with `scroll-snap-type: x mandatory`, each slide `scroll-snap-align: center` and `scroll-snap-stop: always`. Let it be wider than a slide, with `padding-inline` that centers the first and last slide, so the neighbors peek in. Fade both edges with a `mask-image` gradient instead of rounding and clipping the container, which would cut the slides' corners mid-swipe. Give the scroller `tabindex=\"-1\"` to take it out of the Tab order, since the dots are the keyboard control."
+    - "Treat the scroll position, in slides, as the only state: `scrollLeft` divided by the distance between the first two slides' `offsetLeft`. Everything else is drawn from it. Measure that distance once and again from a `ResizeObserver`, so no frame reads layout between its `scrollLeft` writes, and return 0 while it is 0, as in a hidden container. Build it left to right: in `dir=\"rtl\"`, `scrollLeft` runs negative."
+    - "Draw the worm as one absolutely positioned element over the dots, with `pointer-events: none` and `aria-hidden=\"true\"`, and the dots' height, radius, and `top`. A `clip-path` would rasterize off the pixel grid the dots snap to, so on a half-pixel row the dot underneath would peek out. On every `scroll` event, compute its edges from the position: take the slide index `i` and fraction `f`; the leading edge moves `smoothstep(clamp(f / 0.5))` of the dot spacing and the trailing edge `smoothstep(clamp((f - 0.5) / 0.5))`. At rest it is 12px long; halfway it spans both dots, 36px. Write the trailing edge as `translateX()` and the length as `width`. Use the position only, never the direction, so scrolling back the other edge leads by the same rule."
+    - "Give the worm no transition and no clock of its own. Swiping the slides moves it; letting go halfway leaves it halfway."
+    - "Make the dot strip a row of `<button type=\"button\">`, one per slide, 24px wide, the minimum target size, and 40px tall, with the dot drawn by a `::before`. Pad the strip 12px on both sides so the ends are easy to hit, and map pointer x to a position from the first dot's box, so the padding doesn't shift it. Register the size custom properties with `@property` as `<length>`, so `getComputedStyle` returns them in px whatever unit they're written in. Set `touch-action: pan-y` on the strip so vertical page scrolling still works."
+    - "On `pointerdown` anywhere on the strip, capture the pointer. If it moves less than 4px before `pointerup`, it's a tap: travel to the nearest dot. Past 4px, it's a scrub: turn snapping off, and on each frame move `scrollLeft` toward the pointer's position with an exponential catch-up (60ms time constant), so a press far from the worm glides there. Clamp the elapsed time at 0: input is aligned to frames, so the frame's timestamp can precede the press. On release, snap to the dot nearest where the pointer let go, not where the catch-up has reached, and turn snapping back on. On `pointercancel`, such as the page taking over a vertical swipe, commit nothing: settle on the dot nearest where the scroll is. Ignore a second pointer while one is down."
+    - "Animate a tap or a snap by writing `scrollLeft` from `requestAnimationFrame` on the curve, with snapping off until it ends. A `pointerdown` or `wheel` on the slides cancels it and hands the scroll back to the browser."
+    - "Behind the dots, show one ring on the dot nearest the mouse: 16px, `color-mix()` of the text color at 8%, wider on the current dot to wrap the worm. Pick it with the same mapping as a tap, so what is lit is what a click hits. Move it with a transition on `transform` and `width` so it glides and retargets; fade it in fresh at the nearest dot on each `pointerenter`, and out on `pointerleave`. Keep it following during a scrub, so it shows where a release will snap. Mouse only, under `(hover: hover) and (pointer: fine)`."
+    - "Mark the pressed dot until the press becomes a scrub or ends. After a scrub or a tap, move focus to the dot it settled on if focus was in the strip."
+    - "Use a custom element: add every listener with the `signal` of an `AbortController` created in `connectedCallback()`, and abort it in `disconnectedCallback()`. On abort, disconnect the `ResizeObserver`, cancel the frame and the announcement timer, turn snapping back on, and clear the pressed, scrubbing, and hover states, so a removal mid-scrub leaves nothing half done. On resize, read the sizes again, restore the same position, fraction included, and redraw."
+  timing:
+    - "Worm: none of its own; it follows the scroll."
+    - "Release snap: 180ms on `cubic-bezier(0.23, 1, 0.32, 1)`."
+    - "Tap: 280ms plus 40ms for each dot after the first it crosses, 440ms from end to end, on the same curve, so a long jump crawls instead of smearing."
+    - "Hover ring: 80ms `ease-out` on `transform`, `width`, and `opacity`."
+  accessibility:
+    - "Give the component `role=\"region\"`, `aria-roledescription=\"carousel\"`, and a label; each slide `role=\"group\"` with `aria-roledescription=\"slide\"` and \"3 of 6\"; and each dot \"Slide 3 of 6\". The dot nearest the position gets `aria-current=\"true\"`."
+    - "Announce \"Slide 3 of 6\" in a visually hidden `aria-live=\"polite\"` element once the scroll has been still for 250ms, never mid-swipe or mid-scrub. Skip it when focus already says it: after a keyboard move, or a tap that moved focus to its dot."
+    - "Make the strip one Tab stop with a roving tabindex on the current dot. ArrowLeft and ArrowRight move one slide without wrapping, Home and End go to the ends, and Enter or Space on a dot goes there. Keyboard moves jump without animating."
+    - "Show focus as a 2px ring around the worm's resting shape. Show a visible counter such as \"3 / 6\" with `aria-hidden`, since the dots already announce it."
+    - "Make each dot's hit area 24px wide and 40px tall, 44px under `(pointer: coarse)`. A tap anywhere on the strip reaches a dot, so dragging is never required."
+    - "With `prefers-reduced-motion: reduce`, taps and snaps jump, the scrub follows the pointer directly, and the ring only fades. The worm keeps following the scroll."
+  avoid:
+    - "A worm with its own transition or keyframes. It would lag behind the slides and keep moving after the swipe stops."
+    - "Stepping one slide at a time while scrubbing. The worm would turn back into a jump from dot to dot."
+    - "A `clip-path` for the worm over separately drawn dots."
+    - "Autoplay on the dots."
+---
+
+## The scroll is the state
+
+The carousel keeps one value: the track's scroll position, measured in slides. The worm, the current dot, and the counter are derived from it on every scroll event, so the worm has no animation of its own. It follows a swipe as it happens, and if you let go halfway it stays stretched across both dots.
+
+Its two edges move on separate schedules. In the first half of a swipe the leading edge eases over to the next dot, and in the second half the trailing edge catches up. At rest the worm is 12px; halfway it reaches 36px. Both edges use smoothstep, so the worm holds its full length for a beat in the middle. Without that pause it looked like a pill changing size. The rule reads only the position, so on the way back the other edge leads.
+
+## Drag along the dots
+
+The whole strip is a control. Press anywhere on it and move more than 4px, and the scroll follows the pointer. It closes in with an exponential catch-up, so a press far from the worm glides there instead of jumping. On release it snaps to the nearest dot in 180ms. A press that doesn't move is a tap, which travels in 280ms plus 40ms for each extra dot, so a long jump visibly crawls from dot to dot. Scroll snapping stays off while the strip drives the scroll. A cancelled pointer, such as the page taking over a vertical swipe, commits nothing and settles where the scroll already is.
+
+On hover, a ring behind the dots marks the one nearest the mouse, picked with the same mapping as a tap. It glides between dots in 80ms and keeps following during a drag, so it shows where a release will land. The idea comes from Fluid Functionalism's carousel dots.
+
+## Why the worm isn't a clip-path
+
+The first version clipped a bar the width of the strip to the worm's shape. When the row landed on a half pixel, the dots snapped to the pixel grid and the clip-path didn't, so the worm sat a fraction higher and the gray dot underneath peeked out. The worm is now a box like the dots, with the same radius and `top`, moved with `translateX` and sized with `width`.
+
+<Implementation specimen={props.specimenId} />
+
+To recolor it, set `--wd-fg` on the component or any ancestor. The sizes are `--wd-dot`, `--wd-pill`, `--wd-gap`, and `--wd-ring`. They're registered with `@property` as lengths, so the script reads them in pixels whatever unit you write them in.
+
+## Keyboard, touch, and reduced motion
+
+The strip is one Tab stop. The arrow keys, Home, and End move between slides without animating, and focus lands on the new dot, which announces it. A swipe is announced through a polite live region once the scroll has been still for 250ms, never mid-swipe. Each dot's hit area is 24px wide and 40px tall, or 44px on touch, and the strip's padding extends it past both ends. `touch-action: pan-y` leaves vertical page scrolling to the browser.
+
+With reduced motion, taps and snaps jump to the slide and the scrub follows the pointer directly. The ring only fades. The worm still follows the scroll, since that motion comes from your own hand. The current dot is longer than the rest, so the state doesn't depend on color. The component assumes left to right; in `dir="rtl"`, `scrollLeft` runs negative.
