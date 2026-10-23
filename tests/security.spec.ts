@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 declare global {
   interface Window {
     cspViolations: string[];
+    beaconSent: boolean;
   }
 }
 
@@ -79,6 +80,33 @@ test('CSP blocks injected inline scripts and event handlers', async ({ page }) =
   }));
   expect(await violation).toBe('inline');
   expect(await page.evaluate(() => 'injectedScriptRan' in window)).toBe(false);
+});
+
+test('CSP permits Cloudflare Web Analytics, which stays off outside production', async ({ page, context }) => {
+  const contacted: string[] = [];
+  await context.route(/cloudflareinsights\.com/, (route) => {
+    contacted.push(route.request().url());
+    const beacon = route.request().url().endsWith('/beacon.min.js');
+    return route.fulfill(beacon
+      ? { contentType: 'text/javascript', body: "fetch('https://cloudflareinsights.com/cdn-cgi/rum', { method: 'POST', mode: 'no-cors', body: '{}' }).then(() => { window.beaconSent = true; });" }
+      : { status: 204 });
+  });
+  await page.addInitScript(() => {
+    window.cspViolations = [];
+    document.addEventListener('securitypolicyviolation', (event) => window.cspViolations.push(`${event.effectiveDirective}: ${event.blockedURI}`));
+  });
+  await page.goto('/');
+  await expect(page.locator('script[data-cf-beacon]')).toHaveCount(0);
+  expect(contacted).toEqual([]);
+
+  await page.evaluate(() => {
+    const script = document.createElement('script');
+    script.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+    document.body.append(script);
+  });
+  await page.waitForFunction(() => 'beaconSent' in window);
+  expect(contacted).toEqual(['https://static.cloudflareinsights.com/beacon.min.js', 'https://cloudflareinsights.com/cdn-cgi/rum']);
+  expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
 });
 
 test('mobile navigation still opens and Escape returns focus', async ({ page }) => {
