@@ -1,0 +1,59 @@
+<worm-dots class="group/wd @container grid w-[min(100%,360px)] gap-1.5 [--wd-dot:6px] [--wd-gap:24px] [--wd-hit:40px] [--wd-pill:12px] [--wd-reach:12px] [--wd-ring:16px] pointer-coarse:[--wd-hit:44px]" role="region" aria-roledescription="carousel" aria-label="Slides">
+  <div class="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-[calc((100cqi-var(--wd-slide))/2)] [--wd-peek:clamp(16px,8cqi,36px)] [--wd-slide:min(100cqi-2*var(--wd-peek),280px)] scrollbar-none mask-[linear-gradient(to_right,transparent,#000_var(--wd-peek),#000_calc(100%-var(--wd-peek)),transparent)] [&::-webkit-scrollbar]:hidden" tabindex="-1" data-track>
+    <div class="h-35 w-(--wd-slide) flex-none snap-center snap-always rounded-xl border border-wd-line bg-wd-paper px-3.5 py-3 font-mono text-sm text-wd-quiet tabular-nums" role="group" aria-roledescription="slide" aria-label="1 of 6" data-slide>01</div>
+    <div class="h-35 w-(--wd-slide) flex-none snap-center snap-always rounded-xl border border-wd-line bg-wd-paper px-3.5 py-3 font-mono text-sm text-wd-quiet tabular-nums" role="group" aria-roledescription="slide" aria-label="2 of 6" data-slide>02</div>
+    <div class="h-35 w-(--wd-slide) flex-none snap-center snap-always rounded-xl border border-wd-line bg-wd-paper px-3.5 py-3 font-mono text-sm text-wd-quiet tabular-nums" role="group" aria-roledescription="slide" aria-label="3 of 6" data-slide>03</div>
+    <div class="h-35 w-(--wd-slide) flex-none snap-center snap-always rounded-xl border border-wd-line bg-wd-paper px-3.5 py-3 font-mono text-sm text-wd-quiet tabular-nums" role="group" aria-roledescription="slide" aria-label="4 of 6" data-slide>04</div>
+    <div class="h-35 w-(--wd-slide) flex-none snap-center snap-always rounded-xl border border-wd-line bg-wd-paper px-3.5 py-3 font-mono text-sm text-wd-quiet tabular-nums" role="group" aria-roledescription="slide" aria-label="5 of 6" data-slide>05</div>
+    <div class="h-35 w-(--wd-slide) flex-none snap-center snap-always rounded-xl border border-wd-line bg-wd-paper px-3.5 py-3 font-mono text-sm text-wd-quiet tabular-nums" role="group" aria-roledescription="slide" aria-label="6 of 6" data-slide>06</div>
+  </div>
+  <div class="grid w-(--wd-slide) grid-cols-[1fr_auto_1fr] items-center justify-self-center [--wd-peek:clamp(16px,8cqi,36px)] [--wd-slide:min(100cqi-2*var(--wd-peek),280px)]">
+    <div class="group/strip relative isolate col-start-2 flex cursor-pointer touch-pan-y px-(--wd-reach) select-none forced-color-adjust-none [-webkit-tap-highlight-color:transparent] group-data-scrubbing/wd:cursor-grabbing" role="group" aria-label="Choose slide" data-strip>
+      <span class="pointer-events-none absolute top-[calc(50%-var(--wd-ring)/2)] left-(--wd-reach) size-(--wd-ring) rounded-full bg-wd/8 opacity-0 transition-[transform,width,opacity] duration-80 ease-[ease-out] data-visible:opacity-100 motion-reduce:transition-opacity forced-colors:bg-transparent forced-colors:shadow-[inset_0_0_0_1px_CanvasText]" aria-hidden="true" data-ring></span>
+      <span class="pointer-events-none absolute top-[calc(50%-var(--wd-dot)/2)] left-(--wd-reach) z-1 h-(--wd-dot) w-(--wd-pill) transform-[translateX(calc(var(--wd-gap)/2-var(--wd-pill)/2))] rounded-full bg-wd group-has-focus-visible/strip:outline-2 group-has-focus-visible/strip:outline-offset-2 group-has-focus-visible/strip:outline-(--focus-ring,var(--color-wd)) forced-colors:bg-[CanvasText] forced-colors:group-has-focus-visible/strip:outline-[Highlight]" aria-hidden="true" data-worm></span>
+      <button class="relative h-(--wd-hit) w-(--wd-gap) cursor-[inherit] before:absolute before:top-[calc(50%-var(--wd-dot)/2)] before:left-[calc(50%-var(--wd-dot)/2)] before:size-(--wd-dot) before:rounded-full before:bg-wd-quiet before:transition-[background-color] before:duration-150 before:ease-[ease-out] before:content-[''] focus-visible:outline-none data-pressed:before:bg-wd-muted forced-colors:before:bg-[GrayText] forced-colors:data-pressed:before:bg-[CanvasText]" type="button" aria-label="Slide 1 of 6" aria-current="true" data-dot></button>
+      <button class="relative h-(--wd-hit) w-(--wd-gap) cursor-[inherit] before:absolute before:top-[calc(50%-var(--wd-dot)/2)] before:left-[calc(50%-var(--wd-dot)/2)] before:size-(--wd-dot) before:rounded-full before:bg-wd-quiet before:transition-[background-color] before:duration-150 before:ease-[ease-out] before:content-[''] focus-visible:outline-none data-pressed:before:bg-wd-muted forced-colors:before:bg-[GrayText] forced-colors:data-pressed:before:bg-[CanvasText]" type="button" aria-label="Slide 2 of 6" tabindex="-1" data-dot></button>
+      <button class="relative h-(--wd-hit) w-(--wd-gap) cursor-[inherit] before:absolute before:top-[calc(50%-var(--wd-dot)/2)] before:left-[calc(50%-var(--wd-dot)/2)] before:size-(--wd-dot) before:rounded-full before:bg-wd-quiet before:transition-[background-color] before:duration-150 before:ease-[ease-out] before:content-[''] focus-visible:outline-none data-pressed:before:bg-wd-muted forced-colors:before:bg-[GrayText] forced-colors:data-pressed:before:bg-[CanvasText]" type="button" aria-label="Slide 3 of 6" tabindex="-1" data-dot></button>
+      <button class="relative h-(--wd-hit) w-(--wd-gap) cursor-[inherit] before:absolute before:top-[calc(50%-var(--wd-dot)/2)] before:left-[calc(50%-var(--wd-dot)/2)] before:size-(--wd-dot) before:rounded-full before:bg-wd-quiet before:transition-[background-color] before:duration-150 before:ease-[ease-out] before:content-[''] focus-visible:outline-none data-pressed:before:bg-wd-muted forced-colors:before:bg-[GrayText] forced-colors:data-pressed:before:bg-[CanvasText]" type="button" aria-label="Slide 4 of 6" tabindex="-1" data-dot></button>
+      <button class="relative h-(--wd-hit) w-(--wd-gap) cursor-[inherit] before:absolute before:top-[calc(50%-var(--wd-dot)/2)] before:left-[calc(50%-var(--wd-dot)/2)] before:size-(--wd-dot) before:rounded-full before:bg-wd-quiet before:transition-[background-color] before:duration-150 before:ease-[ease-out] before:content-[''] focus-visible:outline-none data-pressed:before:bg-wd-muted forced-colors:before:bg-[GrayText] forced-colors:data-pressed:before:bg-[CanvasText]" type="button" aria-label="Slide 5 of 6" tabindex="-1" data-dot></button>
+      <button class="relative h-(--wd-hit) w-(--wd-gap) cursor-[inherit] before:absolute before:top-[calc(50%-var(--wd-dot)/2)] before:left-[calc(50%-var(--wd-dot)/2)] before:size-(--wd-dot) before:rounded-full before:bg-wd-quiet before:transition-[background-color] before:duration-150 before:ease-[ease-out] before:content-[''] focus-visible:outline-none data-pressed:before:bg-wd-muted forced-colors:before:bg-[GrayText] forced-colors:data-pressed:before:bg-[CanvasText]" type="button" aria-label="Slide 6 of 6" tabindex="-1" data-dot></button>
+    </div>
+    <p class="justify-self-end font-mono text-[11px] whitespace-nowrap text-wd-quiet tabular-nums" aria-hidden="true" data-counter>1 / 6</p>
+  </div>
+  <p class="sr-only" aria-live="polite" data-status></p>
+</worm-dots>
+
+<style is:global>
+  @theme {
+    --color-wd: oklch(0.23 0.012 258.74);
+    --color-wd-muted: oklch(0.44 0.014 258.74);
+    --color-wd-quiet: oklch(0.55 0.012 258.74);
+    --color-wd-line: oklch(0.9 0.003 258.74);
+    --color-wd-paper: oklch(0.995 0.002 258.74);
+  }
+
+  /* Registered, so the script reads them in px whatever unit they're written in. */
+  @property --wd-dot {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 6px;
+  }
+
+  @property --wd-pill {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 12px;
+  }
+
+  @property --wd-gap {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 24px;
+  }
+
+  @property --wd-ring {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 16px;
+  }
+</style>
