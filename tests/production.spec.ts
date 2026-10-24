@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { specimens } from '../src/data/specimens';
 
 test('source formats and languages work without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
@@ -168,6 +170,27 @@ test('content routes expose valid social images', async ({ page, request }) => {
     const png = await response.body();
     expect(png.readUInt32BE(16)).toBe(1200);
     expect(png.readUInt32BE(20)).toBe(630);
+  }
+});
+
+test('studies with a recorded clip expose og:video and the others none', async ({ page, request }) => {
+  for (const { id } of specimens) {
+    await page.goto(`/${id}/`);
+    const video = page.locator('meta[property^="og:video"]');
+    if (!existsSync(`public/og/videos/${id}.mp4`)) {
+      await expect(video).toHaveCount(0);
+      continue;
+    }
+    const url = `https://microinteractions.dev/og/videos/${id}.mp4`;
+    await expect(page.locator('meta[property="og:video"]')).toHaveAttribute('content', url);
+    await expect(page.locator('meta[property="og:video:secure_url"]')).toHaveAttribute('content', url);
+    await expect(page.locator('meta[property="og:video:type"]')).toHaveAttribute('content', 'video/mp4');
+    await expect(page.locator('meta[property="og:video:width"]')).toHaveAttribute('content', '1200');
+    await expect(page.locator('meta[property="og:video:height"]')).toHaveAttribute('content', '630');
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://microinteractions.dev/social/${id}.png`);
+    const response = await request.get(`/og/videos/${id}.mp4`);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('video/mp4');
   }
 });
 
