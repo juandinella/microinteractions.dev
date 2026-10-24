@@ -15,6 +15,8 @@ interface Props {
   published?: string;
   image?: string;
   imageAlt?: string;
+  // A 1200×630 MP4 for og:video. The image stays the fallback, since X and LinkedIn don't play it.
+  video?: string;
   noindex?: boolean;
 }
 
@@ -26,10 +28,12 @@ const {
   published,
   image = '/social-preview.png',
   imageAlt = socialImageAlt(),
+  video,
   noindex = false,
 } = Astro.props;
 const canonical = new URL(`${Astro.url.pathname.replace(/\/$/, '')}/`, Astro.site);
 const socialImage = new URL(image, Astro.site);
+const socialVideo = video && new URL(video, Astro.site);
 ---
 
 <!doctype html>
@@ -54,6 +58,13 @@ const socialImage = new URL(image, Astro.site);
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:alt" content={imageAlt} />
+    {socialVideo && <>
+      <meta property="og:video" content={socialVideo.href} />
+      <meta property="og:video:secure_url" content={socialVideo.href} />
+      <meta property="og:video:type" content="video/mp4" />
+      <meta property="og:video:width" content="1200" />
+      <meta property="og:video:height" content="630" />
+    </>}
     {published && <meta property="article:published_time" content={published} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:creator" content={author.x} />

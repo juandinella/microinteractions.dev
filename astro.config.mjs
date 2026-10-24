@@ -10,7 +10,7 @@ import { securityHeaders } from './src/lib/security-headers.ts';
 import { specimens } from './src/data/specimens.ts';
 
 import cloudflare from '@astrojs/cloudflare';
-import { access, readFile, writeFile } from 'node:fs/promises';
+import { access, readdir, readFile, writeFile } from 'node:fs/promises';
 import { transform } from 'esbuild';
 
 // Optional gitignored Vite plugins for local tooling; forced to dev-only so they never reach a build.
@@ -101,6 +101,16 @@ export default defineConfig({
           source = source.replace(script[0], `<script>\n${code}</script>`);
         }
         return `export default ${JSON.stringify(source)}`;
+      },
+    }, {
+      // The studies with an og:video clip. Prerendering runs in workerd, where pages can't read the file system.
+      name: 'og-videos',
+      resolveId: (id) => (id === 'virtual:og-videos' ? '\0virtual:og-videos' : undefined),
+      async load(id) {
+        if (id !== '\0virtual:og-videos') return;
+        const files = await readdir(new URL('./public/og/videos/', import.meta.url)).catch(() => []);
+        const ids = files.filter((file) => file.endsWith('.mp4')).map((file) => file.slice(0, -4));
+        return `export default ${JSON.stringify(ids)}`;
       },
     }, ...localPlugins.map((plugin) => ({ ...plugin, apply: 'serve' }))]
   },

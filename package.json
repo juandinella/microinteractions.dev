@@ -14,6 +14,7 @@
     "astro": "astro",
     "generate-types": "wrangler types",
     "generate:social": "node scripts/generate-social-image.mjs",
+    "og:videos": "astro build && node scripts/record-og-videos.mjs",
     "indexnow": "node scripts/indexnow.mjs",
     "deploy": "pnpm run build && wrangler deploy"
   },
