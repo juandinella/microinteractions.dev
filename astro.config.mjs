@@ -115,5 +115,7 @@ export default defineConfig({
     }, ...localPlugins.map((plugin) => ({ ...plugin, apply: 'serve' }))]
   },
 
-  adapter: cloudflare()
+  // No page uses astro:assets. The default 'cloudflare-binding' service would still
+  // publish /_image backed by the paid Images binding, open to anonymous requests.
+  adapter: cloudflare({ imageService: 'passthrough' })
 });
