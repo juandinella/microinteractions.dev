@@ -38,13 +38,11 @@
   <span class="hold-hidden" data-hold-instructions></span>
   <span class="hold-hidden" role="status"></span>
   <dialog class="hold-dialog" aria-label="Confirm this action">
-    <form method="dialog">
-      <p>Confirm this action?</p>
-      <div class="hold-dialog-actions">
-        <button value="cancel">Cancel</button>
-        <button value="confirm">Confirm</button>
-      </div>
-    </form>
+    <p>Confirm this action?</p>
+    <div class="hold-dialog-actions">
+      <button type="button" value="cancel">Cancel</button>
+      <button type="button" value="confirm">Confirm</button>
+    </div>
   </dialog>
 </hold-to-confirm>
 
@@ -129,8 +127,9 @@
       button.addEventListener(
         'pointerdown',
         (event) => {
-          // Pointer events still reach a disabled button; only clicks are blocked.
-          if (event.button !== 0 || !event.isPrimary || button.disabled) return;
+          // Pointer events still reach a disabled button; only clicks are blocked. `:disabled`
+          // also covers a disabled fieldset, which the `disabled` property doesn't reflect.
+          if (event.button !== 0 || !event.isPrimary || button.matches(':disabled')) return;
           // Keep Escape available without WebKit's mouse default blurring the button.
           event.preventDefault();
           button.dataset.pointerFocus = '';
@@ -188,7 +187,7 @@
             return;
           }
           if (event.key !== ' ' && event.key !== 'Enter') return;
-          if (event.metaKey || event.ctrlKey || event.altKey || button.disabled) return;
+          if (event.metaKey || event.ctrlKey || event.altKey || button.matches(':disabled')) return;
 
           event.preventDefault();
           if (
@@ -229,6 +228,17 @@
           scrollStyle = { overflow, scrollbarGutter };
           document.documentElement.style.scrollbarGutter = 'stable';
           document.documentElement.style.overflow = 'hidden';
+        },
+        { signal },
+      );
+
+      // The dialog's buttons close it with their value. A <form method="dialog"> would nest inside a
+      // surrounding form, and the parser drops a nested form, turning the buttons into submit buttons.
+      dialog.addEventListener(
+        'click',
+        (event) => {
+          const choice = (event.target as Element).closest<HTMLButtonElement>('button[value]');
+          if (choice) dialog.close(choice.value);
         },
         { signal },
       );

@@ -103,17 +103,15 @@ export function HoldConfirmButton({
         aria-label={dialog.label ?? 'Confirm this action'}
         className="m-auto w-[min(320px,calc(100vw-32px))] rounded-2xl border border-border bg-popover p-5 text-popover-foreground backdrop:bg-black/24"
       >
-        <form method="dialog">
-          <p className="mb-5 text-sm/normal">{dialog.question ?? 'Confirm this action?'}</p>
-          <div className="flex justify-end gap-2 *:min-h-11 *:cursor-pointer *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-ring">
-            <button value="cancel" className="pointer-fine:hover:bg-accent">
-              {dialog.cancel ?? 'Cancel'}
-            </button>
-            <button value="confirm" className="bg-primary text-primary-foreground">
-              {dialog.confirm ?? 'Confirm'}
-            </button>
-          </div>
-        </form>
+        <p className="mb-5 text-sm/normal">{dialog.question ?? 'Confirm this action?'}</p>
+        <div className="flex justify-end gap-2 *:min-h-11 *:cursor-pointer *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-ring">
+          <button type="button" value="cancel" className="pointer-fine:hover:bg-accent">
+            {dialog.cancel ?? 'Cancel'}
+          </button>
+          <button type="button" value="confirm" className="bg-primary text-primary-foreground">
+            {dialog.confirm ?? 'Confirm'}
+          </button>
+        </div>
       </dialog>
     </hold-to-confirm>
   );

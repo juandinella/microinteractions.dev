@@ -106,22 +106,31 @@ test('copied hold and slider implementations work outside the gallery', async ({
     const standalone = await browser.newPage();
     const errors: string[] = [];
     standalone.on('pageerror', (error) => errors.push(error.message));
-    // The hold dialog has its own form, so only the slider goes inside one.
-    const html = slug === 'edge-aware-tooltip' ? `<form>${code.HTML}</form>` : code.HTML;
-    await standalone.setContent(`<style>${code.CSS}</style>${html}`);
+    // Copied code usually lands inside a form; the hold also sits in a fieldset that can disable it.
+    await standalone.setContent(`<style>${code.CSS}</style><form><fieldset>${code.HTML}</fieldset></form>`);
+    await standalone.locator('form').evaluate((form) => {
+      (window as unknown as { submits: number }).submits = 0;
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        (window as unknown as { submits: number }).submits++;
+      });
+    });
     await standalone.addScriptTag({ content: code.JavaScript });
     if (slug === 'hold-confirm') {
       const button = standalone.getByRole('button', { name: 'Hold to confirm', exact: true });
-      // Pointer events still reach a disabled button, so a full hold must not confirm it.
-      await button.evaluate((element: HTMLButtonElement) => (element.disabled = true));
-      const box = (await button.boundingBox())!;
-      await standalone.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await standalone.mouse.down();
-      await standalone.waitForTimeout(1300);
-      // Read once: a confirmed button returns to idle on its own after 1400ms.
-      expect(await button.getAttribute('data-state')).toBe('idle');
-      await standalone.mouse.up();
-      await button.evaluate((element: HTMLButtonElement) => (element.disabled = false));
+      // Pointer events still reach a disabled button, so a full hold must not confirm it,
+      // whether the button or its fieldset is disabled.
+      for (const target of ['button', 'fieldset']) {
+        await standalone.locator('form').evaluate((form, selector) => (form.querySelector<HTMLButtonElement>(selector)!.disabled = true), target);
+        const box = (await button.boundingBox())!;
+        await standalone.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await standalone.mouse.down();
+        await standalone.waitForTimeout(1300);
+        // Read once: a confirmed button returns to idle on its own after 1400ms.
+        expect(await button.getAttribute('data-state'), target).toBe('idle');
+        await standalone.mouse.up();
+        await standalone.locator('form').evaluate((form, selector) => (form.querySelector<HTMLButtonElement>(selector)!.disabled = false), target);
+      }
       await button.focus();
       await standalone.keyboard.down('Space');
       await expect(button).toHaveAttribute('data-state', 'holding');
@@ -133,6 +142,14 @@ test('copied hold and slider implementations work outside the gallery', async ({
       await expect(button).toHaveAttribute('data-state', 'confirmed');
       await standalone.keyboard.up('Enter');
       await expect(standalone.locator('.hold-layer-done')).toHaveCSS('opacity', '1');
+      // The dialog's buttons stay inside it and confirm without submitting the surrounding form.
+      await expect(button).toHaveAttribute('data-state', 'idle', { timeout: 3_000 });
+      await button.evaluate((element: HTMLButtonElement) => element.click());
+      const dialog = standalone.getByRole('dialog', { name: 'Confirm this action' });
+      await dialog.getByRole('button', { name: 'Confirm' }).click();
+      await expect(button).toHaveAttribute('data-state', 'confirmed');
+      await expect(dialog).toBeHidden();
+      expect(await standalone.evaluate(() => (window as unknown as { submits: number }).submits)).toBe(0);
     } else {
       const slider = standalone.locator('[data-position-input]');
       for (const key of ['Home', 'End']) {
