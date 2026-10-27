@@ -82,11 +82,11 @@ export default defineConfig({
 
   vite: {
     server: {
-      watch: { ignored: ['**/video/**'] },
+      watch: { ignored: ['**/video/**', '**/consumer/**'] },
     },
     // The registry ports import the consumer's `@/lib/utils`. The dependency scan still reaches them,
     // and an unresolved import makes it skip pre-bundling, which breaks pages once deps are discovered.
-    optimizeDeps: { entries: ['**/*.html', '!video/**', '!dist/**'], exclude: ['@/lib/utils'] },
+    optimizeDeps: { entries: ['**/*.html', '!video/**', '!consumer/**', '!dist/**'], exclude: ['@/lib/utils'] },
     environments: {
       ssr: {
         optimizeDeps: {
