@@ -341,15 +341,21 @@ test.describe('gooey radio group', () => {
   test('a new choice mid-pour turns the drop from where it is', async ({ page }) => {
     await page.goto('/gooey-radio-group/');
     const stage = page.locator('[data-stage]');
-    await stage.getByText('Pickup').click();
-    await page.waitForTimeout(250);
-    // Read the head, change course, and read the new drop's first frame in one task.
+    // Start a pour, move it 250ms in, change course and read the new drop's first frame in one task.
+    // Waiting in real time instead lets a slow machine finish the 480ms pour before the read.
     const [midway, restart, early] = await stage.locator('[data-goo-blob]').last().evaluate((head) => {
       const y = () => new DOMMatrix(getComputedStyle(head).transform).m42;
+      const choose = (value: string) => {
+        const input = document.querySelector<HTMLInputElement>(`[data-stage] input[value="${value}"]`)!;
+        input.checked = true;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      choose('pickup');
+      head.parentElement!.querySelectorAll('[data-goo-blob]').forEach((blob) =>
+        blob.getAnimations().forEach((pour) => (pour.currentTime = 250)),
+      );
       const before = y();
-      const standard = document.querySelector<HTMLInputElement>('[data-stage] input[value="standard"]')!;
-      standard.checked = true;
-      standard.dispatchEvent(new Event('change', { bubbles: true }));
+      choose('standard');
       const animation = head.getAnimations()[0];
       animation.pause();
       animation.currentTime = 0;

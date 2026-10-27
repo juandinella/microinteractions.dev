@@ -36,3 +36,12 @@ jobs:
       # Builds the site; the consumer check installs from that build.
       - run: pnpm run test:e2e
       - run: pnpm run test:consumer
+      # Traces and screenshots of failing tests, for debugging what only fails in CI.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-results
+          path: |
+            test-results/
+            consumer/test-results/
+          retention-days: 7
