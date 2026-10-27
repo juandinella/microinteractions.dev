@@ -260,12 +260,14 @@ test('shadcn registry serves the index and installable items', async ({ request 
   expect(index.headers()['content-type']).toBe('application/json; charset=utf-8');
   const { name, items } = await index.json();
   expect(name).toBe('microinteractions');
-  expect(items.map((item: { name: string }) => item.name)).toContain('text-swap');
+  // Every study ships a React port; a new study fails here until it has one.
+  const studies = (await (await request.get('/openapi.json')).json()).components.parameters.Slug.schema.enum;
+  expect(items.map((item: { name: string }) => item.name).sort()).toEqual([...studies].sort());
   const item = await (await request.get('/r/text-swap.json')).json();
   expect(item.registryDependencies).toEqual(['utils']);
   expect(item.files[0].content).toContain('export function TextSwapButton');
   // Each custom element study ships its demo's script, defined once the React markup exists.
-  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots']]) {
+  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots']]) {
     const element = await (await request.get(`/r/${name}.json`)).json();
     expect(element.files.map((file: { path: string }) => file.path)).toEqual([`registry/${name}.tsx`, `registry/${name}-element.ts`]);
     expect(element.files[0].content).toContain(`<${tag}`);

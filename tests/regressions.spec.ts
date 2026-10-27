@@ -140,7 +140,7 @@ test('copied hold and slider implementations work outside the gallery', async ({
   }
 });
 
-test('installable studies offer the shadcn command for each package manager', async ({ page }) => {
+test('study pages offer the shadcn command for each package manager', async ({ page }) => {
   await page.goto('/hold-confirm/');
   const install = page.getByRole('tablist', { name: 'Package manager' }).locator('..');
   const copy = page.getByRole('button', { name: 'Copy install command' });
@@ -162,7 +162,7 @@ test('installable studies offer the shadcn command for each package manager', as
   await page.goto('/text-swap/');
   await expect(page.getByRole('button', { name: 'Copy install command' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'pnpm' })).toHaveAttribute('aria-selected', 'true');
-  await page.goto('/edge-aware-tooltip/');
+  await page.goto('/');
   await expect(page.getByRole('tablist', { name: 'Package manager' })).toHaveCount(0);
 });
 
