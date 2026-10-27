@@ -1,0 +1,122 @@
+.trigger {
+  position: relative;
+  display: inline-flex;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: 11px/1 var(--font-mono);
+  touch-action: manipulation;
+  white-space: nowrap;
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* 32px tall, 44px to the pointer. */
+.trigger::before {
+  position: absolute;
+  inset: -6px 0;
+  content: '';
+}
+
+.trigger[data-popup-open] {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.trigger:active {
+  transform: scale(0.97);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .trigger:hover {
+    border-color: var(--line-strong);
+    color: var(--text);
+  }
+}
+
+.positioner {
+  z-index: 100;
+}
+
+.popup {
+  --popup-bg: var(--bg);
+  --popup-border: var(--line);
+
+  width: 600px;
+  max-width: var(--available-width);
+  padding: 14px;
+  border: 1px solid var(--popup-border);
+  border-radius: 14px;
+  outline: none;
+  background: var(--popup-bg);
+  color: var(--text);
+  box-shadow: 0 4px 16px oklch(0.2 0.006 258.74 / 0.1);
+  transform-origin: var(--transform-origin);
+  transition: opacity 150ms cubic-bezier(0.23, 1, 0.32, 1), transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.97);
+}
+
+/* Leaving is quicker than arriving. */
+.popup[data-ending-style] {
+  transition-duration: 100ms;
+}
+
+.title {
+  margin: 0;
+  color: var(--meta);
+  font: 400 10px/1.6 var(--font-mono);
+}
+
+.description {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font: 13px/1.6 var(--font-sans);
+  text-wrap: pretty;
+}
+
+.body {
+  margin-top: 12px;
+}
+
+/* A shadow barely reads on a dark page, so the popup lifts with a lighter surface instead. */
+@media (prefers-color-scheme: dark) {
+  .popup {
+    --popup-bg: var(--surface);
+    --popup-border: var(--line-strong);
+
+    box-shadow: 0 8px 24px oklch(0.1 0.01 258.74 / 0.5);
+  }
+}
+
+/* Reduced motion keeps the fades, without the scale. */
+@media (prefers-reduced-motion: reduce) {
+  .trigger:active {
+    transform: none;
+  }
+
+  .popup {
+    transition-property: opacity;
+  }
+
+  .popup[data-starting-style],
+  .popup[data-ending-style] {
+    transform: none;
+  }
+}

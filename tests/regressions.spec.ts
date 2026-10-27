@@ -177,6 +177,10 @@ test('copied hold and slider implementations work outside the gallery', async ({
 
 test('study pages offer the shadcn command for each package manager', async ({ page }) => {
   await page.goto('/hold-confirm/');
+  // The command waits behind a trigger beside the title, so the preview leads the page.
+  await expect(page.getByRole('tablist', { name: 'Package manager' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add with shadcn' }).click();
+  await expect(page.getByRole('dialog', { name: 'Add with shadcn' })).toBeVisible();
   const install = page.getByRole('tablist', { name: 'Package manager' }).locator('..');
   const copy = page.getByRole('button', { name: 'Copy install command' });
   await expect(copy).toBeVisible();
@@ -194,11 +198,14 @@ test('study pages offer the shadcn command for each package manager', async ({ p
   await expect(page.getByRole('status').filter({ hasText: 'Install command copied to clipboard.' })).toHaveCount(1);
 
   // The choice follows the reader to the next installable study.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Add with shadcn' })).toBeFocused();
   await page.goto('/text-swap/');
+  await page.getByRole('button', { name: 'Add with shadcn' }).click();
   await expect(page.getByRole('button', { name: 'Copy install command' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'pnpm' })).toHaveAttribute('aria-selected', 'true');
   await page.goto('/');
-  await expect(page.getByRole('tablist', { name: 'Package manager' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add with shadcn' })).toHaveCount(0);
 });
 
 test.describe('plucked underline', () => {

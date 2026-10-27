@@ -10,7 +10,7 @@ import StudyHeading from '../components/StudyHeading.astro';
 import { previews } from '../data/previews';
 import { categorySlug, specimens, type Specimen } from '../data/specimens';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import InstallCommand from '../components/InstallCommand.tsx';
+import InstallPopover from '../components/InstallPopover.tsx';
 import { registryItems } from '../data/registry';
 import { socialImageAlt } from '../lib/social-image';
 
@@ -54,8 +54,8 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
         <a href={`/#category-${categorySlug(specimen.category)}`}>{specimen.category}</a>
       </div>
       <h1>{specimen.title}</h1>
+      {installable && <div class="install"><InstallPopover client:load url={new URL(`/r/${specimen.id}.json`, Astro.site).href} /></div>}
       <p class="summary">{specimen.summary}</p>
-      {installable && <InstallCommand client:load url={new URL(`/r/${specimen.id}.json`, Astro.site).href} />}
     </header>
 
     <section id="demo" class="demo" tabindex="-1" aria-labelledby="demo-heading">
@@ -98,7 +98,24 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
 
 <style>
   .study-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'breadcrumb breadcrumb' 'title install' 'summary summary';
+    column-gap: 16px;
     margin-bottom: 24px;
+  }
+
+  /* Centered on the title's first line, whatever size the clamp lands on. */
+  .install {
+    grid-area: install;
+    align-self: start;
+    margin-top: calc((1.2 * clamp(24px, 2.6vw, 32px) - 32px) / 2);
+  }
+
+  /* Narrow screens give the title the full width; the trigger follows the summary. */
+  @media (max-width: 640px) {
+    .study-header { grid-template-areas: 'breadcrumb breadcrumb' 'title title' 'summary summary' 'install install'; }
+    .install { justify-self: start; margin-top: 16px; }
   }
 
   .observation { margin: 20px 0 0; max-width: 65ch; color: var(--muted); font-size: 13px; line-height: 1.7; text-wrap: pretty; }
@@ -109,6 +126,7 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
   .code-link { display: inline-flex; min-height: 44px; align-items: center; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; }
 
   .breadcrumb {
+    grid-area: breadcrumb;
     display: flex;
     min-height: 44px;
     align-items: center;
@@ -127,6 +145,7 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
   }
 
   h1 {
+    grid-area: title;
     margin: 0;
     font-size: clamp(24px, 2.6vw, 32px);
     font-weight: var(--weight-display);
@@ -136,6 +155,7 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
   }
 
   .summary {
+    grid-area: summary;
     max-width: 60ch;
     margin: 12px 0 0;
     color: var(--muted);
