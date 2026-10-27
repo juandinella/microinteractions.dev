@@ -84,10 +84,15 @@ export default defineConfig({
     server: {
       watch: { ignored: ['**/video/**'] },
     },
-    optimizeDeps: { entries: ['**/*.html', '!video/**', '!dist/**'] },
+    // The registry ports import the consumer's `@/lib/utils`. The dependency scan still reaches them,
+    // and an unresolved import makes it skip pre-bundling, which breaks pages once deps are discovered.
+    optimizeDeps: { entries: ['**/*.html', '!video/**', '!dist/**'], exclude: ['@/lib/utils'] },
     environments: {
       ssr: {
-        optimizeDeps: { include: ['@base-ui/react/popover', '@base-ui/react/tabs', 'lucide-react', 'astro/zod', 'astro/components'] },
+        optimizeDeps: {
+          include: ['@base-ui/react/popover', '@base-ui/react/tabs', 'lucide-react', 'astro/zod', 'astro/components'],
+          exclude: ['@/lib/utils'],
+        },
       },
     },
     plugins: [tailwindcss(), {
