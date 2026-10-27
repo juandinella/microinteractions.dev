@@ -239,20 +239,32 @@ test.describe('plucked underline', () => {
     await page.goto('/plucked-underline/');
     const link = page.locator('[data-stage]').getByRole('link', { name: 'Get in touch', exact: true });
     const path = link.locator('path');
-    await link.hover();
-    // Past the 140ms opening, well inside the ring.
-    await page.waitForTimeout(250);
-    await page.mouse.move(0, 0);
-    const frames = await path.evaluate(async (path) => {
+    // Pluck, move 250ms into the ring (past the 140ms opening), leave, and read two moments of the
+    // ring, all in one task. In real time a slow machine finishes the ring before the test reads it.
+    const swing = await link.evaluate((link) => {
+      const path = link.querySelector('path')!;
       const read = () => getComputedStyle(path).transform;
-      const frame = () => new Promise(requestAnimationFrame);
-      const first = read();
-      await frame();
-      await frame();
-      return [first, read()];
+      const pointer = (type: string) =>
+        link.dispatchEvent(new PointerEvent(type, { pointerType: 'mouse', clientX: link.getBoundingClientRect().left + 20 }));
+      pointer('pointerenter');
+      // By 250ms the underline has opened, so leaving starts its closing transition.
+      link.querySelector('svg')!.getAnimations().forEach((opening) => opening.finish());
+      const [ring] = path.getAnimations();
+      ring.pause();
+      ring.currentTime = 250;
+      pointer('pointerleave');
+      const frames = [read()];
+      ring.currentTime = 282;
+      frames.push(read());
+      const state = { plucked: link.hasAttribute('data-plucked'), ringing: link.hasAttribute('data-ringing') };
+      ring.play();
+      return { frames, ...state };
     });
-    expect(frames[0]).not.toBe('none');
-    expect(frames[0]).not.toBe(frames[1]);
+    // The underline closes, but the string keeps moving.
+    expect(swing.plucked).toBe(false);
+    expect(swing.ringing).toBe(true);
+    expect(swing.frames[0]).not.toBe('none');
+    expect(swing.frames[0]).not.toBe(swing.frames[1]);
     await expect(link).not.toHaveAttribute('data-ringing', '');
     await expect.poll(() => path.evaluate((path) => getComputedStyle(path).transform)).toBe('none');
   });
