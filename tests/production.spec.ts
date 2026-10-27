@@ -20,8 +20,11 @@ test('source formats and languages work without JavaScript', async ({ browser })
   await context.close();
 });
 
+// Astro retries a failed island import with `?astro-retry=…`, so the pattern has to catch retries too.
+const sourceTabs = /\/SourceTabs\.[\w-]+\.js(\?|$)/;
+
 test('source survives failed island hydration', async ({ page }) => {
-  await page.route('**/SourceTabs.*.js', (route) => route.abort());
+  await page.route(sourceTabs, (route) => route.abort());
   await page.goto('/hold-confirm/');
   await page.locator('[data-source-format][value="css"]').check();
   const variant = page.locator('[data-source-variant="css"]');
@@ -32,7 +35,7 @@ test('source survives failed island hydration', async ({ page }) => {
 test('delayed hydration preserves implementation geometry and selection', async ({ page }) => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
-  await page.route('**/SourceTabs.*.js', async (route) => { await gate; await route.continue(); });
+  await page.route(sourceTabs, async (route) => { await gate; await route.continue(); });
   await page.goto('/hold-confirm/', { waitUntil: 'domcontentloaded' });
   await page.locator('[data-source-format][value="css"]').check();
   const variant = page.locator('[data-source-variant="css"]');

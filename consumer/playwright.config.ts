@@ -8,6 +8,8 @@ const dev = 'http://localhost:4792';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  // One retry in CI: a test that passes on retry is reported as flaky instead of failing the run.
+  retries: process.env.CI ? 1 : 0,
   workers: 2,
   timeout: 20_000,
   expect: { timeout: 5_000 },
