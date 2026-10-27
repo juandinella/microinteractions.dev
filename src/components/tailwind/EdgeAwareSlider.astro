@@ -1,9 +1,8 @@
 <div
   class="w-full max-w-90 rounded-[14px] border border-edge-line bg-edge-bg px-5 pt-16 pb-4 font-sans"
 >
-  <div
-    class="relative h-11 [anchor-scope:--volume-thumb] transition-none **:transition-none"
-    data-edge-tooltip
+  <edge-aware-tooltip
+    class="block relative h-11 [anchor-scope:--volume-thumb] transition-none **:transition-none"
     style="--value: 0.5"
   >
     <div
@@ -39,7 +38,7 @@
       aria-valuetext="50 percent"
       data-position-input
     />
-  </div>
+  </edge-aware-tooltip>
 </div>
 
 <style is:global>

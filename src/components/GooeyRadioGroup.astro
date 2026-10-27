@@ -1,6 +1,6 @@
 <fieldset class="goo-group">
   <legend class="goo-legend">Delivery</legend>
-  <div class="goo-options" data-goo>
+  <gooey-radio-group class="goo-options" data-goo>
     <svg class="goo-filter" aria-hidden="true" focusable="false">
       <filter>
         <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"></feGaussianBlur>
@@ -42,7 +42,7 @@
       <span class="goo-ring" aria-hidden="true"></span>
       Pickup
     </label>
-  </div>
+  </gooey-radio-group>
 </fieldset>
 
 <script>
@@ -78,79 +78,99 @@
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let groups = 0;
 
-  document.querySelectorAll<HTMLElement>('[data-goo]').forEach((group) => {
-    const radios = [...group.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
-    const blobs = [...group.querySelectorAll<HTMLElement>('[data-goo-blob]')];
-    // The goo only shows while the drop moves, so the script owns the filter and gives each group its own id.
-    const filter = group.querySelector('filter')!;
-    filter.id = `goo-merge-${++groups}`;
-    blobs[0].parentElement!.style.filter = `url(#${filter.id})`;
-    const checked = radios.findIndex((radio) => radio.checked);
-    let current: number | undefined = checked < 0 ? undefined : checked * PITCH;
-    let animations: Animation[] = [];
-    let positionAt: ((ms: number) => [number, number]) | undefined;
+  class GooeyRadioGroup extends HTMLElement {
+    #controller: AbortController | undefined;
 
-    // WebKit drops :focus-visible when arrow keys move between radios, so track the keyboard here.
-    // It stays set until the next pointer press: clearing it on pointer movement would hide Safari's focus ring.
-    group.addEventListener('keydown', () => group.setAttribute('data-keyboard', ''));
-    group.addEventListener('pointerdown', () => group.removeAttribute('data-keyboard'));
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const radios = [...this.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+      const blobs = [...this.querySelectorAll<HTMLElement>('[data-goo-blob]')];
+      // The goo only shows while the drop moves, so the script owns the filter and gives each group its own id.
+      const filter = this.querySelector('filter')!;
+      filter.id = `goo-merge-${++groups}`;
+      blobs[0].parentElement!.style.filter = `url(#${filter.id})`;
+      const checked = radios.findIndex((radio) => radio.checked);
+      let current: number | undefined = checked < 0 ? undefined : checked * PITCH;
+      let animations: Animation[] = [];
+      let positionAt: ((ms: number) => [number, number]) | undefined;
 
-    group.addEventListener('change', (event) => {
-      const index = radios.indexOf(event.target as HTMLInputElement);
-      if (index < 0) return;
-      const to = index * PITCH;
-      const from = current;
-      // A new choice mid-pour starts from wherever the head and tail are now.
-      const running = animations[0];
-      const redirected = positionAt !== undefined && running?.playState === 'running';
-      let [head, tail] = [from ?? to, from ?? to];
-      if (redirected) [head, tail] = positionAt!(Number(running.currentTime));
-      animations.forEach((animation) => animation.cancel());
-      animations = [];
-      positionAt = undefined;
-      current = to;
-      // Arrow keys repeat faster than the drop travels, so a keyboard move lands at once.
-      if (group.hasAttribute('data-keyboard') || reduceMotion.matches) return;
+      // WebKit drops :focus-visible when arrow keys move between radios, so track the keyboard here.
+      // It stays set until the next pointer press: clearing it on pointer movement would hide Safari's focus ring.
+      this.addEventListener('keydown', () => this.setAttribute('data-keyboard', ''), { signal });
+      this.addEventListener('pointerdown', () => this.removeAttribute('data-keyboard'), { signal });
 
-      if (from === undefined) {
-        // The first choice has nowhere to pour from, so the dot swells into its ring.
-        // Scale only: the filter's alpha cut would turn a fade into a pop.
-        animations = blobs.map((blob) =>
-          blob.animate(
-            [
-              { transform: `translateY(${to}px) scale(0.3)` },
-              { transform: `translateY(${to}px) scale(1)` },
-            ],
-            { duration: DURATION, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
-          ),
-        );
-        return;
-      }
+      this.addEventListener('change', (event) => {
+        const index = radios.indexOf(event.target as HTMLInputElement);
+        if (index < 0) return;
+        const to = index * PITCH;
+        const from = current;
+        // A new choice mid-pour starts from wherever the head and tail are now.
+        const running = animations[0];
+        const redirected = positionAt !== undefined && running?.playState === 'running';
+        let [head, tail] = [from ?? to, from ?? to];
+        if (redirected) [head, tail] = positionAt!(Number(running.currentTime));
+        animations.forEach((animation) => animation.cancel());
+        animations = [];
+        positionAt = undefined;
+        current = to;
+        // Arrow keys repeat faster than the drop travels, so a keyboard move lands at once.
+        if (this.hasAttribute('data-keyboard') || reduceMotion.matches) return;
 
-      const ease = redirected ? redirect : pour;
-      const at = (ms: number): [number, number] => [
-        head + (to - head) * ease(clamp(ms / DURATION)),
-        tail + (to - tail) * ease(clamp((ms - LAG) / DURATION)),
-      ];
-      positionAt = at;
-      const keyframes: Keyframe[][] = blobs.map(() => []);
-      for (let frame = 0; frame <= FRAMES; frame++) {
-        const [y1, y2] = at((frame / FRAMES) * (DURATION + LAG));
-        // The tail thins as the drop stretches.
-        const thin = Math.max(1 - Math.abs(y1 - y2) / (PITCH * 2.2), 0.3);
-        blobs.forEach((_, index) => {
-          const share = index / (blobs.length - 1);
-          const scale = thin + (1 - thin) * share * share;
-          keyframes[index].push({
-            transform: `translateY(${y2 + (y1 - y2) * share}px) scale(${scale})`,
+        if (from === undefined) {
+          // The first choice has nowhere to pour from, so the dot swells into its ring.
+          // Scale only: the filter's alpha cut would turn a fade into a pop.
+          animations = blobs.map((blob) =>
+            blob.animate(
+              [
+                { transform: `translateY(${to}px) scale(0.3)` },
+                { transform: `translateY(${to}px) scale(1)` },
+              ],
+              { duration: DURATION, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+            ),
+          );
+          return;
+        }
+
+        const ease = redirected ? redirect : pour;
+        const at = (ms: number): [number, number] => [
+          head + (to - head) * ease(clamp(ms / DURATION)),
+          tail + (to - tail) * ease(clamp((ms - LAG) / DURATION)),
+        ];
+        positionAt = at;
+        const keyframes: Keyframe[][] = blobs.map(() => []);
+        for (let frame = 0; frame <= FRAMES; frame++) {
+          const [y1, y2] = at((frame / FRAMES) * (DURATION + LAG));
+          // The tail thins as the drop stretches.
+          const thin = Math.max(1 - Math.abs(y1 - y2) / (PITCH * 2.2), 0.3);
+          blobs.forEach((_, index) => {
+            const share = index / (blobs.length - 1);
+            const scale = thin + (1 - thin) * share * share;
+            keyframes[index].push({
+              transform: `translateY(${y2 + (y1 - y2) * share}px) scale(${scale})`,
+            });
           });
-        });
-      }
-      animations = blobs.map((blob, index) =>
-        blob.animate(keyframes[index], { duration: DURATION + LAG, easing: 'linear' }),
-      );
-    });
-  });
+        }
+        animations = blobs.map((blob, index) =>
+          blob.animate(keyframes[index], { duration: DURATION + LAG, easing: 'linear' }),
+        );
+      }, { signal });
+
+      signal.addEventListener('abort', () => animations.forEach((animation) => animation.cancel()));
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('gooey-radio-group')) customElements.define('gooey-radio-group', GooeyRadioGroup);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
 </script>
 
 <script>
