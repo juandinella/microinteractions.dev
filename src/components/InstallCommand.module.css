@@ -56,10 +56,23 @@
   transition: none;
 }
 
-.panel {
+.row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Panels share one cell, so a panel that is briefly still mounted never shifts the row. */
+.panels {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.panel {
+  display: flex;
+  min-width: 0;
+  grid-area: 1 / 1;
   padding-left: 16px;
 }
 

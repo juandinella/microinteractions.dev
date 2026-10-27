@@ -71,31 +71,36 @@ export default function InstallCommand({ url }: { url: string }) {
           ))}
           <Tabs.Indicator className={styles.indicator} />
         </Tabs.List>
-        {managers.map(({ id }) => (
-          <Tabs.Panel key={id} className={styles.panel} value={id}>
-            <code className={styles.command}>
-              <span className={styles.prompt} aria-hidden="true">$ </span>
-              {command(id)}
-            </code>
-            <button
-              type="button"
-              className={styles.copy}
-              aria-label="Copy install command"
-              onClick={copy}
-              disabled={!hydrated}
-              style={!hydrated ? { visibility: 'hidden' } : undefined}
-              data-copied={copied || undefined}
-            >
-              <svg className={styles.copyIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                <rect x="8" y="8" width="12" height="12" rx="2" />
-                <path d="M16 8V4H4v12h4" />
-              </svg>
-              <svg className={styles.checkIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="m5 12.5 4.5 4.5L19 7.5" />
-              </svg>
-            </button>
-          </Tabs.Panel>
-        ))}
+        {/* One copy button for every panel, so switching managers never shows two at once. */}
+        <div className={styles.row}>
+          <div className={styles.panels}>
+            {managers.map(({ id }) => (
+              <Tabs.Panel key={id} className={styles.panel} value={id}>
+                <code className={styles.command}>
+                  <span className={styles.prompt} aria-hidden="true">$ </span>
+                  {command(id)}
+                </code>
+              </Tabs.Panel>
+            ))}
+          </div>
+          <button
+            type="button"
+            className={styles.copy}
+            aria-label="Copy install command"
+            onClick={copy}
+            disabled={!hydrated}
+            style={!hydrated ? { visibility: 'hidden' } : undefined}
+            data-copied={copied || undefined}
+          >
+            <svg className={styles.copyIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <rect x="8" y="8" width="12" height="12" rx="2" />
+              <path d="M16 8V4H4v12h4" />
+            </svg>
+            <svg className={styles.checkIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m5 12.5 4.5 4.5L19 7.5" />
+            </svg>
+          </button>
+        </div>
       </Tabs.Root>
       <p className="sr-only" role="status" aria-atomic="true">
         <span key={status.version}>{status.message}</span>
