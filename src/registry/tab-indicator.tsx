@@ -13,6 +13,7 @@ declare module 'react' {
 }
 
 type Tab = {
+  value: string;
   label: string;
   badge?: React.ReactNode;
   content: React.ReactNode;
@@ -20,17 +21,19 @@ type Tab = {
 
 type TabIndicatorProps = {
   tabs: Tab[];
-  defaultIndex?: number;
-  onValueChange?: (index: number) => void;
+  defaultValue?: string;
+  onValueChange?: (value: string) => void;
   'aria-label': string;
   className?: string;
 };
 
-// The element manages selection, focus, and the line after it upgrades. It reads the tabs once,
-// so a different set of tabs remounts it, back on `defaultIndex`.
+// Uncontrolled: `defaultValue` is read once. The element manages selection, focus, and the line
+// after it upgrades. It reads the tabs once, so a different set of tabs remounts it. The selected
+// tab survives while it's still there; otherwise `defaultValue`, or the first tab, takes over and
+// `onValueChange` reports it.
 export function TabIndicator({
   tabs,
-  defaultIndex = 0,
+  defaultValue,
   onValueChange,
   'aria-label': ariaLabel,
   className,
@@ -38,29 +41,41 @@ export function TabIndicator({
   const root = React.useRef<HTMLElement>(null);
   const change = React.useRef(onValueChange);
   change.current = onValueChange;
-  const key = JSON.stringify(tabs.map((tab) => tab.label));
+  const initial = React.useRef(defaultValue).current;
+  const selection = React.useRef<string | undefined>(undefined);
+  const key = JSON.stringify(tabs.map((tab) => tab.value));
+  // Read once per set of tabs, so a render never rewrites the selection the element manages.
+  const selected = React.useMemo(() => {
+    const values: string[] = JSON.parse(key);
+    if (selection.current !== undefined && values.includes(selection.current)) return selection.current;
+    return initial !== undefined && values.includes(initial) ? initial : values[0];
+  }, [key, initial]);
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./tab-indicator-element');
     const element = root.current!;
-    let selected = defaultIndex;
+    const values: string[] = JSON.parse(key);
     // The element updates aria-selected on the tab before the event reaches the list.
     const report = () => {
       const index = [...element.querySelectorAll('[data-tab]')].findIndex(
         (tab) => tab.getAttribute('aria-selected') === 'true',
       );
-      if (index === selected || index < 0) return;
-      selected = index;
-      change.current?.(index);
+      const value = values[index];
+      if (value === undefined || value === selection.current) return;
+      // The first read only records the starting tab, so Strict Mode can't report it twice.
+      const changed = selection.current !== undefined;
+      selection.current = value;
+      if (changed) change.current?.(value);
     };
+    report();
     element.addEventListener('click', report);
     element.addEventListener('keydown', report);
     return () => {
       element.removeEventListener('click', report);
       element.removeEventListener('keydown', report);
     };
-  }, [defaultIndex, key]);
+  }, [key]);
 
   return (
     <tab-indicator
@@ -77,14 +92,14 @@ export function TabIndicator({
         aria-label={ariaLabel}
         data-list
       >
-        {tabs.map((tab, index) => (
+        {tabs.map((tab) => (
           <button
-            key={tab.label}
+            key={tab.value}
             className="group/tab relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-[background-color,color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-selected:text-foreground group-not-data-ready/tbi:aria-selected:after:absolute group-not-data-ready/tbi:aria-selected:after:inset-x-0 group-not-data-ready/tbi:aria-selected:after:-bottom-(--tbi-pad) group-not-data-ready/tbi:aria-selected:after:h-0.5 group-not-data-ready/tbi:aria-selected:after:bg-foreground group-not-data-ready/tbi:aria-selected:after:content-[''] pointer-coarse:before:-inset-y-1.5 pointer-fine:hover:bg-accent pointer-fine:hover:text-accent-foreground"
             type="button"
             role="tab"
-            aria-selected={index === defaultIndex}
-            tabIndex={index === defaultIndex ? undefined : -1}
+            aria-selected={tab.value === selected}
+            tabIndex={tab.value === selected ? undefined : -1}
             data-tab
           >
             {/* The hidden bold copy reserves the selected width, so the row doesn't shift. */}
@@ -107,13 +122,13 @@ export function TabIndicator({
           data-line
         />
       </div>
-      {tabs.map((tab, index) => (
+      {tabs.map((tab) => (
         <div
-          key={tab.label}
+          key={tab.value}
           className="border-t border-border bg-muted/50 px-2 py-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           role="tabpanel"
           tabIndex={0}
-          hidden={index !== defaultIndex}
+          hidden={tab.value !== selected}
           data-panel
         >
           {tab.content}

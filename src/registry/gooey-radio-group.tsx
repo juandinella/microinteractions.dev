@@ -26,8 +26,10 @@ type GooeyRadioGroupProps = {
   className?: string;
 };
 
-// The element pours the dot between rings; each option is 44px tall, the distance it pours per step.
-// It reads the radios once, so a different set of options remounts it, back on `defaultValue`.
+// Uncontrolled: `defaultValue` is read once. The element pours the dot between rings; each option
+// is 44px tall, the distance it pours per step. It reads the radios once, so a different set of
+// options remounts it. The choice survives while it's still an option; otherwise the group goes
+// back to `defaultValue`, or the first option, and `onValueChange` reports it.
 export function GooeyRadioGroup({
   legend,
   options,
@@ -38,20 +40,46 @@ export function GooeyRadioGroup({
 }: GooeyRadioGroupProps) {
   const id = React.useId();
   const root = React.useRef<HTMLElement>(null);
+  const change = React.useRef(onValueChange);
+  change.current = onValueChange;
+  const initial = React.useRef(defaultValue).current;
+  const selection = React.useRef<string | undefined>(undefined);
   const key = JSON.stringify(options.map((option) => option.value));
-  const [index, setIndex] = React.useState(() => options.findIndex((option) => option.value === defaultValue));
+  // Read once per set of options, so a render never rewrites a radio the user has changed.
+  const checked = React.useMemo(() => {
+    const values: string[] = JSON.parse(key);
+    if (selection.current === undefined) return initial;
+    if (values.includes(selection.current)) return selection.current;
+    return initial !== undefined && values.includes(initial) ? initial : values[0];
+  }, [key, initial]);
+  const [index, setIndex] = React.useState(() => options.findIndex((option) => option.value === checked));
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./gooey-radio-group-element');
     const element = root.current!;
-    const checkedIndex = () => [...element.querySelectorAll('input')].findIndex((input) => input.checked);
-    setIndex(checkedIndex());
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    const sync = () => {
+      const radios = [...element.querySelectorAll('input')];
+      const current = radios.find((radio) => radio.checked);
+      setIndex(current ? radios.indexOf(current) : -1);
+      const previous = selection.current;
+      selection.current = current?.value;
+      // The first read only records the starting value, so Strict Mode can't report it twice.
+      if (current && previous !== undefined && current.value !== previous) change.current?.(current.value);
+    };
+    sync();
     // A form reset restores the default radio without a change event, once the reset event is over.
     const form = element.closest('form');
-    const reset = () => setTimeout(() => setIndex(checkedIndex()));
+    const reset = () => {
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(sync);
+    };
     form?.addEventListener('reset', reset);
-    return () => form?.removeEventListener('reset', reset);
+    return () => {
+      form?.removeEventListener('reset', reset);
+      clearTimeout(resetTimer);
+    };
   }, [key]);
 
   return (
@@ -82,8 +110,9 @@ export function GooeyRadioGroup({
               type="radio"
               name={name ?? id}
               value={option.value}
-              defaultChecked={option.value === defaultValue}
+              defaultChecked={option.value === checked}
               onChange={() => {
+                selection.current = option.value;
                 setIndex(optionIndex);
                 onValueChange?.(option.value);
               }}

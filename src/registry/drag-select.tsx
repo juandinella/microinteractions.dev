@@ -32,8 +32,9 @@ const check = (
   </svg>
 );
 
-// The element manages checking, the drag band, and the announcements after it upgrades. It reads
-// the rows once, so a different set of rows remounts it with every box cleared.
+// Uncontrolled: the element manages checking, the drag band, and the announcements after it
+// upgrades. It reads the rows once, so a different set of rows remounts it. Rows that remain keep
+// their box, and `onSelectionChange` reports the selection if a removed row took part of it.
 export function DragSelectTable({
   title,
   rows,
@@ -47,12 +48,19 @@ export function DragSelectTable({
   const ids = React.useRef(rows.map((row) => row.id));
   ids.current = rows.map((row) => row.id);
   const key = JSON.stringify(ids.current);
+  const selection = React.useRef<string[]>([]);
+  // Read once per set of rows, so a render never rewrites a box the user has changed.
+  const checked = React.useMemo(
+    () => new Set(selection.current.filter((id) => ids.current.includes(id))),
+    [key],
+  );
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./drag-select-element');
     const element = root.current!;
     let pending = false;
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
     // A drag changes many boxes at once; report the selection once they have all changed.
     const report = () => {
       if (pending) return;
@@ -60,17 +68,28 @@ export function DragSelectTable({
       queueMicrotask(() => {
         pending = false;
         const boxes = [...element.querySelectorAll<HTMLInputElement>('tbody input')];
-        change.current?.(ids.current.filter((_, index) => boxes[index]?.checked));
+        const next = ids.current.filter((_, index) => boxes[index]?.checked);
+        const previous = selection.current;
+        selection.current = next;
+        // Unchanged on the first mount, so Strict Mode can't report the empty selection twice.
+        if (next.length !== previous.length || next.some((id) => !previous.includes(id))) {
+          change.current?.(next);
+        }
       });
     };
+    report();
     // A form reset restores the default boxes without change events, once the reset event is over.
     const form = element.closest('form');
-    const reset = () => setTimeout(report);
+    const reset = () => {
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(report);
+    };
     element.addEventListener('change', report);
     form?.addEventListener('reset', reset);
     return () => {
       element.removeEventListener('change', report);
       form?.removeEventListener('reset', reset);
+      clearTimeout(resetTimer);
     };
   }, [key]);
 
@@ -108,7 +127,7 @@ export function DragSelectTable({
               <tr key={row.id} className="cursor-pointer *:h-(--dst-row) *:align-middle [&[data-selected]]:*:bg-foreground/8 data-[edge~=top]:*:first:rounded-ss-lg data-[edge~=top]:*:last:rounded-se-lg data-[edge~=bottom]:*:first:rounded-es-lg data-[edge~=bottom]:*:last:rounded-ee-lg pointer-fine:not-[&[data-selected]]:hover:*:bg-muted pointer-fine:not-[&[data-selected]]:hover:*:first:rounded-s-lg pointer-fine:not-[&[data-selected]]:hover:*:last:rounded-e-lg forced-colors:[&[data-selected]]:*:bg-[SelectedItem] forced-colors:[&[data-selected]]:*:text-[SelectedItemText] forced-colors:[&[data-selected]]:*:forced-color-adjust-none">
                 <td className="group/cell w-11 cursor-pointer touch-none p-0 select-none [-webkit-touch-callout:none]" data-box-cell>
                   <span className="relative mx-auto grid size-4.5 place-items-center">
-                    <input type="checkbox" aria-label={row.label} className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-12 scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight] pointer-fine:group-hover/cell:not-checked:not-indeterminate:border-muted-foreground" />
+                    <input type="checkbox" aria-label={row.label} defaultChecked={checked.has(row.id)} className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-12 scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight] pointer-fine:group-hover/cell:not-checked:not-indeterminate:border-muted-foreground" />
                     {check}
                   </span>
                 </td>
