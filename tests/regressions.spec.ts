@@ -75,23 +75,24 @@ for (const width of [320, 375, 780, 1280]) {
   });
 }
 
-test('copied CSS omits gallery state and scripts are valid JavaScript', async ({ page }) => {
-  for (const slug of slugs) {
+// One test per study, so each gets its own timeout and they run in parallel.
+for (const slug of slugs) {
+  test(`${slug}: copied CSS omits gallery state and scripts are valid JavaScript`, async ({ page }) => {
     await page.goto(`/${slug}/`);
     for (const format of ['css', 'tailwind']) {
       await page.locator(`[data-source-format][value="${format}"]`).check();
       const variant = page.locator(`[data-source-variant="${format}"]`);
       await variant.getByRole('tab', { name: 'CSS', exact: true }).click();
       const css = await variant.getByRole('tabpanel', { name: 'CSS', exact: true }).locator('code').textContent();
-      expect(css, `${slug}, ${format}`).not.toMatch(/data-(?:inspect|touch-active)/);
+      expect(css, format).not.toMatch(/data-(?:inspect|touch-active)/);
       if (scripted.includes(slug)) {
         await variant.getByRole('tab', { name: 'JavaScript', exact: true }).click();
         const script = await variant.getByRole('tabpanel', { name: 'JavaScript', exact: true }).locator('code').textContent();
         expect(() => new Function(script!)).not.toThrow();
       }
     }
-  }
-});
+  });
+}
 
 test('copied hold and slider implementations work outside the gallery', async ({ page, browser }) => {
   for (const slug of ['hold-confirm', 'edge-aware-tooltip']) {
@@ -106,10 +107,31 @@ test('copied hold and slider implementations work outside the gallery', async ({
     const standalone = await browser.newPage();
     const errors: string[] = [];
     standalone.on('pageerror', (error) => errors.push(error.message));
-    await standalone.setContent(`<style>${code.CSS}</style>${code.HTML}`);
+    // Copied code usually lands inside a form; the hold also sits in a fieldset that can disable it.
+    await standalone.setContent(`<style>${code.CSS}</style><form><fieldset>${code.HTML}</fieldset></form>`);
+    await standalone.locator('form').evaluate((form) => {
+      (window as unknown as { submits: number }).submits = 0;
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        (window as unknown as { submits: number }).submits++;
+      });
+    });
     await standalone.addScriptTag({ content: code.JavaScript });
     if (slug === 'hold-confirm') {
       const button = standalone.getByRole('button', { name: 'Hold to confirm', exact: true });
+      // Pointer events still reach a disabled button, so a full hold must not confirm it,
+      // whether the button or its fieldset is disabled.
+      for (const target of ['button', 'fieldset']) {
+        await standalone.locator('form').evaluate((form, selector) => (form.querySelector<HTMLButtonElement>(selector)!.disabled = true), target);
+        const box = (await button.boundingBox())!;
+        await standalone.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await standalone.mouse.down();
+        await standalone.waitForTimeout(1300);
+        // Read once: a confirmed button returns to idle on its own after 1400ms.
+        expect(await button.getAttribute('data-state'), target).toBe('idle');
+        await standalone.mouse.up();
+        await standalone.locator('form').evaluate((form, selector) => (form.querySelector<HTMLButtonElement>(selector)!.disabled = false), target);
+      }
       await button.focus();
       await standalone.keyboard.down('Space');
       await expect(button).toHaveAttribute('data-state', 'holding');
@@ -121,6 +143,14 @@ test('copied hold and slider implementations work outside the gallery', async ({
       await expect(button).toHaveAttribute('data-state', 'confirmed');
       await standalone.keyboard.up('Enter');
       await expect(standalone.locator('.hold-layer-done')).toHaveCSS('opacity', '1');
+      // The dialog's buttons stay inside it and confirm without submitting the surrounding form.
+      await expect(button).toHaveAttribute('data-state', 'idle', { timeout: 3_000 });
+      await button.evaluate((element: HTMLButtonElement) => element.click());
+      const dialog = standalone.getByRole('dialog', { name: 'Confirm this action' });
+      await dialog.getByRole('button', { name: 'Confirm' }).click();
+      await expect(button).toHaveAttribute('data-state', 'confirmed');
+      await expect(dialog).toBeHidden();
+      expect(await standalone.evaluate(() => (window as unknown as { submits: number }).submits)).toBe(0);
     } else {
       const slider = standalone.locator('[data-position-input]');
       for (const key of ['Home', 'End']) {
@@ -134,10 +164,41 @@ test('copied hold and slider implementations work outside the gallery', async ({
         });
         expect(contained).toBe(true);
       }
+      // A form reset restores the value without an input event; the tooltip and fill follow it.
+      await standalone.locator('form').evaluate((form: HTMLFormElement) => form.reset());
+      await expect(standalone.locator('[data-volume]')).toHaveText('50');
+      await expect(slider).toHaveAttribute('aria-valuetext', '50 percent');
+      expect(await standalone.locator('edge-aware-tooltip').evaluate((field) => field.style.getPropertyValue('--value'))).toBe('0.5');
     }
     expect(errors).toEqual([]);
     await standalone.close();
   }
+});
+
+test('study pages offer the shadcn command for each package manager', async ({ page }) => {
+  await page.goto('/hold-confirm/');
+  const install = page.getByRole('tablist', { name: 'Package manager' }).locator('..');
+  const copy = page.getByRole('button', { name: 'Copy install command' });
+  await expect(copy).toBeVisible();
+  const command = install.getByRole('tabpanel').locator('code');
+  await expect(command).toHaveText('$ npx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+  await page.getByRole('tab', { name: 'pnpm' }).click();
+  await expect(command).toHaveText('$ pnpm dlx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+
+  await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', {
+    value: async (text: string) => { (window as unknown as { copied: string }).copied = text; },
+  }));
+  await copy.click();
+  await expect(copy).toHaveAttribute('data-copied', 'true');
+  expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe('pnpm dlx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+  await expect(page.getByRole('status').filter({ hasText: 'Install command copied to clipboard.' })).toHaveCount(1);
+
+  // The choice follows the reader to the next installable study.
+  await page.goto('/text-swap/');
+  await expect(page.getByRole('button', { name: 'Copy install command' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'pnpm' })).toHaveAttribute('aria-selected', 'true');
+  await page.goto('/');
+  await expect(page.getByRole('tablist', { name: 'Package manager' })).toHaveCount(0);
 });
 
 test.describe('plucked underline', () => {
@@ -178,20 +239,32 @@ test.describe('plucked underline', () => {
     await page.goto('/plucked-underline/');
     const link = page.locator('[data-stage]').getByRole('link', { name: 'Get in touch', exact: true });
     const path = link.locator('path');
-    await link.hover();
-    // Past the 140ms opening, well inside the ring.
-    await page.waitForTimeout(250);
-    await page.mouse.move(0, 0);
-    const frames = await path.evaluate(async (path) => {
+    // Pluck, move 250ms into the ring (past the 140ms opening), leave, and read two moments of the
+    // ring, all in one task. In real time a slow machine finishes the ring before the test reads it.
+    const swing = await link.evaluate((link) => {
+      const path = link.querySelector('path')!;
       const read = () => getComputedStyle(path).transform;
-      const frame = () => new Promise(requestAnimationFrame);
-      const first = read();
-      await frame();
-      await frame();
-      return [first, read()];
+      const pointer = (type: string) =>
+        link.dispatchEvent(new PointerEvent(type, { pointerType: 'mouse', clientX: link.getBoundingClientRect().left + 20 }));
+      pointer('pointerenter');
+      // By 250ms the underline has opened, so leaving starts its closing transition.
+      link.querySelector('svg')!.getAnimations().forEach((opening) => opening.finish());
+      const [ring] = path.getAnimations();
+      ring.pause();
+      ring.currentTime = 250;
+      pointer('pointerleave');
+      const frames = [read()];
+      ring.currentTime = 282;
+      frames.push(read());
+      const state = { plucked: link.hasAttribute('data-plucked'), ringing: link.hasAttribute('data-ringing') };
+      ring.play();
+      return { frames, ...state };
     });
-    expect(frames[0]).not.toBe('none');
-    expect(frames[0]).not.toBe(frames[1]);
+    // The underline closes, but the string keeps moving.
+    expect(swing.plucked).toBe(false);
+    expect(swing.ringing).toBe(true);
+    expect(swing.frames[0]).not.toBe('none');
+    expect(swing.frames[0]).not.toBe(swing.frames[1]);
     await expect(link).not.toHaveAttribute('data-ringing', '');
     await expect.poll(() => path.evaluate((path) => getComputedStyle(path).transform)).toBe('none');
   });
@@ -281,15 +354,21 @@ test.describe('gooey radio group', () => {
   test('a new choice mid-pour turns the drop from where it is', async ({ page }) => {
     await page.goto('/gooey-radio-group/');
     const stage = page.locator('[data-stage]');
-    await stage.getByText('Pickup').click();
-    await page.waitForTimeout(250);
-    // Read the head, change course, and read the new drop's first frame in one task.
+    // Start a pour, move it 250ms in, change course and read the new drop's first frame in one task.
+    // Waiting in real time instead lets a slow machine finish the 480ms pour before the read.
     const [midway, restart, early] = await stage.locator('[data-goo-blob]').last().evaluate((head) => {
       const y = () => new DOMMatrix(getComputedStyle(head).transform).m42;
+      const choose = (value: string) => {
+        const input = document.querySelector<HTMLInputElement>(`[data-stage] input[value="${value}"]`)!;
+        input.checked = true;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      choose('pickup');
+      head.parentElement!.querySelectorAll('[data-goo-blob]').forEach((blob) =>
+        blob.getAnimations().forEach((pour) => (pour.currentTime = 250)),
+      );
       const before = y();
-      const standard = document.querySelector<HTMLInputElement>('[data-stage] input[value="standard"]')!;
-      standard.checked = true;
-      standard.dispatchEvent(new Event('change', { bubbles: true }));
+      choose('standard');
       const animation = head.getAnimations()[0];
       animation.pause();
       animation.currentTime = 0;
@@ -399,7 +478,7 @@ test.describe('gooey radio group', () => {
     const standalone = await browser.newPage();
     const errors: string[] = [];
     standalone.on('pageerror', (error) => errors.push(error.message));
-    await standalone.setContent(`<style>${code.CSS}</style>${code.HTML}`);
+    await standalone.setContent(`<style>${code.CSS}</style><form>${code.HTML}</form>`);
     await standalone.addScriptTag({ content: code.JavaScript });
     const group = standalone.locator('.goo-group');
     expect(await standalone.locator('.goo-drop').evaluate((el) => getComputedStyle(el).filter)).toBe('url("#goo-merge-1")');
@@ -414,6 +493,15 @@ test.describe('gooey radio group', () => {
     expect(await blobAnimations(group)).toBe(8);
     await expect.poll(() => headY(standalone)).toBe(88);
     await expect(standalone.locator('.goo-option', { hasText: 'Next day' })).toHaveCSS('outline-style', 'none');
+    // A form reset restores the default without a change event; the next pour starts from it.
+    await standalone.locator('form').evaluate((form: HTMLFormElement) => form.reset());
+    await expect(standalone.getByRole('radio', { name: 'Standard' })).toBeChecked();
+    await expect.poll(() => headY(standalone)).toBe(0);
+    await standalone.getByText('Express').click();
+    const start = await standalone.locator('[data-goo-blob]').last().evaluate(
+      (head) => head.getAnimations()[0].effect!.getKeyframes()[0].transform as string,
+    );
+    expect(start).toMatch(/^translateY\(0px\)/);
     expect(errors).toEqual([]);
     await standalone.close();
   });
@@ -517,12 +605,16 @@ test.describe('drag select', () => {
       const standalone = await browser.newPage();
       const errors: string[] = [];
       standalone.on('pageerror', (error) => errors.push(error.message));
-      await standalone.setContent(`<style>${code.CSS}</style>${code.HTML}`);
+      await standalone.setContent(`<style>${code.CSS}</style><form>${code.HTML}</form>`);
       await standalone.addScriptTag({ content: code.JavaScript });
       await press(standalone, 0, [2]);
       await standalone.mouse.up();
       expect((await checked(standalone)).slice(0, 4), format).toEqual([true, true, true, false]);
       await expect(standalone.locator('[data-count]'), format).toHaveText('3 of 10');
+      // A form reset clears the boxes without change events; the rows and count follow them.
+      await standalone.locator('form').evaluate((form: HTMLFormElement) => form.reset());
+      await expect(standalone.locator('[data-count]'), format).toHaveText('0 of 10');
+      await expect(standalone.locator('tr[data-selected]'), format).toHaveCount(0);
       expect(errors, format).toEqual([]);
       await standalone.close();
     }

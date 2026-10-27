@@ -1,70 +1,82 @@
 <nav class="pluck-nav" aria-label="Sections">
-  <a class="pluck-link" href="#bio" data-pluck>
-    Bio
-    <svg
-      class="pluck-string"
-      viewBox="0 0 100 12"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
-    </svg>
-  </a>
-  <a class="pluck-link" href="#work" data-pluck>
-    Work
-    <svg
-      class="pluck-string"
-      viewBox="0 0 100 12"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
-    </svg>
-  </a>
-  <a class="pluck-link" href="#notes" data-pluck>
-    Notes
-    <svg
-      class="pluck-string"
-      viewBox="0 0 100 12"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
-    </svg>
-  </a>
-  <a class="pluck-link" href="#archive" data-pluck>
-    Archive
-    <svg
-      class="pluck-string"
-      viewBox="0 0 100 12"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
-    </svg>
-  </a>
-  <a class="pluck-link" href="#projects" data-pluck>
-    Projects
-    <svg
-      class="pluck-string"
-      viewBox="0 0 100 12"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
-    </svg>
-  </a>
-  <a class="pluck-link" href="#contact" data-pluck>
-    Get in touch
-    <svg
-      class="pluck-string"
-      viewBox="0 0 100 12"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
-    </svg>
-  </a>
+  <plucked-underline>
+    <a class="pluck-link" href="#bio" data-pluck>
+      Bio
+      <svg
+        class="pluck-string"
+        viewBox="0 0 100 12"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
+      </svg>
+    </a>
+  </plucked-underline>
+  <plucked-underline>
+    <a class="pluck-link" href="#work" data-pluck>
+      Work
+      <svg
+        class="pluck-string"
+        viewBox="0 0 100 12"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
+      </svg>
+    </a>
+  </plucked-underline>
+  <plucked-underline>
+    <a class="pluck-link" href="#notes" data-pluck>
+      Notes
+      <svg
+        class="pluck-string"
+        viewBox="0 0 100 12"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
+      </svg>
+    </a>
+  </plucked-underline>
+  <plucked-underline>
+    <a class="pluck-link" href="#archive" data-pluck>
+      Archive
+      <svg
+        class="pluck-string"
+        viewBox="0 0 100 12"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
+      </svg>
+    </a>
+  </plucked-underline>
+  <plucked-underline>
+    <a class="pluck-link" href="#projects" data-pluck>
+      Projects
+      <svg
+        class="pluck-string"
+        viewBox="0 0 100 12"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
+      </svg>
+    </a>
+  </plucked-underline>
+  <plucked-underline>
+    <a class="pluck-link" href="#contact" data-pluck>
+      Get in touch
+      <svg
+        class="pluck-string"
+        viewBox="0 0 100 12"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 6 Q50 16 100 6" data-trace-progress></path>
+      </svg>
+    </a>
+  </plucked-underline>
 </nav>
 
 <script>
@@ -73,70 +85,95 @@
   const MIN_MS = 400;
   const MAX_MS = 1200;
 
-  document.querySelectorAll<HTMLElement>('[data-pluck]').forEach((link) => {
-    const string = link.querySelector('svg')!;
-    const path = string.querySelector('path')!;
-    let quiet = 0;
+  class PluckedUnderline extends HTMLElement {
+    #controller: AbortController | undefined;
 
-    new ResizeObserver(() => {
-      const width = string.getBoundingClientRect().width;
-      const ms = Math.min(Math.max(width * MS_PER_PX, MIN_MS), MAX_MS);
-      link.style.setProperty('--pluck-duration', `${Math.round(ms)}ms`);
-    }).observe(link);
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const link = this.querySelector<HTMLElement>('[data-pluck]')!;
+      const string = link.querySelector('svg')!;
+      const path = string.querySelector('path')!;
+      let quiet: ReturnType<typeof setTimeout> | undefined;
 
-    // Bend the string toward the pluck point, then release it from rest.
-    function pluck(clientX: number) {
-      const box = string.getBoundingClientRect();
-      const x = Math.min(Math.max(((clientX - box.left) / box.width) * 100, 15), 85);
-      // A longer string deflects further under the same pull.
-      const bend = Math.min(Math.max(box.width / 18, 2), 5);
-      link.removeAttribute('data-plucked');
-      link.removeAttribute('data-ringing');
-      string.style.transition = path.style.transition = 'none';
-      link.style.setProperty('--pluck-x', `${x}%`);
-      path.setAttribute('d', `M0 6 Q${x.toFixed(1)} ${(6 + bend * 2).toFixed(1)} 100 6`);
-      // Apply the rest state now, so the transition starts from the new bend.
-      void getComputedStyle(string).clipPath;
-      void getComputedStyle(path).transform;
-      string.style.transition = path.style.transition = '';
-      link.setAttribute('data-plucked', '');
-      link.setAttribute('data-ringing', '');
-    }
+      const resize = new ResizeObserver(() => {
+        const width = string.getBoundingClientRect().width;
+        const ms = Math.min(Math.max(width * MS_PER_PX, MIN_MS), MAX_MS);
+        link.style.setProperty('--pluck-duration', `${Math.round(ms)}ms`);
+      });
+      resize.observe(link);
 
-    // Closing lets the string ring on. Reset the bend once the underline has closed.
-    // getAnimations() without subtree sees only the SVG's clip, not the path's ring.
-    function settle() {
-      if (!link.hasAttribute('data-plucked') && !string.getAnimations().length) {
+      // Bend the string toward the pluck point, then release it from rest.
+      function pluck(clientX: number) {
+        const box = string.getBoundingClientRect();
+        const x = Math.min(Math.max(((clientX - box.left) / box.width) * 100, 15), 85);
+        // A longer string deflects further under the same pull.
+        const bend = Math.min(Math.max(box.width / 18, 2), 5);
+        link.removeAttribute('data-plucked');
         link.removeAttribute('data-ringing');
+        string.style.transition = path.style.transition = 'none';
+        link.style.setProperty('--pluck-x', `${x}%`);
+        path.setAttribute('d', `M0 6 Q${x.toFixed(1)} ${(6 + bend * 2).toFixed(1)} 100 6`);
+        // Apply the rest state now, so the transition starts from the new bend.
+        void getComputedStyle(string).clipPath;
+        void getComputedStyle(path).transform;
+        string.style.transition = path.style.transition = '';
+        link.setAttribute('data-plucked', '');
+        link.setAttribute('data-ringing', '');
       }
-    }
 
-    function release() {
-      link.removeAttribute('data-plucked');
-      settle();
-    }
+      // Closing lets the string ring on. Reset the bend once the underline has closed.
+      // getAnimations() without subtree sees only the SVG's clip, not the path's ring.
+      function settle() {
+        if (!link.hasAttribute('data-plucked') && !string.getAnimations().length) {
+          link.removeAttribute('data-ringing');
+        }
+      }
 
-    for (const type of ['transitionend', 'transitioncancel']) {
-      string.addEventListener(type, (event) => {
-        if (event.target === string) settle();
+      function release() {
+        link.removeAttribute('data-plucked');
+        settle();
+      }
+
+      for (const type of ['transitionend', 'transitioncancel']) {
+        string.addEventListener(type, (event) => {
+          if (event.target === string) settle();
+        }, { signal });
+      }
+
+      link.addEventListener('pointerenter', (event) => {
+        if (event.pointerType === 'mouse') pluck(event.clientX);
+      }, { signal });
+      link.addEventListener('pointerleave', (event) => {
+        if (event.pointerType === 'mouse') release();
+      }, { signal });
+      // Touch has no hover: a tap plucks, and the underline closes after the string rings out.
+      link.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse') return;
+        pluck(event.clientX);
+        clearTimeout(quiet);
+        const ms = parseFloat(link.style.getPropertyValue('--pluck-duration')) || MAX_MS;
+        quiet = setTimeout(release, ms + 400);
+      }, { signal });
+
+      signal.addEventListener('abort', () => {
+        resize.disconnect();
+        clearTimeout(quiet);
       });
     }
 
-    link.addEventListener('pointerenter', (event) => {
-      if (event.pointerType === 'mouse') pluck(event.clientX);
-    });
-    link.addEventListener('pointerleave', (event) => {
-      if (event.pointerType === 'mouse') release();
-    });
-    // Touch has no hover: a tap plucks, and the underline closes after the string rings out.
-    link.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse') return;
-      pluck(event.clientX);
-      clearTimeout(quiet);
-      const ms = parseFloat(link.style.getPropertyValue('--pluck-duration')) || MAX_MS;
-      quiet = setTimeout(release, ms + 400);
-    });
-  });
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('plucked-underline')) customElements.define('plucked-underline', PluckedUnderline);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
 </script>
 
 <script>
@@ -166,6 +203,11 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: 4px;
+  }
+
+  /* The element only wires up its link, so the link stays the nav's flex item. */
+  plucked-underline {
+    display: contents;
   }
 
   .pluck-link {

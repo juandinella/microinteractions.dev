@@ -2,7 +2,7 @@ import tokens from '../styles/tokens.css?raw';
 
 export type ReducedMotion = 'instant' | 'component';
 
-function dedent(source: string) {
+export function dedent(source: string) {
   const lines = source.replace(/^\n|\s+$/g, '').split('\n');
   const indent = Math.min(
     ...lines

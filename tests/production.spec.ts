@@ -20,8 +20,11 @@ test('source formats and languages work without JavaScript', async ({ browser })
   await context.close();
 });
 
+// Astro retries a failed island import with `?astro-retry=…`, so the pattern has to catch retries too.
+const sourceTabs = /\/SourceTabs\.[\w-]+\.js(\?|$)/;
+
 test('source survives failed island hydration', async ({ page }) => {
-  await page.route('**/SourceTabs.*.js', (route) => route.abort());
+  await page.route(sourceTabs, (route) => route.abort());
   await page.goto('/hold-confirm/');
   await page.locator('[data-source-format][value="css"]').check();
   const variant = page.locator('[data-source-variant="css"]');
@@ -32,7 +35,7 @@ test('source survives failed island hydration', async ({ page }) => {
 test('delayed hydration preserves implementation geometry and selection', async ({ page }) => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
-  await page.route('**/SourceTabs.*.js', async (route) => { await gate; await route.continue(); });
+  await page.route(sourceTabs, async (route) => { await gate; await route.continue(); });
   await page.goto('/hold-confirm/', { waitUntil: 'domcontentloaded' });
   await page.locator('[data-source-format][value="css"]').check();
   const variant = page.locator('[data-source-variant="css"]');
@@ -253,6 +256,28 @@ test('agent skill index digest matches the published skill', async ({ request })
   const text = await llms.text();
   expect(text).toContain('/markdown/text-swap.md');
   expect(text).toContain('/rss.xml');
+});
+
+test('shadcn registry serves the index and installable items', async ({ request }) => {
+  const index = await request.get('/r/registry.json');
+  expect(index.headers()['content-type']).toBe('application/json; charset=utf-8');
+  const { name, items } = await index.json();
+  expect(name).toBe('microinteractions');
+  // Every study ships a React port; a new study fails here until it has one.
+  const studies = (await (await request.get('/openapi.json')).json()).components.parameters.Slug.schema.enum;
+  expect(items.map((item: { name: string }) => item.name).sort()).toEqual([...studies].sort());
+  const item = await (await request.get('/r/text-swap.json')).json();
+  expect(item.registryDependencies).toEqual(['utils']);
+  expect(item.files[0].content).toContain('export function TextSwapButton');
+  // Each custom element study ships its demo's script, defined once the React markup exists.
+  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots']]) {
+    const element = await (await request.get(`/r/${name}.json`)).json();
+    expect(element.files.map((file: { path: string }) => file.path)).toEqual([`registry/${name}.tsx`, `registry/${name}-element.ts`]);
+    expect(element.files[0].content).toContain(`<${tag}`);
+    expect(element.files[1].content).toContain(`if (!customElements.get('${tag}')) customElements.define('${tag}',`);
+    expect(element.files[1].content).not.toContain('DOMContentLoaded');
+  }
+  expect(Object.keys((await (await request.get('/r/worm-dots.json')).json()).css)).toContain('@property --wd-dot');
 });
 
 test('WebMCP tools list, read, and open studies', async ({ page }) => {

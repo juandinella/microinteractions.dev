@@ -55,19 +55,17 @@
     aria-label="Confirm this action"
     class="m-auto w-[min(320px,calc(100vw-32px))] rounded-2xl border border-transparent bg-hold-ink p-5 text-hold-paper font-sans backdrop:bg-hold-ink/24"
   >
-    <form method="dialog">
-      <p class="mb-5 text-sm/normal">Confirm this action?</p>
-      <div
-        class="flex justify-end gap-2 *:min-h-11 *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:cursor-pointer *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-hold-paper"
+    <p class="mb-5 text-sm/normal">Confirm this action?</p>
+    <div
+      class="flex justify-end gap-2 *:min-h-11 *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:cursor-pointer *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-hold-paper"
+    >
+      <button type="button" value="cancel" class="pointer-fine:hover:bg-hold-paper/12"
+        >Cancel</button
       >
-        <button value="cancel" class="pointer-fine:hover:bg-hold-paper/12"
-          >Cancel</button
-        >
-        <button value="confirm" class="bg-hold-paper text-hold-ink"
-          >Confirm</button
-        >
-      </div>
-    </form>
+      <button type="button" value="confirm" class="bg-hold-paper text-hold-ink"
+        >Confirm</button
+      >
+    </div>
   </dialog>
 </hold-to-confirm>
 

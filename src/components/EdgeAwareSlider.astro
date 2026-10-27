@@ -1,5 +1,5 @@
 <div class="slider-card">
-  <div class="slider-field" data-edge-tooltip style="--value: 0.5">
+  <edge-aware-tooltip class="slider-field" style="--value: 0.5">
     <div class="rail" aria-hidden="true">
       <span class="rail-fill"></span>
       <span class="thumb-anchor"></span>
@@ -21,23 +21,25 @@
       aria-valuetext="50 percent"
       data-position-input
     />
-  </div>
+  </edge-aware-tooltip>
 </div>
 
 <script>
-  document
-    .querySelectorAll<HTMLElement>('[data-edge-tooltip]')
-    .forEach((root) => {
-      const input = root.querySelector<HTMLInputElement>(
-        '[data-position-input]',
-      );
-      const output = root.querySelector<HTMLElement>('[data-volume]');
-      if (!input || !output) return;
+  class EdgeAwareTooltip extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const input = this.querySelector<HTMLInputElement>('[data-position-input]');
+      const output = this.querySelector<HTMLElement>('[data-volume]');
+      if (!input || !output) {
+        throw new Error('EdgeAwareTooltip: missing required elements.');
+      }
 
       const update = () => {
         const min = Number(input.min);
         const max = Number(input.max || '100');
-        root.style.setProperty(
+        this.style.setProperty(
           '--value',
           String((input.valueAsNumber - min) / (max - min)),
         );
@@ -45,9 +47,34 @@
         input.setAttribute('aria-valuetext', `${input.value} percent`);
       };
 
-      input.addEventListener('input', update);
+      const { signal } = this.#controller;
+      input.addEventListener('input', update, { signal });
+      // A form reset restores the default value without an input event, once the reset event is over.
+      let resetTimer: ReturnType<typeof setTimeout> | undefined;
+      this.closest('form')?.addEventListener(
+        'reset',
+        () => {
+          clearTimeout(resetTimer);
+          resetTimer = setTimeout(update);
+        },
+        { signal },
+      );
+      signal.addEventListener('abort', () => clearTimeout(resetTimer));
       update();
-    });
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('edge-aware-tooltip')) customElements.define('edge-aware-tooltip', EdgeAwareTooltip);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
 </script>
 
 <style>
@@ -64,6 +91,7 @@
 
   .slider-field {
     position: relative;
+    display: block;
     height: 44px;
     anchor-scope: --volume-thumb;
   }

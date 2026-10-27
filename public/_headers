@@ -17,5 +17,8 @@
 /.well-known/agent-skills/*/SKILL.md
   Content-Type: text/markdown; charset=utf-8
 
+/r/*
+  Content-Type: application/json; charset=utf-8
+
 /rss.xml
   Content-Type: application/rss+xml; charset=utf-8

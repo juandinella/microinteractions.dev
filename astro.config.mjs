@@ -12,6 +12,7 @@ import { specimens } from './src/data/specimens.ts';
 import cloudflare from '@astrojs/cloudflare';
 import { access, readdir, readFile, writeFile } from 'node:fs/promises';
 import { transform } from 'esbuild';
+import { fileURLToPath } from 'node:url';
 
 // Optional gitignored Vite plugins for local tooling; forced to dev-only so they never reach a build.
 const localConfig = new URL('./astro.local.mjs', import.meta.url);
@@ -81,12 +82,17 @@ export default defineConfig({
 
   vite: {
     server: {
-      watch: { ignored: ['**/video/**'] },
+      watch: { ignored: ['**/video/**', '**/consumer/**'] },
     },
-    optimizeDeps: { entries: ['**/*.html', '!video/**', '!dist/**'] },
+    // The registry ports import the consumer's `@/lib/utils`. The dependency scan still reaches them,
+    // and an unresolved import makes it skip pre-bundling, which breaks pages once deps are discovered.
+    optimizeDeps: { entries: ['**/*.html', '!video/**', '!consumer/**', '!dist/**'], exclude: ['@/lib/utils'] },
     environments: {
       ssr: {
-        optimizeDeps: { include: ['@base-ui/react/popover', '@base-ui/react/tabs', 'lucide-react', 'astro/zod', 'astro/components'] },
+        optimizeDeps: {
+          include: ['@base-ui/react/popover', '@base-ui/react/tabs', 'lucide-react', 'astro/zod', 'astro/components'],
+          exclude: ['@/lib/utils'],
+        },
       },
     },
     plugins: [tailwindcss(), {
@@ -111,6 +117,28 @@ export default defineConfig({
         const files = await readdir(new URL('./public/og/videos/', import.meta.url)).catch(() => []);
         const ids = files.filter((file) => file.endsWith('.mp4')).map((file) => file.slice(0, -4));
         return `export default ${JSON.stringify(ids)}`;
+      },
+    }, {
+      // The shadcn registry's React ports, and the TypeScript <script> of each demo before the code tabs
+      // transpile it. Read as text: a ?raw import would send the dev dependency scan into files that
+      // import the consumer's @/lib/utils, and the failed scan breaks pre-bundling.
+      name: 'registry-sources',
+      resolveId: (id) => (id === 'virtual:registry-sources' ? '\0virtual:registry-sources' : undefined),
+      async load(id) {
+        if (id !== '\0virtual:registry-sources') return;
+        const read = async (dir, extension, pick) => {
+          const sources = {};
+          for (const file of await readdir(dir)) {
+            if (!file.endsWith(extension)) continue;
+            this.addWatchFile(fileURLToPath(new URL(file, dir)));
+            const source = pick(await readFile(new URL(file, dir), 'utf8'));
+            if (source !== undefined) sources[file] = source;
+          }
+          return sources;
+        };
+        const components = await read(new URL('./src/registry/', import.meta.url), '.tsx', (source) => source);
+        const scripts = await read(new URL('./src/components/', import.meta.url), '.astro', (source) => source.match(/<script>([\s\S]*?)<\/script>/)?.[1]);
+        return `export const components = ${JSON.stringify(components)};\nexport const scripts = ${JSON.stringify(scripts)};`;
       },
     }, ...localPlugins.map((plugin) => ({ ...plugin, apply: 'serve' }))]
   },
