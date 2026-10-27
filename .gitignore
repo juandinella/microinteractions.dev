@@ -1,5 +1,10 @@
 # build output
 dist/
+consumer/dist-server/
+# written by pnpm run test:consumer
+consumer/src/components/
+consumer/src/lib/
+consumer/src/index.css
 test-results/
 playwright-report/
 # generated types
