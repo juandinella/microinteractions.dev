@@ -112,6 +112,16 @@ test('copied hold and slider implementations work outside the gallery', async ({
     await standalone.addScriptTag({ content: code.JavaScript });
     if (slug === 'hold-confirm') {
       const button = standalone.getByRole('button', { name: 'Hold to confirm', exact: true });
+      // Pointer events still reach a disabled button, so a full hold must not confirm it.
+      await button.evaluate((element: HTMLButtonElement) => (element.disabled = true));
+      const box = (await button.boundingBox())!;
+      await standalone.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await standalone.mouse.down();
+      await standalone.waitForTimeout(1300);
+      // Read once: a confirmed button returns to idle on its own after 1400ms.
+      expect(await button.getAttribute('data-state')).toBe('idle');
+      await standalone.mouse.up();
+      await button.evaluate((element: HTMLButtonElement) => (element.disabled = false));
       await button.focus();
       await standalone.keyboard.down('Space');
       await expect(button).toHaveAttribute('data-state', 'holding');
