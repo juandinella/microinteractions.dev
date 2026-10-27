@@ -32,8 +32,8 @@ const check = (
   </svg>
 );
 
-// The element manages checking, the drag band, and the announcements after it upgrades.
-// Give the component a new key when its rows change, so the element reads the new markup.
+// The element manages checking, the drag band, and the announcements after it upgrades. It reads
+// the rows once, so a different set of rows remounts it with every box cleared.
 export function DragSelectTable({
   title,
   rows,
@@ -44,6 +44,9 @@ export function DragSelectTable({
   const root = React.useRef<HTMLElement>(null);
   const change = React.useRef(onSelectionChange);
   change.current = onSelectionChange;
+  const ids = React.useRef(rows.map((row) => row.id));
+  ids.current = rows.map((row) => row.id);
+  const key = JSON.stringify(ids.current);
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
@@ -57,7 +60,7 @@ export function DragSelectTable({
       queueMicrotask(() => {
         pending = false;
         const boxes = [...element.querySelectorAll<HTMLInputElement>('tbody input')];
-        change.current?.(rows.filter((_, index) => boxes[index]?.checked).map((row) => row.id));
+        change.current?.(ids.current.filter((_, index) => boxes[index]?.checked));
       });
     };
     // A form reset restores the default boxes without change events, once the reset event is over.
@@ -69,10 +72,10 @@ export function DragSelectTable({
       element.removeEventListener('change', report);
       form?.removeEventListener('reset', reset);
     };
-  }, [rows]);
+  }, [key]);
 
   return (
-    <drag-select-table ref={root} className={cn('block [--dst-ease:cubic-bezier(0.23,1,0.32,1)] w-[min(100%,480px)] rounded-2xl border border-border bg-background text-foreground [--dst-draw:0ms] [--dst-follow:0ms] [--dst-row:40px] pointer-coarse:[--dst-row:44px] motion-safe:[--dst-draw:160ms] motion-safe:[--dst-follow:90ms] data-dragging:select-none', className)}>
+    <drag-select-table key={key} ref={root} className={cn('block [--dst-ease:cubic-bezier(0.23,1,0.32,1)] w-[min(100%,480px)] rounded-2xl border border-border bg-background text-foreground [--dst-draw:0ms] [--dst-follow:0ms] [--dst-row:40px] pointer-coarse:[--dst-row:44px] motion-safe:[--dst-draw:160ms] motion-safe:[--dst-follow:90ms] data-dragging:select-none', className)}>
       <div className="flex items-baseline justify-between gap-4 px-5 pt-4.5 pb-2.5">
         <p className="m-0 text-[15px] font-medium">{title}</p>
         <p className="m-0 font-mono text-xs text-muted-foreground tabular-nums" data-count>

@@ -20,7 +20,7 @@ type WormDotsProps = {
 };
 
 // The element manages the current slide, the worm, and the announcements after it upgrades.
-// Give the component a new key when its slides change, so the element reads the new markup.
+// It counts the slides once, so a different number of slides remounts it, back on the first.
 export function WormDots({ slides, 'aria-label': ariaLabel, className, slideClassName }: WormDotsProps) {
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
@@ -31,6 +31,7 @@ export function WormDots({ slides, 'aria-label': ariaLabel, className, slideClas
 
   return (
     <worm-dots
+      key={total}
       className={cn(
         'group/wd @container grid w-full gap-1.5 [--wd-dot:6px] [--wd-gap:24px] [--wd-hit:40px] [--wd-pill:12px] [--wd-reach:12px] [--wd-ring:16px] pointer-coarse:[--wd-hit:44px]',
         className,

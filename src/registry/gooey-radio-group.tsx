@@ -27,6 +27,7 @@ type GooeyRadioGroupProps = {
 };
 
 // The element pours the dot between rings; each option is 44px tall, the distance it pours per step.
+// It reads the radios once, so a different set of options remounts it, back on `defaultValue`.
 export function GooeyRadioGroup({
   legend,
   options,
@@ -37,25 +38,27 @@ export function GooeyRadioGroup({
 }: GooeyRadioGroupProps) {
   const id = React.useId();
   const root = React.useRef<HTMLElement>(null);
+  const key = JSON.stringify(options.map((option) => option.value));
   const [index, setIndex] = React.useState(() => options.findIndex((option) => option.value === defaultValue));
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./gooey-radio-group-element');
+    const element = root.current!;
+    const checkedIndex = () => [...element.querySelectorAll('input')].findIndex((input) => input.checked);
+    setIndex(checkedIndex());
     // A form reset restores the default radio without a change event, once the reset event is over.
-    const form = root.current!.closest('form');
-    const reset = () =>
-      setTimeout(() =>
-        setIndex([...root.current!.querySelectorAll('input')].findIndex((input) => input.checked)),
-      );
+    const form = element.closest('form');
+    const reset = () => setTimeout(() => setIndex(checkedIndex()));
     form?.addEventListener('reset', reset);
     return () => form?.removeEventListener('reset', reset);
-  }, []);
+  }, [key]);
 
   return (
     <fieldset className={cn('m-0 min-w-0 border-0 p-0 text-foreground', className)}>
       <legend className="mb-1.5 p-0 text-xs text-muted-foreground">{legend}</legend>
       <gooey-radio-group
+        key={key}
         ref={root}
         className="group/goo relative isolate grid"
         style={{ '--goo-index': Math.max(index, 0) } as React.CSSProperties}

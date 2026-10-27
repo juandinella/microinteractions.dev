@@ -26,8 +26,8 @@ type TabIndicatorProps = {
   className?: string;
 };
 
-// The element manages selection, focus, and the line after it upgrades. Give the component a new
-// key when its tabs change, so the element reads the new markup.
+// The element manages selection, focus, and the line after it upgrades. It reads the tabs once,
+// so a different set of tabs remounts it, back on `defaultIndex`.
 export function TabIndicator({
   tabs,
   defaultIndex = 0,
@@ -38,6 +38,7 @@ export function TabIndicator({
   const root = React.useRef<HTMLElement>(null);
   const change = React.useRef(onValueChange);
   change.current = onValueChange;
+  const key = JSON.stringify(tabs.map((tab) => tab.label));
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
@@ -59,10 +60,11 @@ export function TabIndicator({
       element.removeEventListener('click', report);
       element.removeEventListener('keydown', report);
     };
-  }, [defaultIndex]);
+  }, [defaultIndex, key]);
 
   return (
     <tab-indicator
+      key={key}
       ref={root}
       className={cn(
         'group/tbi block [--tbi-ease:cubic-bezier(0.23,1,0.32,1)] w-full overflow-hidden rounded-xl border border-border bg-background [--tbi-fade-end:0px] [--tbi-fade-start:0px] [--tbi-pad:8px] data-more-end:[--tbi-fade-end:32px] data-more-start:[--tbi-fade-start:32px]',
