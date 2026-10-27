@@ -94,6 +94,7 @@
       let current: number | undefined = checked < 0 ? undefined : checked * PITCH;
       let animations: Animation[] = [];
       let positionAt: ((ms: number) => [number, number]) | undefined;
+      let resetTimer: ReturnType<typeof setTimeout> | undefined;
 
       // WebKit drops :focus-visible when arrow keys move between radios, so track the keyboard here.
       // It stays set until the next pointer press: clearing it on pointer movement would hide Safari's focus ring.
@@ -160,18 +161,23 @@
       // The resting dot follows it through CSS; the next pour has to start from it too.
       this.closest('form')?.addEventListener(
         'reset',
-        () =>
-          setTimeout(() => {
+        () => {
+          clearTimeout(resetTimer);
+          resetTimer = setTimeout(() => {
             animations.forEach((animation) => animation.cancel());
             animations = [];
             positionAt = undefined;
             const index = radios.findIndex((radio) => radio.checked);
             current = index < 0 ? undefined : index * PITCH;
-          }),
+          });
+        },
         { signal },
       );
 
-      signal.addEventListener('abort', () => animations.forEach((animation) => animation.cancel()));
+      signal.addEventListener('abort', () => {
+        animations.forEach((animation) => animation.cancel());
+        clearTimeout(resetTimer);
+      });
     }
 
     disconnectedCallback() {

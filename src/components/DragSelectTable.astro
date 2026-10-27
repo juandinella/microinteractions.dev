@@ -234,6 +234,7 @@
       // True while `commit()` dispatches, so the component's own `change` events don't re-enter it.
       let committing = false;
       let announceTimer: ReturnType<typeof setTimeout> | undefined;
+      let resetTimer: ReturnType<typeof setTimeout> | undefined;
 
       const states = () => boxes.map((box) => box.checked);
 
@@ -596,19 +597,22 @@
       // A form reset restores each box's default without a change event, once the reset event is over.
       this.closest('form')?.addEventListener(
         'reset',
-        () =>
-          setTimeout(() => {
+        () => {
+          clearTimeout(resetTimer);
+          resetTimer = setTimeout(() => {
             keyRange = null;
             anchor = -1;
             sync();
             announce();
-          }),
+          });
+        },
         { signal },
       );
 
       signal.addEventListener('abort', () => {
         end(false);
         clearTimeout(announceTimer);
+        clearTimeout(resetTimer);
       });
 
       sync();
