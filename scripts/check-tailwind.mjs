@@ -25,6 +25,29 @@ const designSystem = await __unstable__loadDesignSystem([
   await readFile(stylesheet, 'utf8'),
   ...componentStyles,
 ].join('\n'), { base: dirname(stylesheet) });
+// The shadcn registry ports run in projects that import shadcn/tailwind.css, which narrows some
+// data-* variants (data-selected only matches "true"). Check them against those variants, so a
+// suggestion never changes what a class matches there.
+const shadcnVariants = Object.entries({
+  open: '[data-state="open"]), &:where([data-open]:not([data-open="false"])',
+  closed: '[data-state="closed"]), &:where([data-closed]:not([data-closed="false"])',
+  checked: '[data-state="checked"]), &:where([data-checked]:not([data-checked="false"])',
+  unchecked: '[data-state="unchecked"]), &:where([data-unchecked]:not([data-unchecked="false"])',
+  selected: '[data-selected="true"]',
+  disabled: '[data-disabled="true"]), &:where([data-disabled]:not([data-disabled="false"])',
+  active: '[data-state="active"]), &:where([data-active]:not([data-active="false"])',
+  horizontal: '[data-orientation="horizontal"]',
+  vertical: '[data-orientation="vertical"]',
+}).map(([name, selector]) => `@custom-variant data-${name} { &:where(${selector}) { @slot; } }`);
+const registrySystem = await __unstable__loadDesignSystem([
+  await readFile(stylesheet, 'utf8'),
+  ...shadcnVariants,
+].join('\n'), { base: dirname(stylesheet) });
+// Tailwind still proposes `data-selected` for `[&[data-selected]]` under those variants, so a
+// registry suggestion only counts when it compiles to the same selectors.
+const selectors = (candidate) => [...(registrySystem.candidatesToCss([candidate])[0] ?? '')
+  .replaceAll(`.${candidate.replace(/[^\w-]/g, (character) => `\\${character}`)}`, '.candidate')
+  .matchAll(/([^{}]+)\{/g)].map((match) => match[1].trim()).join('|');
 
 let problems = 0;
 for (const { file, source } of files) {
@@ -32,14 +55,16 @@ for (const { file, source } of files) {
   const content = source.replace(/<style\b[^>]*>[\s\S]*?<\/style>/g,
     (style) => style.replace(/[^\r\n]/g, ' '));
   const candidates = scanner.getCandidatesWithPositions({ content, extension: extname(file).slice(1) });
+  const system = relative(root, file).startsWith('src/registry/') ? registrySystem : designSystem;
   // IntelliSense canonicalizes px against a 16px root, so `top-[17px]` becomes `top-4.25`.
   const canonical = new Map([...new Set(candidates.map(({ candidate }) => candidate))]
-    .map((candidate) => [candidate, designSystem.canonicalizeCandidates([candidate], { rem: 16 })[0]]));
+    .map((candidate) => [candidate, system.canonicalizeCandidates([candidate], { rem: 16 })[0]]));
 
   for (const { candidate, position } of candidates) {
     const suggestion = canonical.get(candidate);
     if (candidate === suggestion) continue;
-    if (!designSystem.candidatesToCss([candidate])[0]) continue;
+    if (!system.candidatesToCss([candidate])[0]) continue;
+    if (system === registrySystem && selectors(candidate) !== selectors(suggestion)) continue;
 
     // Oxide reports UTF-8 byte offsets; editor locations use text characters.
     const prefix = Buffer.from(content).subarray(0, position).toString('utf8');

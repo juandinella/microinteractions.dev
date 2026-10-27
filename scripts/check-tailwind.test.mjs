@@ -40,3 +40,14 @@ ${styles}
   assert.equal(accepted.status, 0, accepted.stdout + accepted.stderr);
   assert.match(accepted.stdout, /PASS: canonical Tailwind classes/);
 });
+
+test('registry ports keep attribute variants that shadcn narrows', async (t) => {
+  const file = join(root, 'src/registry/tailwind-check-fixture.tsx');
+  t.after(() => rm(file, { force: true }));
+  // shadcn/tailwind.css makes data-selected match only "true", so `[&[data-selected]]` is not the same selector.
+  await writeFile(file, 'export const Fixture = () => <tr className="[&[data-selected]]:*:font-bold top-[17px]" />;\n');
+  const result = spawnSync(process.execPath, ['scripts/check-tailwind.mjs'], { cwd: root, encoding: 'utf8' });
+  const diagnostics = result.stderr.split('\n').filter((line) => line.startsWith(relative(root, file)));
+  assert.equal(diagnostics.length, 1, result.stderr);
+  assert.match(diagnostics[0], /top-\[17px\] → top-4\.25/);
+});

@@ -162,7 +162,7 @@ test('installable studies offer the shadcn command for each package manager', as
   await page.goto('/text-swap/');
   await expect(page.getByRole('button', { name: 'Copy install command' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'pnpm' })).toHaveAttribute('aria-selected', 'true');
-  await page.goto('/chevron-morph/');
+  await page.goto('/edge-aware-tooltip/');
   await expect(page.getByRole('tablist', { name: 'Package manager' })).toHaveCount(0);
 });
 

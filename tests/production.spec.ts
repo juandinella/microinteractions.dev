@@ -264,8 +264,15 @@ test('shadcn registry serves the index and installable items', async ({ request 
   const item = await (await request.get('/r/text-swap.json')).json();
   expect(item.registryDependencies).toEqual(['utils']);
   expect(item.files[0].content).toContain('export function TextSwapButton');
-  const hold = await (await request.get('/r/hold-confirm.json')).json();
-  expect(hold.files.map((file: { path: string }) => file.path)).toEqual(['registry/hold-confirm.tsx', 'registry/hold-confirm-element.ts']);
+  // Each custom element study ships its demo's script, defined once the React markup exists.
+  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots']]) {
+    const element = await (await request.get(`/r/${name}.json`)).json();
+    expect(element.files.map((file: { path: string }) => file.path)).toEqual([`registry/${name}.tsx`, `registry/${name}-element.ts`]);
+    expect(element.files[0].content).toContain(`<${tag}`);
+    expect(element.files[1].content).toContain(`if (!customElements.get('${tag}')) customElements.define('${tag}',`);
+    expect(element.files[1].content).not.toContain('DOMContentLoaded');
+  }
+  expect(Object.keys((await (await request.get('/r/worm-dots.json')).json()).css)).toContain('@property --wd-dot');
 });
 
 test('WebMCP tools list, read, and open studies', async ({ page }) => {
