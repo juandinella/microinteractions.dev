@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* shadcn registry ports style the consumer's app, not this site. */
+@source not "../registry";
+
 @import "./fonts.css";
 @import "./tokens.css";
 @import "./base.css";

@@ -140,6 +140,32 @@ test('copied hold and slider implementations work outside the gallery', async ({
   }
 });
 
+test('installable studies offer the shadcn command for each package manager', async ({ page }) => {
+  await page.goto('/hold-confirm/');
+  const install = page.getByRole('tablist', { name: 'Package manager' }).locator('..');
+  const copy = page.getByRole('button', { name: 'Copy install command' });
+  await expect(copy).toBeVisible();
+  const command = install.getByRole('tabpanel').locator('code');
+  await expect(command).toHaveText('$ npx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+  await page.getByRole('tab', { name: 'pnpm' }).click();
+  await expect(command).toHaveText('$ pnpm dlx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+
+  await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', {
+    value: async (text: string) => { (window as unknown as { copied: string }).copied = text; },
+  }));
+  await copy.click();
+  await expect(copy).toHaveAttribute('data-copied', 'true');
+  expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe('pnpm dlx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+  await expect(page.getByRole('status').filter({ hasText: 'Install command copied to clipboard.' })).toHaveCount(1);
+
+  // The choice follows the reader to the next installable study.
+  await page.goto('/text-swap/');
+  await expect(page.getByRole('button', { name: 'Copy install command' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'pnpm' })).toHaveAttribute('aria-selected', 'true');
+  await page.goto('/chevron-morph/');
+  await expect(page.getByRole('tablist', { name: 'Package manager' })).toHaveCount(0);
+});
+
 test.describe('plucked underline', () => {
   const durations = (page: import('@playwright/test').Page) =>
     page.locator('[data-stage] [data-pluck]').evaluateAll((links) =>

@@ -255,6 +255,19 @@ test('agent skill index digest matches the published skill', async ({ request })
   expect(text).toContain('/rss.xml');
 });
 
+test('shadcn registry serves the index and installable items', async ({ request }) => {
+  const index = await request.get('/r/registry.json');
+  expect(index.headers()['content-type']).toBe('application/json; charset=utf-8');
+  const { name, items } = await index.json();
+  expect(name).toBe('microinteractions');
+  expect(items.map((item: { name: string }) => item.name)).toContain('text-swap');
+  const item = await (await request.get('/r/text-swap.json')).json();
+  expect(item.registryDependencies).toEqual(['utils']);
+  expect(item.files[0].content).toContain('export function TextSwapButton');
+  const hold = await (await request.get('/r/hold-confirm.json')).json();
+  expect(hold.files.map((file: { path: string }) => file.path)).toEqual(['registry/hold-confirm.tsx', 'registry/hold-confirm-element.ts']);
+});
+
 test('WebMCP tools list, read, and open studies', async ({ page }) => {
   await page.addInitScript(() => {
     const registered = new Map();

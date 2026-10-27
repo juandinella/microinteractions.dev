@@ -7,7 +7,8 @@
   ],
   "exclude": [
     "dist",
-    "video"
+    "video",
+    "src/registry"
   ],
   "compilerOptions": {
     "jsx": "react-jsx",
