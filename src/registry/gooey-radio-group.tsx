@@ -36,17 +36,27 @@ export function GooeyRadioGroup({
   className,
 }: GooeyRadioGroupProps) {
   const id = React.useId();
+  const root = React.useRef<HTMLElement>(null);
   const [index, setIndex] = React.useState(() => options.findIndex((option) => option.value === defaultValue));
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./gooey-radio-group-element');
+    // A form reset restores the default radio without a change event, once the reset event is over.
+    const form = root.current!.closest('form');
+    const reset = () =>
+      setTimeout(() =>
+        setIndex([...root.current!.querySelectorAll('input')].findIndex((input) => input.checked)),
+      );
+    form?.addEventListener('reset', reset);
+    return () => form?.removeEventListener('reset', reset);
   }, []);
 
   return (
     <fieldset className={cn('m-0 min-w-0 border-0 p-0 text-foreground', className)}>
       <legend className="mb-1.5 p-0 text-xs text-muted-foreground">{legend}</legend>
       <gooey-radio-group
+        ref={root}
         className="group/goo relative isolate grid"
         style={{ '--goo-index': Math.max(index, 0) } as React.CSSProperties}
       >

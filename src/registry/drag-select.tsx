@@ -60,8 +60,15 @@ export function DragSelectTable({
         change.current?.(rows.filter((_, index) => boxes[index]?.checked).map((row) => row.id));
       });
     };
+    // A form reset restores the default boxes without change events, once the reset event is over.
+    const form = element.closest('form');
+    const reset = () => setTimeout(report);
     element.addEventListener('change', report);
-    return () => element.removeEventListener('change', report);
+    form?.addEventListener('reset', reset);
+    return () => {
+      element.removeEventListener('change', report);
+      form?.removeEventListener('reset', reset);
+    };
   }, [rows]);
 
   return (

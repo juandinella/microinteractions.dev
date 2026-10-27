@@ -156,6 +156,21 @@
         );
       }, { signal });
 
+      // A form reset restores the default radio without a change event, once the reset event is over.
+      // The resting dot follows it through CSS; the next pour has to start from it too.
+      this.closest('form')?.addEventListener(
+        'reset',
+        () =>
+          setTimeout(() => {
+            animations.forEach((animation) => animation.cancel());
+            animations = [];
+            positionAt = undefined;
+            const index = radios.findIndex((radio) => radio.checked);
+            current = index < 0 ? undefined : index * PITCH;
+          }),
+        { signal },
+      );
+
       signal.addEventListener('abort', () => animations.forEach((animation) => animation.cancel()));
     }
 

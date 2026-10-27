@@ -106,7 +106,9 @@ test('copied hold and slider implementations work outside the gallery', async ({
     const standalone = await browser.newPage();
     const errors: string[] = [];
     standalone.on('pageerror', (error) => errors.push(error.message));
-    await standalone.setContent(`<style>${code.CSS}</style>${code.HTML}`);
+    // The hold dialog has its own form, so only the slider goes inside one.
+    const html = slug === 'edge-aware-tooltip' ? `<form>${code.HTML}</form>` : code.HTML;
+    await standalone.setContent(`<style>${code.CSS}</style>${html}`);
     await standalone.addScriptTag({ content: code.JavaScript });
     if (slug === 'hold-confirm') {
       const button = standalone.getByRole('button', { name: 'Hold to confirm', exact: true });
@@ -134,6 +136,11 @@ test('copied hold and slider implementations work outside the gallery', async ({
         });
         expect(contained).toBe(true);
       }
+      // A form reset restores the value without an input event; the tooltip and fill follow it.
+      await standalone.locator('form').evaluate((form: HTMLFormElement) => form.reset());
+      await expect(standalone.locator('[data-volume]')).toHaveText('50');
+      await expect(slider).toHaveAttribute('aria-valuetext', '50 percent');
+      expect(await standalone.locator('edge-aware-tooltip').evaluate((field) => field.style.getPropertyValue('--value'))).toBe('0.5');
     }
     expect(errors).toEqual([]);
     await standalone.close();
@@ -425,7 +432,7 @@ test.describe('gooey radio group', () => {
     const standalone = await browser.newPage();
     const errors: string[] = [];
     standalone.on('pageerror', (error) => errors.push(error.message));
-    await standalone.setContent(`<style>${code.CSS}</style>${code.HTML}`);
+    await standalone.setContent(`<style>${code.CSS}</style><form>${code.HTML}</form>`);
     await standalone.addScriptTag({ content: code.JavaScript });
     const group = standalone.locator('.goo-group');
     expect(await standalone.locator('.goo-drop').evaluate((el) => getComputedStyle(el).filter)).toBe('url("#goo-merge-1")');
@@ -440,6 +447,15 @@ test.describe('gooey radio group', () => {
     expect(await blobAnimations(group)).toBe(8);
     await expect.poll(() => headY(standalone)).toBe(88);
     await expect(standalone.locator('.goo-option', { hasText: 'Next day' })).toHaveCSS('outline-style', 'none');
+    // A form reset restores the default without a change event; the next pour starts from it.
+    await standalone.locator('form').evaluate((form: HTMLFormElement) => form.reset());
+    await expect(standalone.getByRole('radio', { name: 'Standard' })).toBeChecked();
+    await expect.poll(() => headY(standalone)).toBe(0);
+    await standalone.getByText('Express').click();
+    const start = await standalone.locator('[data-goo-blob]').last().evaluate(
+      (head) => head.getAnimations()[0].effect!.getKeyframes()[0].transform as string,
+    );
+    expect(start).toMatch(/^translateY\(0px\)/);
     expect(errors).toEqual([]);
     await standalone.close();
   });
@@ -543,12 +559,16 @@ test.describe('drag select', () => {
       const standalone = await browser.newPage();
       const errors: string[] = [];
       standalone.on('pageerror', (error) => errors.push(error.message));
-      await standalone.setContent(`<style>${code.CSS}</style>${code.HTML}`);
+      await standalone.setContent(`<style>${code.CSS}</style><form>${code.HTML}</form>`);
       await standalone.addScriptTag({ content: code.JavaScript });
       await press(standalone, 0, [2]);
       await standalone.mouse.up();
       expect((await checked(standalone)).slice(0, 4), format).toEqual([true, true, true, false]);
       await expect(standalone.locator('[data-count]'), format).toHaveText('3 of 10');
+      // A form reset clears the boxes without change events; the rows and count follow them.
+      await standalone.locator('form').evaluate((form: HTMLFormElement) => form.reset());
+      await expect(standalone.locator('[data-count]'), format).toHaveText('0 of 10');
+      await expect(standalone.locator('tr[data-selected]'), format).toHaveCount(0);
       expect(errors, format).toEqual([]);
       await standalone.close();
     }

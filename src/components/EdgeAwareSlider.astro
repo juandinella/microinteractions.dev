@@ -47,7 +47,10 @@
         input.setAttribute('aria-valuetext', `${input.value} percent`);
       };
 
-      input.addEventListener('input', update, { signal: this.#controller.signal });
+      const { signal } = this.#controller;
+      input.addEventListener('input', update, { signal });
+      // A form reset restores the default value without an input event, once the reset event is over.
+      this.closest('form')?.addEventListener('reset', () => setTimeout(update), { signal });
       update();
     }
 

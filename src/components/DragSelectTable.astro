@@ -593,6 +593,19 @@
         { signal },
       );
 
+      // A form reset restores each box's default without a change event, once the reset event is over.
+      this.closest('form')?.addEventListener(
+        'reset',
+        () =>
+          setTimeout(() => {
+            keyRange = null;
+            anchor = -1;
+            sync();
+            announce();
+          }),
+        { signal },
+      );
+
       signal.addEventListener('abort', () => {
         end(false);
         clearTimeout(announceTimer);
