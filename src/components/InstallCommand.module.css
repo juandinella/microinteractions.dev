@@ -1,8 +1,3 @@
-.install {
-  max-width: 640px;
-  margin-top: 20px;
-}
-
 .frame {
   overflow: hidden;
   border: 1px solid var(--line);

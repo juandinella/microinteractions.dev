@@ -51,7 +51,7 @@ export default function InstallCommand({ url }: { url: string }) {
   }
 
   return (
-    <div className={styles.install}>
+    <div>
       <Tabs.Root
         className={styles.frame}
         value={manager}
