@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { collectionDescription } from '../src/data/collection';
+import { repository } from '../src/data/repository';
 import { specimens } from '../src/data/specimens';
 
 test('source formats and languages work without JavaScript', async ({ browser }) => {
@@ -157,6 +159,19 @@ test('Markdown content negotiation and complete Tailwind exports', () => {
   console.log(execFileSync(process.execPath, ['scripts/check-markdown.mjs', 'http://127.0.0.1:8791'], { encoding: 'utf8' }));
 });
 
+test('collection and hold summaries describe the behavior without JavaScript', async ({ browser, request }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto('http://127.0.0.1:8791/');
+  await expect(page.locator('.intro .description')).toHaveText(`${collectionDescription} The site is open source on GitHub.`);
+  const markdown = await (await request.get('/markdown/index.md')).text();
+  expect(markdown).toContain(collectionDescription);
+  expect(markdown).toContain(`[on GitHub](${repository.url})`);
+  await page.goto('http://127.0.0.1:8791/hold-confirm/');
+  await expect(page.locator('.study-header .summary')).toHaveText('Hold the button for 1,200ms to confirm. Release early to cancel.');
+  await context.close();
+});
+
 test('content routes expose valid social images', async ({ page, request }) => {
   const covers: Record<string, string> = { '/': '/social-preview.png' };
   for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator', 'worm-dots']) covers[`/${id}/`] = `/social/${id}.png`;
@@ -278,6 +293,30 @@ test('shadcn registry serves the index and installable items', async ({ request 
     expect(element.files[1].content).not.toContain('DOMContentLoaded');
   }
   expect(Object.keys((await (await request.get('/r/worm-dots.json')).json()).css)).toContain('@property --wd-dot');
+});
+
+test('agent documents expose the registry and every React install command', async ({ request }) => {
+  const { items } = await (await request.get('/r/registry.json')).json();
+  const registryUrl = 'https://microinteractions.dev/r/registry.json';
+  const llms = await (await request.get('/llms.txt')).text();
+  expect(llms).toContain(collectionDescription);
+  for (const path of ['/markdown/index.md', '/llms.txt', '/api.md', '/.well-known/agent-skills/microinteractions/SKILL.md']) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(200);
+    expect(await response.text(), path).toContain(registryUrl);
+  }
+  await Promise.all(items.map(async ({ name }: { name: string }) => {
+    const url = `https://microinteractions.dev/r/${name}.json`;
+    expect(llms).toContain(`[React registry item](${url})`);
+    const fixed = await request.get(`/markdown/${name}.md`);
+    const negotiated = await request.get(`/${name}/`, { headers: { Accept: 'text/markdown' } });
+    expect(fixed.status(), name).toBe(200);
+    expect(negotiated.status(), name).toBe(200);
+    const markdown = await fixed.text();
+    expect(markdown, name).toContain(`## React component\n\nInstall the React component`);
+    expect(markdown, name).toContain(`\`\`\`sh\nnpx shadcn@latest add ${url}\n\`\`\``);
+    expect(await negotiated.text(), name).toBe(markdown);
+  }));
 });
 
 test('WebMCP tools list, read, and open studies', async ({ page }) => {

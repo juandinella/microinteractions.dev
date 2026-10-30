@@ -159,7 +159,7 @@ export const specimens: Specimen[] = [
     published: '2026-09-29',
     title: 'Hold to confirm button',
     category: 'Actions',
-    summary: 'Deliberate confirmation, with a quick way back.',
+    summary: 'Hold the button for 1,200ms to confirm. Release early to cancel.',
     seoTitle: 'JavaScript hold-to-confirm button',
     seoDescription:
       'Build a hold-to-confirm button with a cancelable timer, keyboard support, and status feedback. Try the demo and learn how to connect a real action.',

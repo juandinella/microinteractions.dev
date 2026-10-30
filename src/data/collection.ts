@@ -1,0 +1,1 @@
+export const collectionDescription = 'A collection of UI microinteractions with live demos, timing notes, and copyable HTML, CSS, JavaScript, and Tailwind code. React components install with shadcn.';
