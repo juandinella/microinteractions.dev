@@ -1,12 +1,20 @@
+/* The face keeps the site's surface and the text stays on it. The color lives outside: a blurred halo behind the face
+   and a 1px beam that replaces the gray border where it passes. Both are dashed strokes along the pill's outline, so
+   the light moves at constant speed and keeps its length; it starts where the pointer came in. */
 .trigger {
+  --c0: oklch(0.72 0.23 5);
+  --c1: oklch(0.72 0.23 315);
+  --c2: oklch(0.72 0.23 265);
+
   position: relative;
+  isolation: isolate;
   display: inline-flex;
   height: 32px;
   flex-shrink: 0;
   align-items: center;
   gap: 6px;
   padding: 0 12px 0 10px;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
@@ -14,7 +22,7 @@
   font: 11px/1 var(--font-mono);
   touch-action: manipulation;
   white-space: nowrap;
-  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /* 32px tall, 44px to the pointer. */
@@ -24,25 +32,121 @@
   content: '';
 }
 
-.trigger[data-popup-open] {
-  border-color: var(--line-strong);
-  background: var(--surface);
-  color: var(--text);
-}
-
 .trigger:active {
   transform: scale(0.97);
 }
 
 .trigger:focus-visible {
   outline: 2px solid var(--text);
-  outline-offset: 2px;
+  outline-offset: 4px;
+}
+
+.face {
+  position: absolute;
+  z-index: 0;
+  inset: -1px;
+  border: 1px solid var(--line);
+  border-radius: inherit;
+  background: var(--bg);
+}
+
+.halo,
+.ring {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.halo svg,
+.ring svg {
+  display: block;
+}
+
+.halo {
+  z-index: -1;
+  filter: blur(10px);
+  transition: opacity 160ms ease;
+}
+
+.ring {
+  z-index: 1;
+  transition: opacity 160ms ease;
+}
+
+.halo rect,
+.ring rect {
+  fill: none;
+
+  /* Paused rather than removed on leave, so the beam freezes where it was while it fades out. */
+  animation: run 2.1s linear infinite paused;
+}
+
+.halo rect {
+  stroke-width: 8px;
+}
+
+.ring rect {
+  stroke-width: 1px;
+}
+
+.halo rect:nth-child(1), .ring rect:nth-child(1) { stroke: var(--c0); }
+.halo rect:nth-child(2), .ring rect:nth-child(2) { stroke: var(--c1); }
+.halo rect:nth-child(3), .ring rect:nth-child(3) { stroke: var(--c2); }
+
+/* --o and --o2 are percents of the outline (pathLength 100): one full lap per run. */
+@keyframes run {
+  from { stroke-dashoffset: var(--o); }
+  to { stroke-dashoffset: var(--o2); }
+}
+
+.icon,
+.label {
+  position: relative;
+  z-index: 1;
+}
+
+.icon {
+  transition: transform 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.trigger[data-popup-open] {
+  color: var(--text);
+}
+
+.trigger[data-popup-open] .face {
+  border-color: var(--line-strong);
+  background: var(--surface);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .trigger:hover {
-    border-color: var(--line-strong);
+  .trigger:hover,
+  .trigger:focus-visible {
     color: var(--text);
+  }
+
+  .trigger:hover .halo,
+  .trigger:focus-visible .halo {
+    opacity: 0.9;
+    transition-duration: 280ms;
+  }
+
+  .trigger:hover .ring,
+  .trigger:focus-visible .ring {
+    opacity: 1;
+    transition-duration: 280ms;
+  }
+
+  .trigger:hover rect,
+  .trigger:focus-visible rect {
+    animation-play-state: running;
+  }
+
+  .trigger:hover .icon,
+  .trigger:focus-visible .icon {
+    transform: rotate(90deg);
   }
 }
 
@@ -108,6 +212,20 @@
 /* Reduced motion keeps the fades, without the scale. */
 @media (prefers-reduced-motion: reduce) {
   .trigger:active {
+    transform: none;
+  }
+
+  /* The color stays; the travel and the turn go. */
+  .trigger rect {
+    animation: none;
+  }
+
+  .halo,
+  .ring {
+    transition-duration: 150ms;
+  }
+
+  .trigger .icon {
     transform: none;
   }
 
