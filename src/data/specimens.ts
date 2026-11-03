@@ -13,7 +13,8 @@ export type SpecimenId =
   | 'drag-select'
   | 'resize-handle'
   | 'tab-indicator'
-  | 'worm-dots';
+  | 'worm-dots'
+  | 'drag-reorder';
 
 export const categories = [
   'Actions',
@@ -70,7 +71,6 @@ export const planned: Record<Category, string[]> = {
     'Undo',
   ],
   'Direct manipulation': [
-    'Drag to reorder',
     'Swipe',
     'Pull to refresh',
     'Drag to dismiss',
@@ -379,6 +379,36 @@ export const specimens: Specimen[] = [
       value: 'Follows the scroll',
       why: 'follow the scroll',
       note: 'Halfway through a swipe the worm spans both dots; let go there and it stays there. Its leading edge reaches the next dot first, then the trailing edge follows.',
+    },
+  },
+  {
+    id: 'drag-reorder',
+    published: '2026-11-03',
+    title: 'Drag to reorder',
+    category: 'Actions',
+    summary: 'Open a gap in a list that follows the item you drag.',
+    seoTitle: 'Drag to reorder list animation with a rippling gap',
+    seoDescription:
+      'Reorder a list by lifting a row out of it. The rest closes up, and the rows beside the gap nudge apart with a stagger, each less than the last. Includes keyboard moves with live announcements and reduced-motion support.',
+    trigger: 'drag',
+    triggerLabel: 'Drag, Space, arrow keys',
+    hint: 'Drag an item up or down',
+    touchHint: 'Drag an item up or down',
+    duration: 250,
+    durationNote:
+      'Every row moves for 250ms, starting 24ms × n after the two beside the gap (n is the steps from the gap). The dropped row also settles in 250ms, and the insertion line glides in 150ms. Keyboard moves jump.',
+    easing: [0.23, 1, 0.32, 1],
+    easingName: 'ease-out-quint',
+    easingNote:
+      'Starts at speed, so the rows beside the gap answer the pointer at once, then slows into place with no rebound.',
+    props: ['transform'],
+    positioningNote:
+      'The lifted row follows the pointer with translate and no transition. Every other row gets a translateY that closes over the lifted slot plus a nudge away from the gap, written directly on the element.',
+    detail: {
+      label: 'Nudge',
+      value: '8px × 0.7ⁿ',
+      why: 'the rows move apart',
+      note: 'n is the steps from the gap. The two rows beside it move 8px and start first; the next pair move 5.6px and start 24ms later, then 3.9px, and so on. The gap is only the nudge, marked by a line: the lifted row\u2019s own slot closes up.',
     },
   },
 ];

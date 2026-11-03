@@ -15,6 +15,7 @@ const items: Partial<Record<SpecimenId, { element?: string; css?: Record<string,
   'drag-select': { element: 'DragSelectTable.astro' },
   'resize-handle': { element: 'ResizableSidebar.astro' },
   'tab-indicator': { element: 'TabIndicator.astro' },
+  'drag-reorder': { element: 'DragReorder.astro' },
   'worm-dots': {
     element: 'WormDots.astro',
     // Registered, so the element reads the sizes in px whatever unit they're written in.

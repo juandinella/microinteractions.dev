@@ -9,6 +9,7 @@ const elements = [
   'drag-select-table',
   'resizable-sidebar',
   'worm-dots',
+  'drag-reorder',
 ];
 
 // Opens the app once its custom elements are defined, and fails the test on any console error,

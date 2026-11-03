@@ -1066,3 +1066,76 @@ test.describe('worm dots', () => {
     for (const size of ['--wd-dot', '--wd-pill', '--wd-gap', '--wd-ring']) expect(code.tailwind.CSS).toContain(`@property ${size}`);
   });
 });
+
+test.describe('drag to reorder', () => {
+  const component = (page: import('@playwright/test').Page) => page.locator('[data-stage] drag-reorder');
+  const labels = (page: import('@playwright/test').Page) => component(page).locator('[data-label]').allTextContents();
+
+  test('closes over the lifted row and opens a gap by nudging 8px × 0.7ⁿ', async ({ page }) => {
+    await page.goto('/drag-reorder/');
+    const items = component(page).locator('[data-item]');
+    const box = (await items.nth(0).boundingBox())!;
+    const pitch = (await items.nth(1).boundingBox())!.y - box.y;
+    const x = box.x + box.width / 2;
+    await page.mouse.move(x, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x + 30, box.y + box.height / 2 + pitch * 2, { steps: 8 });
+    // Dragged from index 0 to the gap at 2: the row closes up one slot, then the two rows beside the gap nudge away from it.
+    const shifts = await items.evaluateAll((els) => els.map((el) => ({ transform: (el as HTMLElement).style.transform, delay: (el as HTMLElement).style.transitionDelay })));
+    expect(shifts[0].transform).toMatch(/^translate\(30px, /);
+    expect(shifts.slice(1).map((shift) => shift.delay)).toEqual(['24ms', '0ms', '0ms', '24ms']);
+    const ys = shifts.slice(1).map((shift) => Number(/translateY\(([-\d.]+)px\)/.exec(shift.transform)?.[1]));
+    expect(ys[0] + pitch).toBeCloseTo(-5.6, 1);
+    expect(ys[1] + pitch).toBeCloseTo(-8, 1);
+    expect(ys[2] + pitch).toBeCloseTo(8, 1);
+    expect(ys[3] + pitch).toBeCloseTo(5.6, 1);
+    const line = component(page).locator('[data-line]');
+    await expect(line).toHaveAttribute('data-active', '');
+    expect(await line.evaluate((el) => (el as HTMLElement).style.transform)).toBe(`translateY(${pitch * 2}px)`);
+    await page.mouse.up();
+    await expect.poll(() => labels(page)).toEqual(['Review pull request', 'Update icons', 'Draft changelog', 'Fix focus ring', 'Ship release']);
+    await expect(items.nth(0).locator('[data-position]')).toHaveText('01');
+    await expect(line).not.toHaveAttribute('data-active', '');
+    await expect(component(page).locator('[data-status]')).toHaveText('Dropped Draft changelog at position 3 of 5.');
+    expect(await items.evaluateAll((els) => els.every((el) => (el as HTMLElement).style.transform === ''))).toBe(true);
+  });
+
+  test('Escape cancels a pointer drag, and the list is named on its <ul>', async ({ page }) => {
+    await page.goto('/drag-reorder/');
+    const items = component(page).locator('[data-item]');
+    await expect(component(page).locator('[data-list]')).toHaveAttribute('aria-label', 'Tasks');
+    await expect(component(page)).not.toHaveAttribute('aria-label');
+    await expect(items.nth(0).locator('[data-handle]')).toHaveAttribute('aria-pressed', 'false');
+    const box = (await items.nth(0).boundingBox())!;
+    const pitch = (await items.nth(1).boundingBox())!.y - box.y;
+    await page.mouse.move(box.x + 60, box.y + 22);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 60, box.y + 22 + pitch * 2, { steps: 6 });
+    await page.keyboard.press('Escape');
+    await expect(component(page).locator('[data-status]')).toHaveText('Cancelled. Draft changelog is back at position 1 of 5.');
+    await page.mouse.up();
+    expect(await labels(page)).toEqual(['Draft changelog', 'Review pull request', 'Update icons', 'Fix focus ring', 'Ship release']);
+  });
+
+  test('picks up with Space, moves with the arrow keys, and announces', async ({ page }) => {
+    await page.goto('/drag-reorder/');
+    const handles = component(page).locator('[data-handle]');
+    const status = component(page).locator('[data-status]');
+    await handles.nth(1).focus();
+    await page.keyboard.press('Space');
+    await expect(status).toContainText('Picked up Review pull request. Position 2 of 5');
+    await page.keyboard.press('ArrowDown');
+    await expect(status).toHaveText('Moved to position 3 of 5.');
+    await expect(handles.nth(2)).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(status).toHaveText('Dropped Review pull request at position 3 of 5.');
+    expect(await labels(page)).toEqual(['Draft changelog', 'Update icons', 'Review pull request', 'Fix focus ring', 'Ship release']);
+    await page.keyboard.press('Space');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowUp');
+    await expect(status).toHaveText('Already at the first position.');
+    await page.keyboard.press('Escape');
+    await expect(status).toContainText('Cancelled. Review pull request is back at position 3 of 5.');
+    expect(await labels(page)).toEqual(['Draft changelog', 'Update icons', 'Review pull request', 'Fix focus ring', 'Ship release']);
+  });
+});

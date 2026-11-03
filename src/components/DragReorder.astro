@@ -1,0 +1,568 @@
+<drag-reorder class="dr">
+  <div class="dr-track">
+    <span class="dr-line" aria-hidden="true" data-line></span>
+    <ul class="dr-list" aria-label="Tasks" data-list>
+      <li class="dr-item" data-item data-id="changelog">
+        <button class="dr-handle" type="button" aria-pressed="false" data-handle>
+          <svg class="dr-grip" viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.25" /><circle cx="7.5" cy="3" r="1.25" /><circle cx="2.5" cy="8" r="1.25" /><circle cx="7.5" cy="8" r="1.25" /><circle cx="2.5" cy="13" r="1.25" /><circle cx="7.5" cy="13" r="1.25" /></svg>
+          <span class="dr-label" data-label>Draft changelog</span>
+          <span class="dr-position" aria-hidden="true" data-position>01</span>
+        </button>
+      </li>
+      <li class="dr-item" data-item data-id="review">
+        <button class="dr-handle" type="button" aria-pressed="false" data-handle>
+          <svg class="dr-grip" viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.25" /><circle cx="7.5" cy="3" r="1.25" /><circle cx="2.5" cy="8" r="1.25" /><circle cx="7.5" cy="8" r="1.25" /><circle cx="2.5" cy="13" r="1.25" /><circle cx="7.5" cy="13" r="1.25" /></svg>
+          <span class="dr-label" data-label>Review pull request</span>
+          <span class="dr-position" aria-hidden="true" data-position>02</span>
+        </button>
+      </li>
+      <li class="dr-item" data-item data-id="icons">
+        <button class="dr-handle" type="button" aria-pressed="false" data-handle>
+          <svg class="dr-grip" viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.25" /><circle cx="7.5" cy="3" r="1.25" /><circle cx="2.5" cy="8" r="1.25" /><circle cx="7.5" cy="8" r="1.25" /><circle cx="2.5" cy="13" r="1.25" /><circle cx="7.5" cy="13" r="1.25" /></svg>
+          <span class="dr-label" data-label>Update icons</span>
+          <span class="dr-position" aria-hidden="true" data-position>03</span>
+        </button>
+      </li>
+      <li class="dr-item" data-item data-id="focus">
+        <button class="dr-handle" type="button" aria-pressed="false" data-handle>
+          <svg class="dr-grip" viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.25" /><circle cx="7.5" cy="3" r="1.25" /><circle cx="2.5" cy="8" r="1.25" /><circle cx="7.5" cy="8" r="1.25" /><circle cx="2.5" cy="13" r="1.25" /><circle cx="7.5" cy="13" r="1.25" /></svg>
+          <span class="dr-label" data-label>Fix focus ring</span>
+          <span class="dr-position" aria-hidden="true" data-position>04</span>
+        </button>
+      </li>
+      <li class="dr-item" data-item data-id="release">
+        <button class="dr-handle" type="button" aria-pressed="false" data-handle>
+          <svg class="dr-grip" viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.25" /><circle cx="7.5" cy="3" r="1.25" /><circle cx="2.5" cy="8" r="1.25" /><circle cx="7.5" cy="8" r="1.25" /><circle cx="2.5" cy="13" r="1.25" /><circle cx="7.5" cy="13" r="1.25" /></svg>
+          <span class="dr-label" data-label>Ship release</span>
+          <span class="dr-position" aria-hidden="true" data-position>05</span>
+        </button>
+      </li>
+    </ul>
+  </div>
+  <p class="dr-vh" data-help>Press Space to pick up, the arrow keys to move, Space to drop, Escape to cancel.</p>
+  <p class="dr-vh" aria-live="polite" data-status></p>
+</drag-reorder>
+
+<script>
+  // The two neighbors of the gap nudge away from it by LEAN px, and each step further out nudges FALLOFF times as far.
+  const LEAN = 8;
+  const FALLOFF = 0.7;
+  // Each step further from the gap starts this much later, so the nearest neighbor moves first.
+  const STEP = 24;
+  // A press that moves less than this is a click, not a drag.
+  const SLOP = 3;
+
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  let helpCount = 0;
+
+  class DragReorder extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const list = this.querySelector<HTMLElement>('[data-list]');
+      const help = this.querySelector<HTMLElement>('[data-help]');
+      const status = this.querySelector<HTMLElement>('[data-status]');
+      const line = this.querySelector<HTMLElement>('[data-line]');
+
+      if (!list || !help || !status || !line) {
+        throw new Error('DragReorder: needs a list, a line, a help text, and a status.');
+      }
+
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+      const items = () => [...list.querySelectorAll<HTMLElement>(':scope > [data-item]')];
+      const handleOf = (item: HTMLElement) => item.querySelector<HTMLElement>('[data-handle]');
+      const labelOf = (item: HTMLElement) => item.querySelector('[data-label]')?.textContent?.trim() ?? '';
+
+      help.id ||= `dr-help-${++helpCount}`;
+      for (const item of items()) handleOf(item)?.setAttribute('aria-describedby', help.id);
+
+      type Drag = {
+        pointer: number;
+        item: HTMLElement;
+        order: HTMLElement[];
+        from: number;
+        to: number;
+        startX: number;
+        startY: number;
+        pitch: number;
+        started: boolean;
+        // The gap the neighbors were last placed around.
+        placed: number;
+        cancelled: boolean;
+      };
+
+      let drag: Drag | undefined;
+      let grabbed: { item: HTMLElement; from: number } | undefined;
+      // Moving a focused node blurs it in some browsers; that blur is ours, not the user leaving.
+      let moving = false;
+      let settling: { timer: number; finish: () => void } | undefined;
+
+      const announce = (message: string) => {
+        status.textContent = message;
+      };
+
+      const renumber = () => {
+        items().forEach((item, index) => {
+          const position = item.querySelector('[data-position]');
+          if (position) position.textContent = pad(index + 1);
+        });
+      };
+
+      // Where item i sits while the dragged item's gap is at `to`.
+      const slotOf = (i: number, from: number, to: number) => {
+        if (i > from && i <= to) return i - 1;
+        if (i < from && i >= to) return i + 1;
+        return i;
+      };
+
+      // While dragging, the row closes over the dragged item's old slot and the gap is only the nudge: the two
+      // neighbors of `to` move away from it by LEAN px, each step further out by FALLOFF times as much, and each
+      // starts n steps × STEP later, so the nearest ones move first.
+      const gap = (state: Drag) => {
+        const spread = !reduced.matches;
+        state.order.forEach((item, i) => {
+          if (item === state.item) return;
+          const closed = i > state.from ? i - 1 : i;
+          const before = closed < state.to;
+          const n = before ? state.to - 1 - closed : closed - state.to;
+          const nudge = spread ? (before ? -1 : 1) * LEAN * FALLOFF ** n : 0;
+          item.style.transform = `translateY(${(closed - i) * state.pitch + nudge}px)`;
+          item.style.transitionDelay = spread ? `${n * STEP}ms` : '0ms';
+        });
+      };
+
+      // On release every row goes to its final slot together, with no nudge and no delay.
+      const land = (state: Drag) => {
+        state.order.forEach((item, i) => {
+          if (item === state.item) return;
+          item.style.transform = `translateY(${(slotOf(i, state.from, state.to) - i) * state.pitch}px)`;
+          item.style.transitionDelay = '0ms';
+        });
+      };
+
+      const clear = () => {
+        for (const item of items()) {
+          item.style.transform = '';
+          item.style.transitionDelay = '';
+        }
+      };
+
+      // Reorders the real DOM, then drops every transform in the same frame so nothing visibly moves.
+      const commit = (state: Drag, target: number) => {
+        const hadFocus = state.item.contains(document.activeElement);
+        list.dataset.instant = '';
+        const rest = state.order.filter((item) => item !== state.item);
+        rest.splice(target, 0, state.item);
+        list.append(...rest);
+        clear();
+        state.item.removeAttribute('data-settling');
+        void list.offsetWidth;
+        delete list.dataset.instant;
+        if (hadFocus) handleOf(state.item)?.focus({ preventScroll: true });
+        renumber();
+        this.removeAttribute('data-dragging');
+        if (target !== state.from) {
+          this.dispatchEvent(new CustomEvent('reorder', { bubbles: true, detail: { ids: items().map((item) => item.dataset.id) } }));
+        }
+        announce(
+          state.cancelled
+            ? `Cancelled. ${labelOf(state.item)} is back at position ${target + 1} of ${rest.length}.`
+            : `Dropped ${labelOf(state.item)} at position ${target + 1} of ${rest.length}.`,
+        );
+      };
+
+      const settle = (state: Drag, target: number) => {
+        // Stays above the neighbors until it lands, so one below it never paints over it mid-settle.
+        state.item.setAttribute('data-settling', '');
+        state.item.removeAttribute('data-dragging');
+        state.item.style.transitionDelay = '0ms';
+        state.item.style.transform = `translateY(${(target - state.from) * state.pitch}px)`;
+        state.to = target;
+        line.removeAttribute('data-active');
+        land(state);
+        // Each row takes its new number as it starts to travel, not after it has landed.
+        const next = state.order.filter((item) => item !== state.item);
+        next.splice(target, 0, state.item);
+        next.forEach((item, index) => {
+          const position = item.querySelector('[data-position]');
+          if (position) position.textContent = pad(index + 1);
+        });
+        const finish = () => {
+          window.clearTimeout(settling?.timer);
+          settling = undefined;
+          commit(state, target);
+        };
+        if (reduced.matches) finish();
+        else {
+          // The landing lasts as long as the row's transform transition, so the CSS stays the one place that sets it.
+          const travel = parseFloat(getComputedStyle(state.item).transitionDuration) * 1000;
+          settling = { timer: window.setTimeout(finish, travel + 40), finish };
+        }
+      };
+
+      const end = (cancel: boolean) => {
+        if (!drag) return;
+        const state = drag;
+        drag = undefined;
+        if (!state.started) return;
+        state.cancelled = cancel;
+        settle(state, cancel ? state.from : state.to);
+      };
+
+      list.addEventListener(
+        'pointerdown',
+        (event) => {
+          const handle = (event.target as Element).closest<HTMLElement>('[data-handle]');
+          const item = handle?.closest<HTMLElement>('[data-item]');
+          if (!handle || !item || drag || grabbed || event.button !== 0 || !event.isPrimary) return;
+          settling?.finish();
+          const order = items();
+          if (order.length < 2) return;
+          handle.setPointerCapture(event.pointerId);
+          // Measured once, so no frame reads layout between its writes. Rows are the same height.
+          const pitch = order[1].getBoundingClientRect().top - order[0].getBoundingClientRect().top;
+          const from = order.indexOf(item);
+          drag = { pointer: event.pointerId, item, order, from, to: from, startX: event.clientX, startY: event.clientY, pitch, started: false, placed: -1, cancelled: false };
+        },
+        { signal },
+      );
+
+      list.addEventListener(
+        'pointermove',
+        (event) => {
+          if (!drag || event.pointerId !== drag.pointer) return;
+          const dx = event.clientX - drag.startX;
+          const dy = event.clientY - drag.startY;
+          if (!drag.started) {
+            if (Math.hypot(dx, dy) < SLOP) return;
+            drag.started = true;
+            drag.item.setAttribute('data-dragging', '');
+            this.setAttribute('data-dragging', '');
+            getSelection()?.removeAllRanges();
+          }
+          // The dragged item leaves the list and follows the pointer exactly, sideways too.
+          drag.item.style.transform = `translate(${dx}px, ${dy}px)`;
+          const to = clamp(Math.round(drag.from + dy / drag.pitch), 0, drag.order.length - 1);
+          if (to === drag.placed) return;
+          const first = drag.placed < 0;
+          drag.to = drag.placed = to;
+          gap(drag);
+          // The line marks the gap. On the first frame it appears in place instead of gliding in from the top.
+          if (first) line.style.transition = 'none';
+          line.style.transform = `translateY(${to * drag.pitch}px)`;
+          if (first) {
+            void line.offsetWidth;
+            line.style.transition = '';
+            line.setAttribute('data-active', '');
+          }
+        },
+        { signal },
+      );
+
+      list.addEventListener('pointerup', (event) => event.pointerId === drag?.pointer && end(false), { signal });
+      list.addEventListener('pointercancel', (event) => event.pointerId === drag?.pointer && end(true), { signal });
+      // A drag always ends, even if the capture is lost for some other reason. After a normal release `drag` is already gone.
+      list.addEventListener('lostpointercapture', (event) => event.pointerId === drag?.pointer && end(true), { signal });
+
+      // On the document: Safari doesn't focus a button on press, so Escape wouldn't reach the list mid-drag.
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (drag?.started && event.key === 'Escape') {
+            event.preventDefault();
+            end(true);
+          }
+        },
+        { signal },
+      );
+
+      const move = (item: HTMLElement, to: number) => {
+        const order = items();
+        const from = order.indexOf(item);
+        const target = clamp(to, 0, order.length - 1);
+        if (target === from) {
+          if (to !== target) announce(to < 0 ? 'Already at the first position.' : 'Already at the last position.');
+          return;
+        }
+        moving = true;
+        list.insertBefore(item, target > from ? order[target].nextSibling : order[target]);
+        handleOf(item)?.focus({ preventScroll: true });
+        moving = false;
+        renumber();
+        announce(`Moved to position ${target + 1} of ${order.length}.`);
+      };
+
+      const release = (cancel: boolean) => {
+        if (!grabbed) return;
+        const { item, from } = grabbed;
+        grabbed = undefined;
+        item.removeAttribute('data-grabbed');
+        handleOf(item)?.setAttribute('aria-pressed', 'false');
+        if (cancel) {
+          move(item, from);
+          announce(`Cancelled. ${labelOf(item)} is back at position ${from + 1} of ${items().length}.`);
+        } else {
+          const at = items().indexOf(item);
+          announce(`Dropped ${labelOf(item)} at position ${at + 1} of ${items().length}.`);
+          if (at !== from) {
+            this.dispatchEvent(new CustomEvent('reorder', { bubbles: true, detail: { ids: items().map((entry) => entry.dataset.id) } }));
+          }
+        }
+      };
+
+      // Keyboard moves jump: they repeat too often to animate.
+      list.addEventListener(
+        'keydown',
+        (event) => {
+          const handle = (event.target as Element).closest<HTMLElement>('[data-handle]');
+          const item = handle?.closest<HTMLElement>('[data-item]');
+          if (!handle || !item || drag || event.altKey || event.ctrlKey || event.metaKey) return;
+          // A pointer drop is still landing: finish it so the keyboard moves the real order, not a stale one.
+          settling?.finish();
+          const index = items().indexOf(item);
+
+          if (!grabbed) {
+            if (event.key !== ' ' && event.key !== 'Enter') return;
+            event.preventDefault();
+            grabbed = { item, from: index };
+            item.setAttribute('data-grabbed', '');
+            handle.setAttribute('aria-pressed', 'true');
+            announce(`Picked up ${labelOf(item)}. Position ${index + 1} of ${items().length}. Use the arrow keys to move, Space to drop, Escape to cancel.`);
+            return;
+          }
+
+          if (grabbed.item !== item) return;
+          const keys: Record<string, number> = { ArrowUp: index - 1, ArrowDown: index + 1, Home: 0, End: items().length - 1 };
+          if (event.key in keys) {
+            event.preventDefault();
+            move(item, keys[event.key]);
+          } else if (event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            release(false);
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            release(true);
+          }
+        },
+        { signal },
+      );
+
+      // Leaving the item drops it where it is.
+      list.addEventListener(
+        'focusout',
+        (event) => {
+          if (!moving && grabbed && !grabbed.item.contains(event.relatedTarget as Node | null)) release(false);
+        },
+        { signal },
+      );
+
+      signal.addEventListener('abort', () => {
+        window.clearTimeout(settling?.timer);
+        settling = undefined;
+        drag = undefined;
+        grabbed = undefined;
+        this.removeAttribute('data-dragging');
+        delete list.dataset.instant;
+        line.removeAttribute('data-active');
+        for (const item of items()) {
+          item.removeAttribute('data-dragging');
+          item.removeAttribute('data-settling');
+          item.removeAttribute('data-grabbed');
+          handleOf(item)?.setAttribute('aria-pressed', 'false');
+        }
+        clear();
+      });
+
+      renumber();
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('drag-reorder')) customElements.define('drag-reorder', DragReorder);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
+</script>
+
+<style>
+  .dr {
+    --dr-color: var(--dr-fg, var(--text));
+    --dr-row: 44px;
+    --dr-gap: 4px;
+
+    display: grid;
+    width: min(100%, 320px);
+    gap: 12px;
+  }
+
+  .dr-track {
+    position: relative;
+  }
+
+  /* Marks the gap the dragged item will drop into. It stays under the lifted row: above it, the line would cross the row's text. */
+  .dr-line {
+    position: absolute;
+    inset: -3px 12px auto;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--quiet);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 150ms ease-out,
+      opacity 150ms ease-out;
+  }
+
+  .dr-line[data-active] {
+    opacity: 1;
+  }
+
+  /* A stacking context of its own, so the lifted row can't rise above anything outside the list. */
+  .dr-list {
+    isolation: isolate;
+    display: grid;
+    gap: var(--dr-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Neighbors and the dropped item travel with the same transition; the script sets only transform and delay. */
+  .dr-item {
+    position: relative;
+    height: var(--dr-row);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    transition:
+      transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+      box-shadow 150ms ease-out;
+  }
+
+  /* The dragged item follows the pointer with no transition of its own. */
+  .dr-item[data-dragging],
+  .dr-item[data-settling] {
+    z-index: 2;
+  }
+
+  .dr-item[data-dragging] {
+    transition: box-shadow 150ms ease-out;
+  }
+
+  .dr-item[data-dragging],
+  .dr-item[data-grabbed] {
+    border-color: var(--line-strong);
+    box-shadow: 0 10px 24px oklch(0.23 0.012 258.74 / 0.18);
+  }
+
+  /* In dark mode elevation reads as a lighter surface; a dark shadow barely shows on a dark page. */
+  @media (prefers-color-scheme: dark) {
+    .dr-item[data-dragging],
+    .dr-item[data-grabbed] {
+      background: var(--surface-strong);
+    }
+  }
+
+  /* Reordering the DOM and dropping the transforms must not animate. */
+  .dr-list[data-instant] .dr-item {
+    transition: none;
+  }
+
+  .dr-handle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    padding: 0 12px;
+    border: 0;
+    border-radius: inherit;
+    background: none;
+    color: var(--dr-color);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dr[data-dragging] .dr-handle {
+    cursor: grabbing;
+  }
+
+  .dr-handle:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--dr-color));
+    outline-offset: 2px;
+  }
+
+  .dr-grip {
+    flex: none;
+    color: var(--quiet);
+  }
+
+  .dr-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dr-position {
+    margin-left: auto;
+    color: var(--quiet);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dr-vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .dr:not([data-dragging]) .dr-item:hover {
+      border-color: var(--line-strong);
+    }
+  }
+
+  /* Reduced motion: the gap still opens, but in place, and the dragged item still follows the hand. */
+  @media (prefers-reduced-motion: reduce) {
+    .dr-item {
+      transition: box-shadow 150ms ease-out;
+    }
+
+    .dr-line {
+      transition: opacity 150ms ease-out;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .dr-line {
+      background: CanvasText;
+    }
+
+    .dr-item[data-dragging],
+    .dr-item[data-grabbed] {
+      outline: 2px solid Highlight;
+    }
+  }
+</style>
