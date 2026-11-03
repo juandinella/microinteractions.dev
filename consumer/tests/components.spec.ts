@@ -4,7 +4,7 @@ test('the server markup hydrates with one form and every element', async ({ app,
   const html = await (await request.get('/')).text();
   // A nested form would be dropped by the parser and break hydration.
   expect(html.match(/<form\b/g)).toHaveLength(1);
-  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots']) expect(html).toContain(`<${tag}`);
+  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots', 'drag-reorder']) expect(html).toContain(`<${tag}`);
   await expect(app.getByRole('button', { name: 'Delete project', exact: true })).toBeVisible();
 });
 
@@ -124,4 +124,13 @@ test('worm dots move to a slide, and a new slide joins the strip', async ({ app 
   await expect(app.locator('[data-counter]')).toHaveText('1 / 4');
   await app.getByRole('button', { name: 'Slide 4 of 4' }).click();
   await expect(app.locator('[data-counter]')).toHaveText('4 / 4');
+});
+
+test('a keyboard move reorders the list and reports the new order once', async ({ app }) => {
+  await app.getByRole('button', { name: 'Task A' }).focus();
+  await app.keyboard.press('Space');
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('Space');
+  await expect(app.locator('drag-reorder [data-label]')).toHaveText(['Task B', 'Task A', 'Task C']);
+  expect((await calls(app)).filter((call) => call.startsWith('reorder'))).toEqual(['reorder:["b","a","c"]']);
 });

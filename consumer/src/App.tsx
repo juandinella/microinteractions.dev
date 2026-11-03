@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { ChevronMorphButton } from '@/components/chevron-morph';
+import { DragReorder } from '@/components/drag-reorder';
 import { DragSelectTable } from '@/components/drag-select';
 import { EdgeAwareSlider } from '@/components/edge-aware-tooltip';
 import { GooeyRadioGroup } from '@/components/gooey-radio-group';
@@ -98,6 +99,16 @@ export function App() {
       <ResizableSidebar sidebar={<p className="p-3">Sidebar</p>}>
         <p className="p-4">Main</p>
       </ResizableSidebar>
+
+      <DragReorder
+        aria-label="Tasks"
+        items={[
+          { id: 'a', label: 'Task A' },
+          { id: 'b', label: 'Task B' },
+          { id: 'c', label: 'Task C' },
+        ]}
+        onReorder={log('reorder')}
+      />
 
       <WormDots
         aria-label="Slides"

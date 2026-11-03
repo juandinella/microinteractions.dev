@@ -34,6 +34,8 @@ const tab = (nth: number) => ({ selector: '[data-tab]', nth, x: 0.4 });
 const link = (nth: number) => ({ selector: '[data-pluck]', nth, x: 0.5, y: 0.55 });
 const option = (nth: number) => ({ selector: '.goo-option', nth, x: 0.3 });
 const box = (nth: number) => ({ selector: '[data-box-cell]', nth });
+// The center of a slot in the list: 44px rows 4px apart in a 236px list. Rows move during a drag, the list doesn't.
+const row = (slot: number) => ({ selector: '[data-list]', x: 0.4, y: (22 + 48 * slot) / 236 });
 const volume = (x: number) => ({ selector: '.volume-range', x });
 
 export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
@@ -177,6 +179,36 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
       await d.click(dot(0));
       await d.wait(550);
       await d.move({ frame: [0.74, 0.86] });
+      await d.wait(300);
+    },
+  },
+  'drag-reorder': {
+    rest: { frame: [0.8, 0.86] },
+    async play(d) {
+      await d.wait(350);
+      // The first row two places down, pausing so the nudge and the line show.
+      await d.move(row(0));
+      await d.wait(200);
+      await d.down();
+      await d.wait(80);
+      await d.move(row(1), 520);
+      await d.wait(320);
+      await d.move(row(2), 520);
+      await d.wait(380);
+      await d.up();
+      await d.wait(650);
+      // The same row back to the top, which restores the starting order for a clean loop.
+      await d.move(row(2));
+      await d.wait(120);
+      await d.down();
+      await d.wait(80);
+      await d.move(row(1), 520);
+      await d.wait(260);
+      await d.move(row(0), 520);
+      await d.wait(380);
+      await d.up();
+      await d.wait(600);
+      await d.move({ frame: [0.8, 0.86] });
       await d.wait(300);
     },
   },
