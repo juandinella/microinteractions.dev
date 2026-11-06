@@ -358,7 +358,7 @@ export const specimens: Specimen[] = [
     summary: 'Drag along the dots to scrub the slides, with a worm that follows the scroll.',
     seoTitle: 'Draggable carousel dots with a worm indicator',
     seoDescription:
-      'Carousel dots you can drag to scrub through the slides, with a worm indicator that stretches between dots in step with the scroll. Includes keyboard, touch, and reduced-motion support.',
+      'Drag carousel dots to scrub through slides, with a worm indicator that follows the scroll. Includes keyboard, touch, and reduced-motion support.',
     trigger: 'drag',
     triggerLabel: 'Drag, swipe, tap, arrow keys',
     hint: 'Drag along the dots',
@@ -389,7 +389,7 @@ export const specimens: Specimen[] = [
     summary: 'Open a gap in a list that follows the item you drag.',
     seoTitle: 'Drag to reorder list animation with a rippling gap',
     seoDescription:
-      'Reorder a list by lifting a row out of it. The rest closes up, and the rows beside the gap nudge apart with a stagger, each less than the last. Includes keyboard moves with live announcements and reduced-motion support.',
+      'Reorder a list with a rippling gap as nearby rows nudge apart. Try the demo with keyboard controls, live announcements, and reduced-motion support.',
     trigger: 'drag',
     triggerLabel: 'Drag, Space, arrow keys',
     hint: 'Drag an item up or down',
