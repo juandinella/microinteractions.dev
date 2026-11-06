@@ -184,10 +184,16 @@ test('study pages offer the shadcn command for each package manager', async ({ p
   const install = page.getByRole('tablist', { name: 'Package manager' }).locator('..');
   const copy = page.getByRole('button', { name: 'Copy install command' });
   await expect(copy).toBeVisible();
-  const command = install.getByRole('tabpanel').locator('code');
+  const panels = install.getByRole('tabpanel');
+  const command = panels.locator('code');
   await expect(command).toHaveText('$ npx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
-  await page.getByRole('tab', { name: 'pnpm' }).click();
-  await expect(command).toHaveText('$ pnpm dlx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+  for (const [manager, runner] of [['yarn', 'yarn'], ['bun', 'bunx --bun'], ['pnpm', 'pnpm dlx']]) {
+    await install.getByRole('tab', { name: manager, exact: true }).click();
+    // Base UI keeps the outgoing panel mounted until its exit completes.
+    await expect(panels).toHaveCount(1);
+    await expect(panels).toHaveAccessibleName(manager);
+    await expect(command).toHaveText(`$ ${runner} shadcn@latest add https://microinteractions.dev/r/hold-confirm.json`);
+  }
 
   await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', {
     value: async (text: string) => { (window as unknown as { copied: string }).copied = text; },
