@@ -22,12 +22,19 @@ type DragReorderProps = {
   className?: string;
 };
 
-// The element moves the real list items after it upgrades, so React renders the starting order only.
-// A different set of items remounts it. Keep the new order in your own state from onReorder.
+// The element moves the real list items after it upgrades, so React renders the rows once, in the order it
+// first saw, and never moves them. Keep the new order in your own state from onReorder; passing it back as
+// `items` changes nothing, and an order that comes from elsewhere moves the rows. A different set of items remounts the list.
 export function DragReorder({ items, 'aria-label': ariaLabel, onReorder, className }: DragReorderProps) {
   const ref = React.useRef<HTMLElement>(null);
   const handler = React.useRef(onReorder);
-  const key = items.map((item) => item.id).join('\n');
+  const ids = items.map((item) => item.id);
+  const order = ids.join('\n');
+  const key = [...ids].sort().join('\n');
+  const [first, setFirst] = React.useState({ key, ids });
+  const rendered = first.key === key ? first : { key, ids };
+  if (rendered !== first) setFirst(rendered);
+  const rows = rendered.ids.flatMap((id) => items.find((item) => item.id === id) ?? []);
 
   React.useEffect(() => {
     handler.current = onReorder;
@@ -43,6 +50,21 @@ export function DragReorder({ items, 'aria-label': ariaLabel, onReorder, classNa
     return () => element.removeEventListener('reorder', listener);
   }, [key]);
 
+  // After a drop the rows already sit in the order that comes back. Any other order moves them here.
+  React.useEffect(() => {
+    const list = ref.current?.querySelector<HTMLElement>('[data-list]');
+    if (!list) return;
+    const placed = new Map(Array.from(list.querySelectorAll<HTMLElement>(':scope > [data-item]'), (row) => [row.dataset.id, row]));
+    if ([...placed.keys()].join('\n') === order) return;
+    const focused = document.activeElement;
+    list.append(...order.split('\n').flatMap((id) => placed.get(id) ?? []));
+    // Moving a focused node blurs it in some browsers.
+    if (focused instanceof HTMLElement && list.contains(focused)) focused.focus({ preventScroll: true });
+    list.querySelectorAll('[data-position]').forEach((position, index) => {
+      position.textContent = String(index + 1).padStart(2, '0');
+    });
+  }, [order]);
+
   return (
     <drag-reorder
       key={key}
@@ -56,7 +78,7 @@ export function DragReorder({ items, 'aria-label': ariaLabel, onReorder, classNa
           data-line
         />
         <ul className="group/list isolate m-0 grid list-none gap-1 p-0" aria-label={ariaLabel} data-list>
-          {items.map((item, index) => (
+          {rows.map((item, index) => (
             <li
               key={item.id}
               className="relative h-11 rounded-[10px] border border-border bg-card [transition:transform_250ms_cubic-bezier(0.23,1,0.32,1),box-shadow_150ms_ease-out] group-data-instant/list:[transition:none] data-dragging:z-2 dark:data-dragging:bg-accent dark:data-grabbed:bg-accent data-settling:z-2 data-dragging:border-input data-dragging:shadow-xl data-dragging:[transition:box-shadow_150ms_ease-out] data-grabbed:border-input data-grabbed:shadow-lg pointer-fine:not-group-data-dragging/dr:hover:border-input forced-colors:data-dragging:outline-2 forced-colors:data-dragging:outline-[Highlight] forced-colors:data-grabbed:outline-2 forced-colors:data-grabbed:outline-[Highlight] motion-reduce:[transition:box-shadow_150ms_ease-out]"
