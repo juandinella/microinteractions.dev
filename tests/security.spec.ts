@@ -11,7 +11,7 @@ declare global {
 test('security headers cover Worker responses, static assets, redirects, and errors', async ({ request }) => {
   const home = await request.get('/');
   const script = (await home.text()).match(/<script[^>]+src="([^"]+)"/)![1];
-  for (const path of ['/', '/hold-confirm/', '/markdown/index.md', '/openapi.json', '/.well-known/api-catalog', '/missing-security-check/', '/text-swap', '/social-preview.png', script]) {
+  for (const path of ['/', '/hold-confirm/', '/markdown/index.md', '/openapi.json', '/.well-known/api-catalog', '/missing-security-check/', '/text-swap', '/social-preview.png', '/fonts/martian-grotesk.woff2', '/social/text-swap.png', '/og/videos/text-swap.mp4', '/favicon.svg', script]) {
     for (const method of ['GET', 'HEAD']) {
       const response = await request.fetch(path, { method, maxRedirects: 0 });
       expect(response.status(), `${method} ${path}`).toBe(path === '/text-swap' ? 301 : path === '/missing-security-check/' ? 404 : 200);
@@ -26,6 +26,11 @@ test('security headers cover Worker responses, static assets, redirects, and err
       expect(response.headers()['content-security-policy'], `${method} ${path}`).toContain("object-src 'none'");
       expect(response.headers()['content-security-policy'], `${method} ${path}`).toContain("base-uri 'self'");
     }
+  }
+  // Pages revalidate on every visit; the fonts they all preload don't.
+  expect(home.headers()['cache-control']).toBe('public, max-age=0, must-revalidate');
+  for (const font of ['martian-grotesk', 'martian-mono']) {
+    expect((await request.get(`/fonts/${font}.woff2`)).headers()['cache-control'], font).toBe('public, max-age=2592000');
   }
   const markdown = await request.get('/hold-confirm/', { headers: { Accept: 'text/markdown' } });
   expect(markdown.headers()['content-type']).toContain('text/markdown');

@@ -22,3 +22,8 @@
 
 /rss.xml
   Content-Type: application/rss+xml; charset=utf-8
+
+# The font files keep their names, so a replaced font takes up to 30 days to reach a returning reader.
+# Rename the file to ship one sooner.
+/fonts/*
+  Cache-Control: public, max-age=2592000
