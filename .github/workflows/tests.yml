@@ -19,6 +19,11 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Ships the browsers and their system packages. Installing them with apt took up to 13 minutes on a slow
+    # mirror, longer than the tests. The tag must match @playwright/test; the first step checks it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -31,8 +36,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: npm ci --no-audit --no-fund
         working-directory: consumer
+      - name: Check the image matches @playwright/test
+        run: |
+          version=$(node -p "require('@playwright/test/package.json').version")
+          grep -q "mcr.microsoft.com/playwright:v$version-" .github/workflows/tests.yml \
+            || { echo "Update the container image in tests.yml to v$version."; exit 1; }
       - run: pnpm exec node --test scripts/check-tailwind.test.mjs
-      - run: pnpm exec playwright install --with-deps chromium webkit
       # Builds the site; the consumer check installs from that build.
       - run: pnpm run test:e2e
       - run: pnpm run test:consumer
