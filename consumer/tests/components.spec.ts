@@ -131,6 +131,43 @@ test('a keyboard move reorders the list and reports the new order once', async (
   await app.keyboard.press('Space');
   await app.keyboard.press('ArrowDown');
   await app.keyboard.press('Space');
-  await expect(app.locator('drag-reorder [data-label]')).toHaveText(['Task B', 'Task A', 'Task C']);
+  await expect(app.getByRole('list', { name: 'Tasks', exact: true }).locator('[data-label]')).toHaveText(['Task B', 'Task A', 'Task C']);
   expect((await calls(app)).filter((call) => call.startsWith('reorder'))).toEqual(['reorder:["b","a","c"]']);
+});
+
+test('a list that takes its new order back as items keeps focus and the announcement', async ({ app }) => {
+  const list = app.getByRole('list', { name: 'Saved tasks' });
+  const handle = list.getByRole('button', { name: 'Saved x' });
+  await handle.focus();
+  await app.keyboard.press('Space');
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('Space');
+  await expect(list.locator('[data-label]')).toHaveText(['Saved y', 'Saved x', 'Saved z']);
+  await expect(list.locator('[data-position]')).toHaveText(['01', '02', '03']);
+  // A remount would drop focus to <body> and take the live region with it.
+  await expect(handle).toBeFocused();
+  await expect(list.locator('xpath=ancestor::drag-reorder').locator('[data-status]')).toHaveText('Dropped Saved x at position 2 of 3.');
+
+  // The same row keeps working from its new place.
+  await app.keyboard.press('Space');
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('Space');
+  await expect(list.locator('[data-label]')).toHaveText(['Saved y', 'Saved z', 'Saved x']);
+  await expect(handle).toBeFocused();
+
+  // An order from outside moves the real rows, keeps focus, and the next move starts from it.
+  await app.getByRole('button', { name: 'Reverse saved tasks' }).click();
+  await expect(list.locator('[data-label]')).toHaveText(['Saved x', 'Saved z', 'Saved y']);
+  await expect(list.locator('[data-position]')).toHaveText(['01', '02', '03']);
+  await handle.focus();
+  await app.keyboard.press('Space');
+  await app.keyboard.press('End');
+  await app.keyboard.press('Space');
+  await expect(list.locator('[data-label]')).toHaveText(['Saved z', 'Saved y', 'Saved x']);
+  await expect(handle).toBeFocused();
+  expect((await calls(app)).filter((call) => call.startsWith('saved'))).toEqual([
+    'saved:["y","x","z"]',
+    'saved:["y","z","x"]',
+    'saved:["z","y","x"]',
+  ]);
 });

@@ -32,6 +32,7 @@ export function App() {
   const [options, setOptions] = React.useState(['x', 'y', 'z']);
   const [slides, setSlides] = React.useState(3);
   const [defaults, setDefaults] = React.useState({ tab: 'b', option: 'x', volume: 50 });
+  const [saved, setSaved] = React.useState(['x', 'y', 'z']);
 
   return (
     <form className="mx-auto grid max-w-lg gap-10 p-8" onSubmit={(event) => (event.preventDefault(), log('submit')())}>
@@ -45,6 +46,7 @@ export function App() {
         <button type="button" onClick={() => setOptions((list) => without(list, 'z'))}>Remove option z</button>
         <button type="button" onClick={() => setSlides((count) => count + 1)}>Add slide</button>
         <button type="button" onClick={() => setDefaults({ tab: 'c', option: 'y', volume: 10 })}>Change defaults</button>
+        <button type="button" onClick={() => setSaved((list) => [...list].reverse())}>Reverse saved tasks</button>
       </div>
 
       <section aria-label="Text swap">
@@ -108,6 +110,13 @@ export function App() {
           { id: 'c', label: 'Task C' },
         ]}
         onReorder={log('reorder')}
+      />
+
+      {/* The order lives in state and comes back as `items`, the way a saved list does. */}
+      <DragReorder
+        aria-label="Saved tasks"
+        items={saved.map((id) => ({ id, label: `Saved ${id}` }))}
+        onReorder={(ids) => (setSaved(ids), log('saved')(ids))}
       />
 
       <WormDots
