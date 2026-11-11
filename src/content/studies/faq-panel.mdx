@@ -1,0 +1,77 @@
+---
+observe: Open the last question, then the first one before the panel gets there. It turns from where it is, and the text follows it.
+references:
+  - title: Accordion Pattern
+    author: WAI-ARIA Authoring Practices Guide
+    url: https://www.w3.org/WAI/ARIA/apg/patterns/accordion/
+  - title: FLIP Your Animations
+    author: Paul Lewis
+    url: https://aerotwist.com/blog/flip-your-animations/
+  - title: Element.animate()
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Element/animate
+  - title: hidden="until-found"
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/hidden
+prompt:
+  task: "Build a FAQ where one shared background panel slides from the open question to the one you choose and resizes to its answer, instead of one answer closing and another opening."
+  behavior:
+    - "Mark up each question as a `<button type=\"button\" aria-expanded>` inside an `<h3>`, followed by its answer in a `role=\"region\"` with `aria-labelledby` pointing back to the button and `aria-controls` from the button to it. Let the script generate only the ids that are missing. Keep every answer in the DOM: hide closed ones with `hidden=\"until-found\"`, and open the matching answer on `beforematch`, without animating, so find in page still reaches them."
+    - "Draw the panel as one absolutely positioned element, the first child of the component, inset by the component's padding, with `aria-hidden=\"true\"` and `pointer-events: none`. Give each question item `position: relative`, so the questions paint above it. Place the panel with `transform: translateY(<y>px)` and `height: <h>px`, taken from the open item's `getBoundingClientRect()` minus the component's top and border, divided by the component's scale (its box width over its `offsetWidth`)."
+    - "On a change, use FLIP. First, read the panel's box, its computed opacity, every answer's rendered height, and each answer text's computed opacity, transform, and filter. These are the values on screen, mid-move included. Then cancel every running animation, update `aria-expanded` and `hidden`, and keep the answers that were showing visible with an inline `height: 0`. Mark the closing answers `inert` while they animate, since their questions already read as collapsed. Last, measure the open item and its answer at their final size. Write the final values inline and play each animation from the first values with `element.animate()`."
+    - "Animate the panel's `transform` and `height` together, and each answer's `height` from its first value to its final one, with `overflow: hidden` on the answer. Let each answer keep its own height. While one is open, give the component a `min-height` equal to its height with the longest answer open, measured by rearranging the answers for one synchronous read. The answer that closes and the one that opens never add up to more than that, so the card keeps its height and the space a shorter answer leaves sits below the last question. Animate the `min-height` on the same clock only when the first answer opens or the last one closes. Measure again when the component or an answer's text resizes, in the next animation frame, since the fit resizes what the `ResizeObserver` watches."
+    - "Move both texts the way the panel travels. The old one fades out with `translateY(<6px in the direction of travel>)` and `blur(3px)`, kept with `fill: 'forwards'` until the answer closes. The new one starts 6px behind, also blurred and transparent, and arrives with `fill: 'backwards'`. Start it before the old one is gone, so the panel never travels empty."
+    - "Choosing the open question closes it: the panel shrinks to that question's row as it fades out. From nothing open, the panel starts as the chosen question's row at opacity 0. Opacity reaches its end value halfway through the move, through a keyframe at `offset: 0.5`."
+    - "Settle when the panel's animation finishes or is cancelled from outside: cancel the leftover text animations, clear the inline heights, and apply `hidden=\"until-found\"` to the closed answers. Number each change and ignore the events of animations a newer change cancelled."
+    - "Rotate each question's chevron 180° on `aria-expanded=\"true\"` with a CSS transition on `rotate` that uses the panel's duration and curve."
+    - "Until the script runs, hide the panel and give the open item its own background, so the first paint already shows it. Set `data-ready` once the panel is placed."
+    - "Place the panel at once after a resize. Observe the component and every answer's text. If the panel is moving, flag the measurements as stale when the component's width or a text changes, and measure again as the move settles, since the observer may not report another resize. Ignore the component's height mid-move: its own `min-height` animation changes it every frame. Add every listener with the `signal` of an `AbortController` created in `connectedCallback()`. In `disconnectedCallback()`, abort it, disconnect the observer, and cancel any move so the element is settled when it connects again."
+    - "Keep the panel's duration and curve in the script, and write them to `--fqp-move` and `--fqp-ease` on the component, so the chevron's CSS transition reads the same values and can't drift from the panel."
+  timing:
+    - "Panel and answer heights: 300ms on `cubic-bezier(0.64, 0, 0.2, 1)`, which speeds up over the first third and brakes over the rest. A change made while the panel moves uses `cubic-bezier(0.23, 1, 0.32, 1)`, so it starts at speed."
+    - "Old text: 140ms on `cubic-bezier(0.215, 0.61, 0.355, 1)`, from the moment of the click."
+    - "New text: 210ms on `cubic-bezier(0.23, 1, 0.32, 1)` after a 90ms delay, so it overlaps the old text by 50ms and lands with the panel. Text that was leaving and is chosen again returns from where it is, without the delay."
+    - "Chevron: 300ms on the panel's curve. Hover: 120ms `ease` on `background-color`."
+  accessibility:
+    - "Each question is a native button, so Tab, Enter, and Space work, and the keyboard opens the same move a click does. ArrowDown and ArrowUp move focus between questions and wrap at the ends; Home and End jump to the first and last."
+    - "With `prefers-reduced-motion: reduce`, skip every animation: the panel lands on the question, the answers open and close, and the chevron turns at once. Listen for the media query's `change`, and finish a move in progress when reduced motion turns on."
+    - "Show focus with a 2px outline inset 2px into the question row."
+    - "`role=\"region\"` makes each answer a landmark. Keep it for about six questions or fewer; with more, drop the role so the landmark list stays usable."
+    - "Under `@media (hover: hover) and (pointer: fine)`, give a closed question a hover fill lighter than the panel, so a hovered question never reads as an open one."
+    - "The open question has its answer below it and a turned chevron, so the state doesn't rely on the panel's color."
+  avoid:
+    - "Letting the card follow the open answer's height. It grows and shrinks on every change, and everything below it moves."
+    - "Giving every answer the height of the longest one. The card stays put, but the panel stops fitting its answer and a short answer sits in an empty box."
+    - "Animating `max-height` on each answer. The curve runs over the guessed maximum rather than the real height, so the timing is off for every answer."
+    - "Scaling the panel with `scaleY()`, which stretches its rounded corners and needs a counter-scale for any content inside."
+    - "A `view-transition-name` on the panel with `document.startViewTransition()`. The document runs one view transition at a time, so a question chosen mid-move cancels it and the panel jumps."
+    - "Removing closed answers from the DOM, or hiding them with `display: none`, which takes them out of find in page."
+---
+
+## One panel for every answer
+
+An accordion usually gives each answer its own background, so one collapses as the next expands. This FAQ has a single panel. Choose a question and it slides from the open one to yours, resizing to fit the new answer.
+
+The answers still expand and collapse, on the panel's clock, so the questions between them move with it. While any answer is open, the card reserves the height it has with the longest one open, and a shorter answer leaves that space at the bottom. Nothing below the card shifts. It only grows when the first answer opens and shrinks when the last one closes. Giving every answer the longest one's height would also hold the card still, but the panel would stop fitting its answer.
+
+## Measured before and after
+
+The panel's position and height depend on the answer's text and the container's width, so the script measures them. It uses FLIP: it reads where everything is, swaps the answers, measures again, and animates from the first values to the last with `element.animate()`.
+
+The first reading comes from the screen, partway through a move included. Choose another question before the panel lands and it turns from where it is, on an ease-out so it doesn't pause at the turn.
+
+## Text that travels with the panel
+
+Both answers move the way the panel does. The old one slides 6px ahead and fades out with a 3px blur. The new one starts 6px behind, before the old one is gone, and lands with the panel.
+
+The easing comes from a frame-by-frame recording of the FAQ this study adapts. It accelerates over the first third of the move and decelerates over the rest, with no overshoot, in 300ms instead of the original's 430ms.
+
+<Implementation specimen={props.specimenId} />
+
+To recolor the CSS version, set `--fqp-fg` on the component or any ancestor. It colors the questions, the lead of each answer, and the focus ring.
+
+## Keyboard, find in page, and reduced motion
+
+Each question is a native button. Tab moves between them, and Enter or Space opens one with the same move as a click. The arrow keys move focus between questions, and Home and End jump to the ends. Closed answers stay in the DOM with `hidden="until-found"`, so find in page can match them; in browsers that support it, a match opens its answer at once.
+
+With reduced motion, the panel and the answers jump to their new state. The open question also shows its answer and a turned chevron, so the state isn't color-only.

@@ -4,7 +4,7 @@ test('the server markup hydrates with one form and every element', async ({ app,
   const html = await (await request.get('/')).text();
   // A nested form would be dropped by the parser and break hydration.
   expect(html.match(/<form\b/g)).toHaveLength(1);
-  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots', 'drag-reorder']) expect(html).toContain(`<${tag}`);
+  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots', 'drag-reorder', 'faq-panel']) expect(html).toContain(`<${tag}`);
   await expect(app.getByRole('button', { name: 'Delete project', exact: true })).toBeVisible();
 });
 
@@ -170,4 +170,27 @@ test('a list that takes its new order back as items keeps focus and the announce
     'saved:["y","z","x"]',
     'saved:["z","y","x"]',
   ]);
+});
+
+test('the FAQ opens one answer at a time, keeps the rest findable, and reports each change once', async ({ app }) => {
+  const question = (name: string) => app.getByRole('button', { name: `Question ${name}` });
+  await expect(question('two')).toHaveAttribute('aria-expanded', 'true');
+  await expect(app.getByRole('region', { name: 'Question two' })).toHaveText('Answer two');
+  // The element turns React's hidden into hidden="until-found" for find in page.
+  await expect(app.locator('faq-panel [data-answer][hidden="until-found"]')).toHaveCount(2);
+
+  await question('three').click();
+  await expect(question('three')).toHaveAttribute('aria-expanded', 'true');
+  await expect(question('two')).toHaveAttribute('aria-expanded', 'false');
+  await expect(app.locator('faq-panel [data-answer][hidden="until-found"]')).toHaveCount(2);
+
+  await question('three').focus();
+  await app.keyboard.press('Home');
+  await expect(question('one')).toBeFocused();
+  await app.keyboard.press('Enter');
+  await expect(question('one')).toHaveAttribute('aria-expanded', 'true');
+  await question('one').click();
+  await expect(app.locator('faq-panel [data-answer][hidden="until-found"]')).toHaveCount(3);
+
+  expect((await calls(app)).filter((call) => call.startsWith('faq'))).toEqual(['faq:"three"', 'faq:"one"', 'faq:null']);
 });

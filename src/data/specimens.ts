@@ -14,7 +14,8 @@ export type SpecimenId =
   | 'resize-handle'
   | 'tab-indicator'
   | 'worm-dots'
-  | 'drag-reorder';
+  | 'drag-reorder'
+  | 'faq-panel';
 
 export const categories = [
   'Actions',
@@ -409,6 +410,36 @@ export const specimens: Specimen[] = [
       value: '8px × 0.7ⁿ',
       why: 'the rows move apart',
       note: 'n is the steps from the gap. The two rows beside it move 8px and start first; the next pair move 5.6px and start 24ms later, then 3.9px, and so on. The gap is only the nudge, marked by a line: the lifted row\u2019s own slot closes up.',
+    },
+  },
+  {
+    id: 'faq-panel',
+    published: '2026-11-11',
+    title: 'FAQ panel',
+    category: 'Navigation',
+    summary: 'Slide one panel to the question you open and fit it to the answer.',
+    seoTitle: 'FAQ accordion with one sliding panel',
+    seoDescription:
+      'Open a FAQ answer and one shared panel slides to the question, resizing to fit. Built with FLIP and the Web Animations API, with keyboard support.',
+    trigger: 'select',
+    triggerLabel: 'Click, tap, Enter',
+    hint: 'Open another question',
+    duration: 300,
+    minDuration: 140,
+    durationNote:
+      'The panel reaches the new question in 300ms, and the answers resize on the same clock. The old text fades out in 140ms; the new one fades in over the last 210ms. A question chosen mid-move takes over from where the panel is.',
+    easing: [0.64, 0, 0.2, 1],
+    easingName: 'custom ease-in-out',
+    easingNote:
+      'Accelerates over the first third of the move and decelerates over the rest, with no overshoot. A question chosen mid-move switches to an ease-out, cubic-bezier(0.23, 1, 0.32, 1), so the panel turns without pausing.',
+    props: ['transform', 'height', 'opacity', 'filter'],
+    positioningNote:
+      'translateY moves the panel and height fits it to the answer, both measured before and after the change (FLIP). While an answer is open, min-height holds the card at its height with the longest answer open.',
+    detail: {
+      label: 'Text',
+      value: 'Moves with the panel',
+      why: 'the text moves with the panel',
+      note: 'Both answers move 6px the way the panel travels, with a 3px blur. The old one fades out ahead of the panel; the new one starts before it is gone and follows from 6px behind.',
     },
   },
 ];

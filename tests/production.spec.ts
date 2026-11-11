@@ -174,7 +174,7 @@ test('collection and hold summaries describe the behavior without JavaScript', a
 
 test('content routes expose valid social images', async ({ page, request }) => {
   const covers: Record<string, string> = { '/': '/social-preview.png' };
-  for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator', 'worm-dots', 'drag-reorder']) covers[`/${id}/`] = `/social/${id}.png`;
+  for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator', 'worm-dots', 'drag-reorder', 'faq-panel']) covers[`/${id}/`] = `/social/${id}.png`;
   for (const [path, cover] of Object.entries(covers)) {
     await page.goto(path);
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://microinteractions.dev${cover}`);
@@ -228,7 +228,7 @@ test('RSS feed lists every study and is discoverable', async ({ page, request })
   expect(feed.status()).toBe(200);
   expect(feed.headers()['content-type']).toContain('application/rss+xml');
   const body = await feed.text();
-  expect(body.match(/<item>/g)).toHaveLength(11);
+  expect(body.match(/<item>/g)).toHaveLength(12);
   expect(body).toContain('<link>https://microinteractions.dev/resize-handle/</link>');
   await page.goto('/text-swap/');
   await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/rss.xml');
@@ -285,7 +285,7 @@ test('shadcn registry serves the index and installable items', async ({ request 
   expect(item.registryDependencies).toEqual(['utils']);
   expect(item.files[0].content).toContain('export function TextSwapButton');
   // Each custom element study ships its demo's script, defined once the React markup exists.
-  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots'], ['drag-reorder', 'drag-reorder']]) {
+  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots'], ['drag-reorder', 'drag-reorder'], ['faq-panel', 'faq-panel']]) {
     const element = await (await request.get(`/r/${name}.json`)).json();
     expect(element.files.map((file: { path: string }) => file.path)).toEqual([`registry/${name}.tsx`, `registry/${name}-element.ts`]);
     expect(element.files[0].content).toContain(`<${tag}`);

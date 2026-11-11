@@ -1145,3 +1145,250 @@ test.describe('drag to reorder', () => {
     expect(await labels(page)).toEqual(['Draft changelog', 'Update icons', 'Review pull request', 'Fix focus ring', 'Ship release']);
   });
 });
+
+test.describe('faq panel', () => {
+  const component = (page: import('@playwright/test').Page) => page.locator('[data-stage] faq-panel');
+  // How far the panel is from the open question's box.
+  const offset = (faq: import('@playwright/test').Locator) => faq.evaluate((el) => {
+    const panel = el.querySelector('[data-panel]')!.getBoundingClientRect();
+    const item = el.querySelector('[aria-expanded="true"]')!.closest('[data-item]')!.getBoundingClientRect();
+    return Math.max(Math.abs(panel.top - item.top), Math.abs(panel.height - item.height));
+  });
+  const settled = (faq: import('@playwright/test').Locator) =>
+    expect.poll(() => faq.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+
+  test('the panel lands on the chosen question and fits its answer', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const questions = faq.getByRole('button');
+    expect(await offset(faq)).toBeLessThan(0.5);
+    await questions.nth(3).click();
+    await expect(questions.nth(3)).toHaveAttribute('aria-expanded', 'true');
+    await expect(questions.first()).toHaveAttribute('aria-expanded', 'false');
+    expect(await faq.locator('[data-panel]').evaluate((panel) => panel.getAnimations().length)).toBe(1);
+    await settled(faq);
+    expect(await offset(faq)).toBeLessThan(0.5);
+    // Closed answers stay in the DOM for find in page.
+    await expect(faq.locator('[data-answer][hidden="until-found"]')).toHaveCount(4);
+    await expect(faq.locator('[data-answer]:not([hidden])')).toHaveCount(1);
+    await expect(faq.getByRole('region', { name: 'What about reduced motion?' })).toBeVisible();
+  });
+
+  test('the card keeps its height on every frame of a change', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const heights = await faq.evaluate(async (el) => {
+      const buttons = el.querySelectorAll<HTMLElement>('[data-trigger]');
+      const seen: number[] = [el.getBoundingClientRect().height];
+      for (const index of [4, 1, 3]) {
+        buttons[index].click();
+        const [move] = el.querySelector('[data-panel]')!.getAnimations();
+        const animations = el.getAnimations({ subtree: true });
+        animations.forEach((animation) => animation.pause());
+        for (const t of [50, 120, 190, 260]) {
+          animations.forEach((animation) => (animation.currentTime = t));
+          seen.push(el.getBoundingClientRect().height);
+        }
+        move.finish();
+        animations.forEach((animation) => animation.finish());
+        seen.push(el.getBoundingClientRect().height);
+      }
+      return seen;
+    });
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.5);
+  });
+
+  test('rapid changes, closing and reopening mid-move, settle on the last one', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    // Each click lands partway through the move before it; the last one runs to the end.
+    const steps: [number, number][] = [[4, 100], [4, 50], [4, 80], [0, 120], [2, 30], [2, 150], [1, 60]];
+    await faq.evaluate(async (el, steps) => {
+      const buttons = el.querySelectorAll<HTMLElement>('[data-trigger]');
+      for (const [index, time] of steps) {
+        buttons[index].click();
+        el.getAnimations({ subtree: true }).forEach((animation) => {
+          animation.pause();
+          animation.currentTime = time;
+        });
+      }
+      el.getAnimations({ subtree: true }).forEach((animation) => animation.finish());
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }, steps);
+    await settled(faq);
+    const questions = faq.getByRole('button');
+    await expect(questions.nth(1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(faq.locator('[aria-expanded="true"]')).toHaveCount(1);
+    await expect(faq.locator('[data-answer]:not([hidden])')).toHaveCount(1);
+    await expect(faq.locator('[data-answer][inert], [data-answer][style*="height"]')).toHaveCount(0);
+    await expect(faq.locator('[data-panel]')).toHaveCSS('opacity', '1');
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('a resize during a move is measured when the move settles', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const reserve = await faq.evaluate(async (el: HTMLElement) => {
+      const next = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const before = el.style.minHeight;
+      el.querySelectorAll<HTMLElement>('[data-trigger]')[4].click();
+      const [move] = el.querySelector('[data-panel]')!.getAnimations();
+      const animations = el.getAnimations({ subtree: true });
+      animations.forEach((animation) => animation.pause());
+      // Narrower, so every answer wraps to more lines while the panel is moving.
+      el.style.width = '260px';
+      // The observer reports the resize, and its fit runs a frame later, while the move is still paused.
+      await next();
+      await next();
+      // Read as the move settles, before any later resize could correct it.
+      const settled = new Promise<string>((resolve) => move.addEventListener('finish', () => resolve(el.style.minHeight)));
+      animations.forEach((animation) => animation.finish());
+      const atSettle = await settled;
+      await next();
+      return { before, atSettle, later: el.style.minHeight };
+    });
+    expect(reserve.atSettle).not.toBe(reserve.before);
+    expect(reserve.atSettle).toBe(reserve.later);
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('moving the element in the DOM, even mid-move, starts it over with one set of listeners', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    await faq.evaluate((el) => {
+      const parent = el.parentNode!;
+      el.querySelectorAll<HTMLElement>('[data-trigger]')[3].click();
+      parent.removeChild(el);
+      parent.appendChild(el);
+    });
+    const questions = faq.getByRole('button');
+    await expect(questions.nth(3)).toHaveAttribute('aria-expanded', 'true');
+    await settled(faq);
+    expect(await offset(faq)).toBeLessThan(0.5);
+    // One click, one change: a second set of listeners would close it again.
+    await questions.nth(2).click();
+    await expect(questions.nth(2)).toHaveAttribute('aria-expanded', 'true');
+    await settled(faq);
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('turning reduced motion on mid-move lands the move at once', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const questions = faq.getByRole('button');
+    await faq.evaluate((el) => {
+      el.querySelectorAll<HTMLElement>('[data-trigger]')[4].click();
+      el.getAnimations({ subtree: true }).forEach((animation) => animation.pause());
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await settled(faq);
+    await expect(questions.nth(4)).toHaveAttribute('aria-expanded', 'true');
+    await expect(faq.locator('[data-answer]:not([hidden])')).toHaveCount(1);
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('a find-in-page match opens its answer at once and closes the open one', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const questions = faq.getByRole('button');
+    // The browser fires beforematch on the hidden answer, then reveals it.
+    await faq.evaluate((el) => {
+      const answer = el.querySelectorAll('[data-answer]')[2];
+      answer.dispatchEvent(new Event('beforematch', { bubbles: true }));
+    });
+    await expect(questions.nth(2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(questions.first()).toHaveAttribute('aria-expanded', 'false');
+    // The panel and the answers jump; only the chevrons' CSS transitions may run.
+    expect(await faq.evaluate((el) => el.getAnimations({ subtree: true }).filter((animation) => !(animation instanceof CSSTransition)).length)).toBe(0);
+    await expect(faq.locator('[data-answer]:not([hidden])')).toHaveCount(1);
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('markup with several open questions keeps only the first', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    await faq.evaluate((el) => {
+      const parent = el.parentNode!;
+      parent.removeChild(el);
+      el.querySelectorAll('[data-trigger]').forEach((button, i) => button.setAttribute('aria-expanded', String(i === 1 || i === 3)));
+      el.querySelectorAll('[data-answer]').forEach((answer, i) => (i === 1 || i === 3 ? answer.removeAttribute('hidden') : answer.setAttribute('hidden', 'until-found')));
+      parent.appendChild(el);
+    });
+    await expect(faq.locator('[aria-expanded="true"]')).toHaveCount(1);
+    await expect(faq.getByRole('button').nth(1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(faq.locator('[data-answer]:not([hidden])')).toHaveCount(1);
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('a question chosen mid-move takes over from where the panel is', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const turn = await faq.evaluate(async (el) => {
+      const buttons = el.querySelectorAll<HTMLElement>('[data-trigger]');
+      const panel = el.querySelector<HTMLElement>('[data-panel]')!;
+      buttons[buttons.length - 1].click();
+      const animation = panel.getAnimations()[0];
+      animation.pause();
+      animation.currentTime = 200;
+      const at = panel.getBoundingClientRect().top - el.getBoundingClientRect().top - el.clientTop;
+      buttons[1].click();
+      const [next] = panel.getAnimations();
+      const start = next.effect!.getKeyframes()[0].transform as string;
+      return { at, start: Number(start.match(/-?[\d.]+/)![0]), easing: next.effect!.getTiming().easing };
+    });
+    expect(Math.abs(turn.start - turn.at)).toBeLessThan(0.5);
+    expect(turn.easing).toBe('cubic-bezier(0.23, 1, 0.32, 1)');
+    await settled(faq);
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('choosing the open question closes it, and the panel fades on its row', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const first = faq.getByRole('button').first();
+    await first.click();
+    await expect(first).toHaveAttribute('aria-expanded', 'false');
+    await settled(faq);
+    await expect(faq.locator('[data-panel]')).toHaveCSS('opacity', '0');
+    await expect(faq.locator('[data-answer][hidden="until-found"]')).toHaveCount(5);
+    await first.click();
+    await settled(faq);
+    expect(await offset(faq)).toBeLessThan(0.5);
+    await expect(faq.locator('[data-panel]')).toHaveCSS('opacity', '1');
+  });
+
+  test('arrow keys move focus, Enter opens, and reduced motion skips the move', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/faq-panel/');
+    const faq = component(page);
+    const questions = faq.getByRole('button');
+    await questions.first().focus();
+    await page.keyboard.press('ArrowUp');
+    await expect(questions.last()).toBeFocused();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowDown');
+    await expect(questions.nth(1)).toBeFocused();
+    await expect(questions.first()).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Enter');
+    await expect(questions.nth(1)).toHaveAttribute('aria-expanded', 'true');
+    expect(await faq.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+    expect(await offset(faq)).toBeLessThan(0.5);
+  });
+
+  test('the Tailwind version shares the script and its hooks', async ({ page }) => {
+    await page.goto('/faq-panel/');
+    const code: Record<string, Record<string, string>> = {};
+    for (const format of ['css', 'tailwind']) {
+      await page.locator(`[data-source-format][value="${format}"]`).check();
+      const variant = page.locator(`[data-source-variant="${format}"]`);
+      code[format] = {};
+      for (const language of ['HTML', 'JavaScript']) {
+        await variant.getByRole('tab', { name: language, exact: true }).click();
+        code[format][language] = (await variant.getByRole('tabpanel', { name: language, exact: true }).locator('code').textContent())!;
+      }
+    }
+    expect(code.tailwind.JavaScript).toBe(code.css.JavaScript);
+    for (const hook of ['data-panel', 'data-item', 'data-trigger', 'data-answer', 'hidden="until-found"']) expect(code.tailwind.HTML).toContain(hook);
+    expect(code.css.HTML).not.toContain('data-trace-progress');
+  });
+});
