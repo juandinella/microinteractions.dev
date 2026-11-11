@@ -21,7 +21,7 @@ function scriptFiles(source: string) {
 
 // Shown with every Tailwind variant, so study articles don't repeat the setup.
 export const tailwindSetupNote = (includeScript: boolean) =>
-  `Paste the CSS tab into the stylesheet that imports Tailwind CSS v4.${includeScript ? ' The JavaScript is the same as in the CSS version.' : ''}`;
+  `Paste the CSS tab into the stylesheet that imports Tailwind CSS v4.1 or later.${includeScript ? ' The JavaScript is the same as in the CSS version.' : ''}`;
 
 // A Tailwind variant reuses the script of the CSS implementation passed as `scriptSource`.
 export function tailwindSourceFiles(source: string, scriptSource = '') {

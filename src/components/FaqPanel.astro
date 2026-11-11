@@ -1,0 +1,532 @@
+<faq-panel class="fqp">
+  <span class="fqp-panel" aria-hidden="true" data-panel data-trace-progress></span>
+  <div class="fqp-item" data-item>
+    <h3 class="fqp-heading">
+      <button class="fqp-trigger" type="button" aria-expanded="true" data-trigger>
+        <span>Can I use these in a product?</span>
+        <svg class="fqp-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"></path></svg>
+      </button>
+    </h3>
+    <div class="fqp-answer" role="region" data-answer>
+      <p class="fqp-text"><strong>Yes, under MIT.</strong> Copy the CSS or Tailwind version, or install the React port. Credit is welcome, not required.</p>
+    </div>
+  </div>
+  <div class="fqp-item" data-item>
+    <h3 class="fqp-heading">
+      <button class="fqp-trigger" type="button" aria-expanded="false" data-trigger>
+        <span>Do I need React?</span>
+        <svg class="fqp-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"></path></svg>
+      </button>
+    </h3>
+    <div class="fqp-answer" role="region" hidden="until-found" data-answer>
+      <p class="fqp-text"><strong>No.</strong> Each study is HTML, CSS, and a short script.</p>
+    </div>
+  </div>
+  <div class="fqp-item" data-item>
+    <h3 class="fqp-heading">
+      <button class="fqp-trigger" type="button" aria-expanded="false" data-trigger>
+        <span>How do I install one?</span>
+        <svg class="fqp-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"></path></svg>
+      </button>
+    </h3>
+    <div class="fqp-answer" role="region" hidden="until-found" data-answer>
+      <p class="fqp-text"><strong>With the shadcn CLI,</strong> or by copying the code under the demo. The React port wraps the same script, so both behave the same.</p>
+    </div>
+  </div>
+  <div class="fqp-item" data-item>
+    <h3 class="fqp-heading">
+      <button class="fqp-trigger" type="button" aria-expanded="false" data-trigger>
+        <span>What about reduced motion?</span>
+        <svg class="fqp-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"></path></svg>
+      </button>
+    </h3>
+    <div class="fqp-answer" role="region" hidden="until-found" data-answer>
+      <p class="fqp-text"><strong>Every study respects it.</strong> The movement drops out, and the change still reads without it: here the panel lands on the question at once.</p>
+    </div>
+  </div>
+  <div class="fqp-item" data-item>
+    <h3 class="fqp-heading">
+      <button class="fqp-trigger" type="button" aria-expanded="false" data-trigger>
+        <span>Where do the timings come from?</span>
+        <svg class="fqp-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"></path></svg>
+      </button>
+    </h3>
+    <div class="fqp-answer" role="region" hidden="until-found" data-answer>
+      <p class="fqp-text"><strong>From the demo itself.</strong> Each page lists the duration and curve it runs.</p>
+    </div>
+  </div>
+</faq-panel>
+
+<script>
+  // The panel's trip from one question to the next; the answers resize on the same clock.
+  // It speeds up over the first third and brakes over the rest, so it settles into the question instead of stopping.
+  const MOVE = 300;
+  const EASE = 'cubic-bezier(0.64, 0, 0.2, 1)';
+  // A question chosen mid-move starts at speed, so the panel turns without stalling.
+  const RETARGET = 'cubic-bezier(0.23, 1, 0.32, 1)';
+  // The new text starts before the old one is gone, so the panel never travels empty.
+  const TEXT_OUT = 140;
+  const TEXT_IN = 210;
+  const TEXT_OUT_EASE = 'cubic-bezier(0.215, 0.61, 0.355, 1)';
+  const TEXT_IN_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
+  const SHIFT = 6;
+  const BLUR = 3;
+
+  let faqId = 0;
+
+  class FaqPanel extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const panel = this.querySelector<HTMLElement>('[data-panel]');
+      const items = [...this.querySelectorAll<HTMLElement>('[data-item]')];
+      const triggers = items.map((item) => item.querySelector<HTMLButtonElement>('[data-trigger]'));
+      const answers = items.map((item) => item.querySelector<HTMLElement>('[data-answer]'));
+
+      if (!panel || !items.length || triggers.includes(null) || answers.includes(null)) {
+        throw new Error('FaqPanel: needs a panel, and a trigger and an answer in every item.');
+      }
+      // Narrowed once the check above has run.
+      const buttons = triggers as HTMLButtonElement[];
+      const regions = answers as HTMLElement[];
+      // The answer's first child carries the text that fades; the answer itself only clips and resizes.
+      const texts = regions.map((answer) => (answer.firstElementChild as HTMLElement | null) ?? answer);
+
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+      let open = buttons.findIndex((button) => button.getAttribute('aria-expanded') === 'true');
+      // Each change gets a number. Animations a later change cancelled don't settle the state.
+      let run = 0;
+      let moving: Animation[] = [];
+      // Set when a resize lands mid-move; the move then measures again as it settles.
+      let stale = false;
+
+      // The chevron's CSS transition reads the panel's timing from here, so the two can't drift apart.
+      this.style.setProperty('--fqp-move', `${MOVE}ms`);
+      this.style.setProperty('--fqp-ease', EASE);
+
+      // Only missing ids are generated, so ids from the markup or an earlier run stay.
+      const id = ++faqId;
+      buttons.forEach((button, i) => {
+        button.id ||= `faq-panel-${id}-question-${i}`;
+        regions[i].id ||= `faq-panel-${id}-answer-${i}`;
+        button.setAttribute('aria-controls', regions[i].id);
+        regions[i].setAttribute('aria-labelledby', button.id);
+      });
+
+      // Boxes come back scaled by any transformed ancestor; dividing by the element's scale returns to its own units.
+      // The panel is positioned from the padding edge, so the border comes off.
+      const box = (element: Element) => {
+        const host = this.getBoundingClientRect();
+        const scale = host.width / this.offsetWidth || 1;
+        const rect = element.getBoundingClientRect();
+        return { y: (rect.top - host.top) / scale - this.clientTop, height: rect.height / scale };
+      };
+
+      // While an answer is open, the card reserves the height it has with the longest answer open. Each answer
+      // keeps its own height and the panel fits it; what a shorter answer leaves sits below the last question.
+      // The card then keeps its height between answers, and only changes when the first one opens or the last one closes.
+      let closed = 0;
+      let reserve = 0;
+      const measure = () => {
+        const saved = regions.map((answer) => [answer.getAttribute('hidden'), answer.style.height] as const);
+        const minHeight = this.style.minHeight;
+        // Rearranged for one synchronous read; nothing paints in between.
+        this.style.minHeight = '';
+        regions.forEach((answer) => answer.setAttribute('hidden', 'until-found'));
+        closed = box(this).height;
+        regions.forEach((answer) => {
+          answer.removeAttribute('hidden');
+          answer.style.height = '';
+        });
+        reserve = closed + Math.max(...regions.map((answer) => box(answer).height));
+        regions.forEach((answer, i) => {
+          const [hidden, height] = saved[i];
+          if (hidden === null) answer.removeAttribute('hidden');
+          else answer.setAttribute('hidden', hidden);
+          answer.style.height = height;
+        });
+        this.style.minHeight = minHeight;
+      };
+
+      // Closed answers stay in the DOM as hidden="until-found", so find in page can still reach them.
+      const sync = () => {
+        buttons.forEach((button, i) => button.setAttribute('aria-expanded', String(i === open)));
+        regions.forEach((answer, i) => {
+          answer.style.height = '';
+          answer.inert = false;
+          if (i === open) answer.removeAttribute('hidden');
+          else answer.setAttribute('hidden', 'until-found');
+        });
+        this.style.minHeight = open < 0 ? '' : `${reserve}px`;
+      };
+
+      // Puts the panel on the open question at once, or hides it when every answer is closed.
+      const place = () => {
+        if (open < 0) {
+          panel.style.opacity = '0';
+          return;
+        }
+        const { y, height } = box(items[open]);
+        panel.style.transform = `translateY(${y}px)`;
+        panel.style.height = `${height}px`;
+        panel.style.opacity = '';
+      };
+
+      const settle = () => {
+        moving.forEach((animation) => animation.cancel());
+        moving = [];
+        if (stale) {
+          stale = false;
+          measure();
+        }
+        sync();
+        place();
+      };
+
+      const select = (index: number, animate: boolean) => {
+        // Choosing the open question closes it.
+        const next = index === open ? -1 : index;
+        const interrupted = panel.getAnimations().length > 0;
+
+        // First: where the panel and every answer are now, partway through a move included.
+        const panelStyle = getComputedStyle(panel);
+        const shown = Number(panelStyle.opacity) > 0;
+        // From nothing open, the panel starts as the chosen question's row.
+        const from = shown ? box(panel) : box(items[index].firstElementChild!);
+        const fromOpacity = Number(panelStyle.opacity);
+        const heights = regions.map((answer) => (answer.hasAttribute('hidden') ? 0 : box(answer).height));
+        const card = box(this).height;
+        const textStates = texts.map((text) => {
+          const { opacity, transform, filter } = getComputedStyle(text);
+          return { opacity, transform, filter };
+        });
+
+        run++;
+        const current = run;
+        panel.getAnimations().forEach((animation) => animation.cancel());
+        moving.forEach((animation) => animation.cancel());
+        moving = [];
+        open = next;
+        sync();
+
+        if (!animate || reduceMotion.matches) {
+          place();
+          return;
+        }
+
+        // Answers that were showing stay visible while they close, but out of reach: their question already reads collapsed.
+        regions.forEach((answer, i) => {
+          if (i !== next && heights[i] > 0) {
+            answer.removeAttribute('hidden');
+            answer.style.height = '0px';
+            answer.inert = true;
+          }
+        });
+
+        // Last: the open question's box once every answer has its final height, or the closed question's row.
+        const to = box(items[next >= 0 ? next : index]);
+        const target = regions.map((answer, i) => (i === next ? box(answer).height : 0));
+        const direction = to.y < from.y ? -1 : 1;
+        const easing = interrupted ? RETARGET : EASE;
+        place();
+        if (next < 0) {
+          panel.style.transform = `translateY(${to.y}px)`;
+          panel.style.height = `${to.height}px`;
+          panel.style.opacity = '0';
+        }
+
+        // Invert and play. Opacity only changes when the panel appears or leaves, and does so in the first half.
+        const opacity = next < 0 ? 0 : 1;
+        const move = panel.animate(
+          [
+            { transform: `translateY(${from.y}px)`, height: `${from.height}px`, opacity: fromOpacity },
+            { opacity, offset: 0.5 },
+            { transform: `translateY(${to.y}px)`, height: `${to.height}px`, opacity },
+          ],
+          { duration: MOVE, easing },
+        );
+
+        // The card only grows or shrinks when the first answer opens or the last one closes.
+        const cardTarget = next < 0 ? closed : reserve;
+        if (Math.abs(card - cardTarget) >= 0.5) {
+          moving.push(this.animate([{ minHeight: `${card}px` }, { minHeight: `${cardTarget}px` }], { duration: MOVE, easing }));
+        }
+
+        regions.forEach((answer, i) => {
+          if (Math.abs(heights[i] - target[i]) < 0.5) return;
+          moving.push(answer.animate([{ height: `${heights[i]}px` }, { height: `${target[i]}px` }], { duration: MOVE, easing }));
+        });
+
+        // Both texts travel the way the panel does: the old one leaves ahead of it, the new one follows it in.
+        const away = (sign: number) => ({ opacity: 0, transform: `translateY(${sign * SHIFT}px)`, filter: `blur(${BLUR}px)` });
+        const rest = { opacity: 1, transform: 'none', filter: 'none' };
+        texts.forEach((text, i) => {
+          if (i === next) {
+            const resuming = heights[i] > 0;
+            moving.push(
+              text.animate([resuming ? textStates[i] : away(-direction), rest], {
+                duration: TEXT_IN,
+                delay: resuming ? 0 : MOVE - TEXT_IN,
+                easing: TEXT_IN_EASE,
+                fill: 'backwards',
+              }),
+            );
+          } else if (heights[i] > 0) {
+            moving.push(text.animate([textStates[i], away(direction)], { duration: TEXT_OUT, easing: TEXT_OUT_EASE, fill: 'forwards' }));
+          }
+        });
+
+        // Settles on finish, and on a cancel from outside, such as an inspector; a newer change bumps `run` first.
+        const done = () => current === run && settle();
+        move.addEventListener('finish', done);
+        move.addEventListener('cancel', done);
+      };
+
+      buttons.forEach((button, i) => button.addEventListener('click', () => select(i, true), { signal }));
+
+      // Find in page opens the answer it matched, without the move: the browser scrolls to it at once.
+      regions.forEach((answer, i) =>
+        answer.addEventListener('beforematch', () => i !== open && select(i, false), { signal }),
+      );
+
+      // Up and Down move focus between questions, wrapping at the ends; Home and End jump.
+      this.addEventListener(
+        'keydown',
+        (event) => {
+          const current = buttons.indexOf(event.target as HTMLButtonElement);
+          if (current < 0) return;
+          let next: number | undefined;
+          if (event.key === 'ArrowDown') next = (current + 1) % buttons.length;
+          else if (event.key === 'ArrowUp') next = (current - 1 + buttons.length) % buttons.length;
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = buttons.length - 1;
+          if (next === undefined) return;
+          event.preventDefault();
+          buttons[next].focus();
+        },
+        { signal },
+      );
+
+      // Turning reduced motion on mid-move lands the move at once.
+      reduceMotion.addEventListener(
+        'change',
+        () => reduceMotion.matches && [...panel.getAnimations(), ...moving].forEach((animation) => animation.finish()),
+        { signal },
+      );
+
+      // Font loading and container changes rewrap the answers; the card and the panel follow unless the panel is moving.
+      // The fit runs in the next frame, since it resizes what the observer watches.
+      let frame = 0;
+      let width = -1;
+      const fit = () => {
+        if (panel.getAnimations().length) {
+          stale = true;
+          return;
+        }
+        stale = false;
+        measure();
+        sync();
+        place();
+      };
+      const observer = new ResizeObserver((entries) => {
+        const host = entries.find((entry) => entry.target === this);
+        const widened = host !== undefined && host.contentRect.width !== width;
+        if (host) width = host.contentRect.width;
+        // Mid-move, the card's own min-height resizes it every frame. Only a new width or a rewrapped text needs measuring.
+        if (panel.getAnimations().length) {
+          if (widened || entries.some((entry) => entry.target !== this)) stale = true;
+          return;
+        }
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(fit);
+      });
+      observer.observe(this);
+      texts.forEach((text) => observer.observe(text));
+      // Removed mid-move, it lands at once; a later connectedCallback starts over from the settled state.
+      signal.addEventListener('abort', () => {
+        observer.disconnect();
+        cancelAnimationFrame(frame);
+        run++;
+        [...panel.getAnimations(), ...moving].forEach((animation) => animation.cancel());
+        moving = [];
+        sync();
+      });
+
+      measure();
+      sync();
+      place();
+      this.toggleAttribute('data-ready', true);
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('faq-panel')) customElements.define('faq-panel', FaqPanel);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
+</script>
+
+<script>
+  // Gallery only: reports each change to the stage's trace, and gives the inspector a move to scrub.
+  document.querySelectorAll<HTMLElement>('faq-panel').forEach((component) => {
+    const stage = component.closest('[data-stage], [data-row-stage]');
+    const panel = component.querySelector<HTMLElement>('[data-panel]');
+    if (!stage || !panel) return;
+    const triggers = [...component.querySelectorAll<HTMLElement>('[data-trigger]')];
+    let restore: HTMLElement | undefined;
+
+    component.addEventListener('click', (event) => {
+      if ((event.target as Element).closest('[data-trigger]')) component.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Inspecting plays a move to the farthest question, then puts the open one back without animating.
+    stage.addEventListener('specimen-inspect', () => {
+      const current = Math.max(0, triggers.findIndex((trigger) => trigger.getAttribute('aria-expanded') === 'true'));
+      restore = triggers[current];
+      triggers[current < triggers.length / 2 ? triggers.length - 1 : 0].click();
+    });
+
+    stage.addEventListener('specimen-release', () => {
+      if (!restore) return;
+      restore.click();
+      component.getAnimations({ subtree: true }).forEach((animation) => animation.finish());
+      restore = undefined;
+    });
+  });
+</script>
+
+<style>
+  .fqp {
+    --fqp-color: var(--fqp-fg, var(--text));
+    --fqp-pad: 6px;
+    /* The panel sits 0.04 below the card in lightness and the hover 0.015, so the two never read as one state. */
+    --fqp-panel: color-mix(in oklch, var(--surface) 65%, var(--surface-strong));
+    --fqp-hover: color-mix(in oklch, var(--bg) 35%, var(--surface));
+
+    position: relative;
+    display: block;
+    width: min(100%, 400px);
+    padding: var(--fqp-pad);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--bg);
+  }
+
+  /* One panel for every question. The script moves it with translateY and fits it with height. */
+  .fqp-panel {
+    position: absolute;
+    top: 0;
+    right: var(--fqp-pad);
+    left: var(--fqp-pad);
+    height: 0;
+    border-radius: 8px;
+    background: var(--fqp-panel);
+    pointer-events: none;
+  }
+
+  /* Until the script measures the questions, the open one draws its own panel, so first paint is already right. */
+  .fqp:not([data-ready]) .fqp-panel {
+    visibility: hidden;
+  }
+
+  .fqp:not([data-ready]) .fqp-item:has([aria-expanded='true']) {
+    border-radius: 8px;
+    background: var(--fqp-panel);
+  }
+
+  /* Positioned after the panel, so the questions paint above it. */
+  .fqp-item {
+    position: relative;
+  }
+
+  .fqp-heading {
+    margin: 0;
+    font: inherit;
+  }
+
+  .fqp-trigger {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--fqp-color);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Lighter than the panel, so a hovered question never reads as an open one. */
+  @media (hover: hover) and (pointer: fine) {
+    .fqp-trigger[aria-expanded='false']:hover {
+      background: var(--fqp-hover);
+    }
+  }
+
+  .fqp-trigger:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--fqp-color));
+    outline-offset: -2px;
+  }
+
+  .fqp-chevron {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: var(--quiet);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+  }
+
+  .fqp-trigger[aria-expanded='true'] .fqp-chevron {
+    rotate: 180deg;
+  }
+
+  /* --fqp-move and --fqp-ease come from the script, which owns the panel's timing. */
+  .fqp[data-ready] .fqp-chevron {
+    transition: rotate var(--fqp-move) var(--fqp-ease);
+  }
+
+  /* Clips the text while the script animates the answer's height. */
+  .fqp-answer {
+    overflow: hidden;
+  }
+
+  .fqp-text {
+    margin: 0;
+    padding: 0 12px 12px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .fqp-text strong {
+    color: var(--fqp-color);
+    font-weight: 500;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fqp[data-ready] .fqp-chevron {
+      transition: none;
+    }
+  }
+</style>

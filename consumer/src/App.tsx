@@ -3,6 +3,7 @@ import { ChevronMorphButton } from '@/components/chevron-morph';
 import { DragReorder } from '@/components/drag-reorder';
 import { DragSelectTable } from '@/components/drag-select';
 import { EdgeAwareSlider } from '@/components/edge-aware-tooltip';
+import { FaqPanel } from '@/components/faq-panel';
 import { GooeyRadioGroup } from '@/components/gooey-radio-group';
 import { HoldConfirmButton } from '@/components/hold-confirm';
 import { PluckedLink } from '@/components/plucked-underline';
@@ -117,6 +118,12 @@ export function App() {
         aria-label="Saved tasks"
         items={saved.map((id) => ({ id, label: `Saved ${id}` }))}
         onReorder={(ids) => (setSaved(ids), log('saved')(ids))}
+      />
+
+      <FaqPanel
+        defaultValue="two"
+        onValueChange={log('faq')}
+        items={['one', 'two', 'three'].map((value) => ({ value, question: `Question ${value}`, answer: <p>Answer {value}</p> }))}
       />
 
       <WormDots

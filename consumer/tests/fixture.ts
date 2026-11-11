@@ -10,6 +10,7 @@ const elements = [
   'resizable-sidebar',
   'worm-dots',
   'drag-reorder',
+  'faq-panel',
 ];
 
 // Opens the app once its custom elements are defined, and fails the test on any console error,

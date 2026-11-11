@@ -31,6 +31,7 @@ export interface Choreography {
 
 const dot = (nth: number) => ({ selector: '[data-dot]', nth });
 const tab = (nth: number) => ({ selector: '[data-tab]', nth, x: 0.4 });
+const question = (nth: number) => ({ selector: '[data-trigger]', nth, x: 0.35 });
 const link = (nth: number) => ({ selector: '[data-pluck]', nth, x: 0.5, y: 0.55 });
 const option = (nth: number) => ({ selector: '.goo-option', nth, x: 0.3 });
 const box = (nth: number) => ({ selector: '[data-box-cell]', nth });
@@ -225,6 +226,22 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
       await d.click(tab(0));
       await d.wait(450);
       await d.move({ frame: [0.72, 0.84] });
+      await d.wait(300);
+    },
+  },
+  'faq-panel': {
+    rest: { frame: [0.74, 0.86] },
+    async play(d) {
+      await d.wait(350);
+      await d.click(question(3));
+      await d.wait(700);
+      await d.click(question(1));
+      await d.wait(700);
+      await d.click(question(4));
+      await d.wait(700);
+      await d.click(question(0));
+      await d.wait(650);
+      await d.move({ frame: [0.74, 0.86] });
       await d.wait(300);
     },
   },
