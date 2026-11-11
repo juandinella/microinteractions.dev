@@ -11,6 +11,9 @@ on:
       - scripts/generate-social-image.mjs
       - public/fonts/**
       - public/logo.svg
+      # A Playwright upgrade must move the container image too; the check below catches it in that pull request.
+      - package.json
+      - .github/workflows/social-covers.yml
   workflow_dispatch:
 
 permissions:
@@ -25,6 +28,11 @@ jobs:
     # Forks can't receive commits from this token.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # Ships Chromium and its system packages. Installing them with apt failed when the runner couldn't reach
+    # the Ubuntu mirror. The tag must match @playwright/test; the first step after install checks it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v7
         with:
@@ -37,7 +45,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Check the image matches @playwright/test
+        run: |
+          version=$(node -p "require('@playwright/test/package.json').version")
+          grep -q "mcr.microsoft.com/playwright:v$version-" .github/workflows/social-covers.yml \
+            || { echo "Update the container image in social-covers.yml to v$version."; exit 1; }
       - run: pnpm run generate:social
       - name: Commit changed covers
         run: |
