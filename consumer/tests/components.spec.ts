@@ -148,14 +148,12 @@ test('a list that takes its new order back as items keeps focus and the announce
   await expect(handle).toBeFocused();
   await expect(list.locator('xpath=ancestor::drag-reorder').locator('[data-status]')).toHaveText('Dropped Saved x at position 2 of 3.');
 
-  // The same row keeps working from its new place.
   await app.keyboard.press('Space');
   await app.keyboard.press('ArrowDown');
   await app.keyboard.press('Space');
   await expect(list.locator('[data-label]')).toHaveText(['Saved y', 'Saved z', 'Saved x']);
   await expect(handle).toBeFocused();
 
-  // An order from outside moves the real rows, keeps focus, and the next move starts from it.
   await app.getByRole('button', { name: 'Reverse saved tasks' }).click();
   await expect(list.locator('[data-label]')).toHaveText(['Saved x', 'Saved z', 'Saved y']);
   await expect(list.locator('[data-position]')).toHaveText(['01', '02', '03']);

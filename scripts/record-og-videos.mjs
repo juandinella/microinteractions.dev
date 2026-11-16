@@ -19,7 +19,6 @@ const WIDTH = 1200;
 const HEIGHT = 630;
 // Width of the recorded frame in CSS pixels unless a choreography sets its own. Captured at 2x, then scaled down.
 const FRAME_WIDTH = 720;
-// Settles layout, fonts, and hover states before the first frame.
 const PRE_ROLL = 400;
 const BUDGET = 1024 * 1024;
 
@@ -54,7 +53,6 @@ await access(join(site, 'index.html')).catch(() => {
   throw new Error('No build in dist/client. Run pnpm run og:videos, which builds first.');
 });
 
-// The built site, served as Cloudflare would serve its static assets.
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript',
@@ -218,7 +216,6 @@ const pointers = {
   },
 };
 
-// Draws the pointer and click rings on top of the page. The shape follows the CSS cursor under the hotspot.
 function installPointer(shapes) {
   const layer = document.createElement('div');
   layer.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;contain:strict';
@@ -263,7 +260,6 @@ function installPointer(shapes) {
 }
 
 const ease = (t) => 1 - (1 - t) ** 3;
-// A hand's reach: fast in the middle, gentle at both ends.
 const minimumJerk = (t) => t ** 3 * (10 - 15 * t + 6 * t * t);
 
 async function record(page, slug) {
@@ -339,7 +335,6 @@ async function record(page, slug) {
       const distance = Math.hypot(dx, dy);
       if (distance < 0.5) return;
       const steps = Math.max(Math.round(((ms ?? Math.min(240 + distance * 0.8, 650)) * FPS) / 1000), 1);
-      // A free hand bows slightly off the straight line; a dragging one stays closer to it.
       const bow = (pressed ? 0.015 : 0.06) * distance;
       for (let i = 1; i <= steps; i++) {
         const t = minimumJerk(i / steps);

@@ -11,7 +11,6 @@ const managers = [
 
 type Manager = (typeof managers)[number]['id'];
 
-// A per-viewer convenience: the choice follows the reader to the next study.
 const STORAGE = 'microinteractions:package-manager';
 
 export default function InstallCommand({ url }: { url: string }) {

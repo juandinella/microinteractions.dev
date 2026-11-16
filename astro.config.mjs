@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 const localConfig = new URL('./astro.local.mjs', import.meta.url);
 const localPlugins = await access(localConfig).then(async () => (await import(localConfig.href)).default, () => []);
 
-// https://astro.build/config
 export default defineConfig({
   output: 'server',
   // No sessions: otherwise the Cloudflare adapter adds a SESSION KV binding without
@@ -44,7 +43,6 @@ export default defineConfig({
   site: 'https://microinteractions.dev',
   trailingSlash: 'always',
   integrations: [react(), mdx(), sitemap({
-    // Editorial dates only: a study's publish date, and the newest one for the index.
     serialize(item) {
       const slug = new URL(item.url).pathname.replace(/^\/|\/$/g, '');
       const dates = slug ? specimens.filter((specimen) => specimen.id === slug).map((specimen) => specimen.published) : specimens.map((specimen) => specimen.published).sort().slice(-1);

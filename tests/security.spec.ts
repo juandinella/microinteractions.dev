@@ -27,7 +27,6 @@ test('security headers cover Worker responses, static assets, redirects, and err
       expect(response.headers()['content-security-policy'], `${method} ${path}`).toContain("base-uri 'self'");
     }
   }
-  // Pages revalidate on every visit; the fonts they all preload don't.
   expect(home.headers()['cache-control']).toBe('public, max-age=0, must-revalidate');
   for (const font of ['martian-grotesk', 'martian-mono']) {
     expect((await request.get(`/fonts/${font}.woff2`)).headers()['cache-control'], font).toBe('public, max-age=2592000');

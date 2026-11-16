@@ -122,7 +122,6 @@ export function curvePoints(easing: Easing) {
   return easing.stops.map((stop) => Number((stop / peak).toFixed(4)));
 }
 
-// A study is labeled new for two weeks after it goes live.
 const newForDays = 14;
 
 export const newUntil = (specimen: Specimen) =>

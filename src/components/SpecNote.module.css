@@ -64,7 +64,6 @@
   transform: scale(0.97);
 }
 
-/* Leaving is quicker than arriving. */
 .popup[data-ending-style] {
   transition-duration: 100ms;
 }
@@ -125,7 +124,6 @@
   }
 }
 
-/* Reduced motion keeps the fade, without the scale. */
 @media (prefers-reduced-motion: reduce) {
   .popup {
     transition-property: opacity;

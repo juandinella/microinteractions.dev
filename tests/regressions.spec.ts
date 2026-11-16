@@ -143,7 +143,6 @@ test('copied hold and slider implementations work outside the gallery', async ({
       await expect(button).toHaveAttribute('data-state', 'confirmed');
       await standalone.keyboard.up('Enter');
       await expect(standalone.locator('.hold-layer-done')).toHaveCSS('opacity', '1');
-      // The dialog's buttons stay inside it and confirm without submitting the surrounding form.
       await expect(button).toHaveAttribute('data-state', 'idle', { timeout: 3_000 });
       await button.evaluate((element: HTMLButtonElement) => element.click());
       const dialog = standalone.getByRole('dialog', { name: 'Confirm this action' });
@@ -177,7 +176,6 @@ test('copied hold and slider implementations work outside the gallery', async ({
 
 test('study pages offer the shadcn command for each package manager', async ({ page }) => {
   await page.goto('/hold-confirm/');
-  // The command waits behind a trigger beside the title, so the preview leads the page.
   await expect(page.getByRole('tablist', { name: 'Package manager' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Add with shadcn' }).click();
   await expect(page.getByRole('dialog', { name: 'Add with shadcn' })).toBeVisible();
@@ -203,7 +201,6 @@ test('study pages offer the shadcn command for each package manager', async ({ p
   expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe('pnpm dlx shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
   await expect(page.getByRole('status').filter({ hasText: 'Install command copied to clipboard.' })).toHaveCount(1);
 
-  // The choice follows the reader to the next installable study.
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Add with shadcn' })).toBeFocused();
   await page.goto('/text-swap/');
@@ -273,7 +270,6 @@ test.describe('plucked underline', () => {
       ring.play();
       return { frames, ...state };
     });
-    // The underline closes, but the string keeps moving.
     expect(swing.plucked).toBe(false);
     expect(swing.ringing).toBe(true);
     expect(swing.frames[0]).not.toBe('none');
@@ -455,7 +451,6 @@ test.describe('gooey radio group', () => {
     const standalone = await browser.newPage();
     const errors: string[] = [];
     standalone.on('pageerror', (error) => errors.push(error.message));
-    // A second group with nothing checked, its own radio name, and an unrelated input inside.
     const empty = code.HTML.replaceAll('name="delivery"', 'name="pace"').replace(' checked', '')
       .replace('</label>', '</label><input type="checkbox" aria-label="Unrelated" />');
     await standalone.setContent(`<style>${code.CSS}</style>${code.HTML}${empty}`);
@@ -495,13 +490,11 @@ test.describe('gooey radio group', () => {
     await standalone.addScriptTag({ content: code.JavaScript });
     const group = standalone.locator('.goo-group');
     expect(await standalone.locator('.goo-drop').evaluate((el) => getComputedStyle(el).filter)).toBe('url("#goo-merge-1")');
-    // Keyboard: the ring follows the arrow keys and the drop is skipped, in WebKit too.
     await standalone.keyboard.press('Tab');
     await standalone.keyboard.press('ArrowDown');
     await expect(standalone.getByRole('radio', { name: 'Express' })).toBeChecked();
     expect(await blobAnimations(group)).toBe(0);
     await expect(standalone.locator('.goo-option', { hasText: 'Express' })).toHaveCSS('outline-style', 'solid');
-    // Pointer: the drop pours and no ring is left behind.
     await standalone.getByText('Next day').click();
     expect(await blobAnimations(group)).toBe(8);
     await expect.poll(() => headY(standalone)).toBe(88);
@@ -551,7 +544,6 @@ test.describe('drag select', () => {
     await page.goto('/drag-select/');
     await listen(page);
     await press(page, 1, [4, 2]);
-    // Backing off from row 4 to row 2 put rows 3 and 4 back.
     expect(await checked(page)).toEqual([false, true, true, false, false, false, false, false, false, false]);
     await expect(page.locator('[data-band]')).toHaveAttribute('data-shown', '');
     expect((await log(page)).change).toBe(0);
@@ -561,7 +553,6 @@ test.describe('drag select', () => {
     await expect(page.locator('drag-select-table tbody tr[data-selected]')).toHaveCount(2);
     await expect(page.locator('[data-band]')).not.toHaveAttribute('data-shown', '');
 
-    // Starting on a checked box clears.
     await press(page, 2, [3]);
     await page.mouse.up();
     expect(await checked(page)).toEqual([false, true, false, false, false, false, false, false, false, false]);
@@ -652,7 +643,6 @@ test.describe('resize handle', () => {
     await page.mouse.down();
     await page.mouse.move(point.x + 40, point.y + 30, { steps: 4 });
     await expect(handle(page)).toHaveAttribute('aria-valuenow', '200');
-    // The grip tracks the pointer down the divider.
     const grip = (await page.locator('[data-grip]').boundingBox())!;
     expect(Math.abs(grip.y + grip.height / 2 - (point.y + 30))).toBeLessThanOrEqual(1);
     await page.keyboard.press('Escape');
@@ -742,7 +732,6 @@ test.describe('resize handle', () => {
     await handle(page).focus();
     await page.keyboard.press('End');
     await expect(handle(page)).toHaveAttribute('aria-valuenow', '320');
-    // A fractional container still yields whole-pixel limits.
     await sidebar.evaluate((element) => (element.style.width = '330.5px'));
     await expect(handle(page)).toHaveAttribute('aria-valuenow', '188');
     await expect(handle(page)).toHaveAttribute('aria-valuemax', '188');
@@ -1086,7 +1075,6 @@ test.describe('drag to reorder', () => {
     await page.mouse.move(x, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.move(x + 30, box.y + box.height / 2 + pitch * 2, { steps: 8 });
-    // Dragged from index 0 to the gap at 2: the row closes up one slot, then the two rows beside the gap nudge away from it.
     const shifts = await items.evaluateAll((els) => els.map((el) => ({ transform: (el as HTMLElement).style.transform, delay: (el as HTMLElement).style.transitionDelay })));
     expect(shifts[0].transform).toMatch(/^translate\(30px, /);
     expect(shifts.slice(1).map((shift) => shift.delay)).toEqual(['24ms', '0ms', '0ms', '24ms']);
@@ -1148,7 +1136,6 @@ test.describe('drag to reorder', () => {
 
 test.describe('faq panel', () => {
   const component = (page: import('@playwright/test').Page) => page.locator('[data-stage] faq-panel');
-  // How far the panel is from the open question's box.
   const offset = (faq: import('@playwright/test').Locator) => faq.evaluate((el) => {
     const panel = el.querySelector('[data-panel]')!.getBoundingClientRect();
     const item = el.querySelector('[aria-expanded="true"]')!.closest('[data-item]')!.getBoundingClientRect();
@@ -1206,7 +1193,6 @@ test.describe('faq panel', () => {
   test('rapid changes, closing and reopening mid-move, settle on the last one', async ({ page }) => {
     await page.goto('/faq-panel/');
     const faq = component(page);
-    // Each click lands partway through the move before it; the last one runs to the end.
     const steps: [number, number][] = [[4, 100], [4, 50], [4, 80], [0, 120], [2, 30], [2, 150], [1, 60]];
     await faq.evaluate(async (el, steps) => {
       const buttons = el.querySelectorAll<HTMLElement>('[data-trigger]');
@@ -1296,14 +1282,12 @@ test.describe('faq panel', () => {
     await page.goto('/faq-panel/');
     const faq = component(page);
     const questions = faq.getByRole('button');
-    // The browser fires beforematch on the hidden answer, then reveals it.
     await faq.evaluate((el) => {
       const answer = el.querySelectorAll('[data-answer]')[2];
       answer.dispatchEvent(new Event('beforematch', { bubbles: true }));
     });
     await expect(questions.nth(2)).toHaveAttribute('aria-expanded', 'true');
     await expect(questions.first()).toHaveAttribute('aria-expanded', 'false');
-    // The panel and the answers jump; only the chevrons' CSS transitions may run.
     expect(await faq.evaluate((el) => el.getAnimations({ subtree: true }).filter((animation) => !(animation instanceof CSSTransition)).length)).toBe(0);
     await expect(faq.locator('[data-answer]:not([hidden])')).toHaveCount(1);
     expect(await offset(faq)).toBeLessThan(0.5);

@@ -42,7 +42,6 @@ await new Promise((resolve) => server.listen(port, resolve));
 
 try {
   const { items } = JSON.parse(await readFile(join(site, 'r/registry.json'), 'utf8'));
-  // Start from what a project has before installing: the theme, and nothing the CLI writes.
   await rm(join(consumer, 'src/components'), { recursive: true, force: true });
   await rm(join(consumer, 'src/lib'), { recursive: true, force: true });
   // The installed files are gitignored here, and Tailwind skips ignored files unless they're named.

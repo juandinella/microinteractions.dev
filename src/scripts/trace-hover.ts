@@ -1,7 +1,6 @@
 import { ease } from './ease';
 
 interface TimedTrace {
-  // The specimen's longest duration; progress is reported as a share of it.
   duration: number;
   // Attribute the component sets while it plays, in place of :hover.
   attribute: string;
@@ -30,7 +29,6 @@ export function traceHover(
       .getAnimations()
       .find((animation) => animation.playState === 'running' || animation.pending);
     if (!animation) {
-      // Settled: hold at this element's own duration.
       const own = parseFloat(getComputedStyle(target).transitionDuration) * 1000;
       return own > 0 ? [own / duration, 1] : [1];
     }

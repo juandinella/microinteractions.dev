@@ -66,7 +66,6 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
     rest: { frame: [0.72, 0.84] },
     async play(d) {
       await d.wait(350);
-      // A short press retracts, then a full hold confirms and the button resets on its own.
       await d.move({ selector: '.hold-button', x: 0.58, y: 0.6 });
       await d.down();
       await d.wait(500);
@@ -84,7 +83,6 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
     rest: { frame: [0.62, 0.84] },
     async play(d) {
       await d.wait(350);
-      // Resting on a few links lets each string ring; the longest rings longest.
       await d.move(link(1));
       await d.wait(550);
       await d.move(link(3), 420);
@@ -139,7 +137,6 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
       await d.move(box(0));
       await d.drag(box(3), 650);
       await d.wait(550);
-      // Starting on a checked box clears the run on the way back up.
       await d.drag(box(0), 650);
       await d.wait(450);
       await d.move({ frame: [0.84, 0.84] });
@@ -154,7 +151,6 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
       const handle: Target = { frame: [0.307, 0.53] };
       await d.move(handle);
       await d.wait(250);
-      // Wider, past half the minimum to collapse, then back to where the drag began, which reopens it at its first width.
       await d.down();
       await d.wait(80);
       await d.move({ frame: [0.62, 0.5] }, 600);
@@ -187,7 +183,6 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
     rest: { frame: [0.8, 0.86] },
     async play(d) {
       await d.wait(350);
-      // The first row two places down, pausing so the nudge and the line show.
       await d.move(row(0));
       await d.wait(200);
       await d.down();
