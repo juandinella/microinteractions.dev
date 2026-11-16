@@ -1,6 +1,8 @@
-# Runs the site's Playwright suite against the production Worker, then installs every study from the
-# built shadcn registry into consumer/ and checks that it type-checks, renders on the server, hydrates,
+# Runs the site's Playwright suite against the production Worker, and installs every study from the
+# built shadcn registry into consumer/ to check that it type-checks, renders on the server, hydrates,
 # and behaves. The site's build alone can't show that an installed component works.
+# Three parallel jobs: the site suite in Chromium, the site suite in WebKit, and the Tailwind checker's
+# self-test with the consumer check. As a single job the run took about 6.5 minutes, most of it the site suite.
 name: Tests
 
 on:
@@ -19,6 +21,11 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      # A failure in one suite shouldn't cancel the others' results.
+      fail-fast: false
+      matrix:
+        suite: [chromium, webkit, consumer]
     # Ships the browsers and their system packages. Installing them with apt took up to 13 minutes on a slow
     # mirror, longer than the tests. The tag must match @playwright/test; the first step checks it.
     container:
@@ -34,22 +41,27 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: npm ci --no-audit --no-fund
+      - if: matrix.suite == 'consumer'
+        run: npm ci --no-audit --no-fund
         working-directory: consumer
       - name: Check the image matches @playwright/test
         run: |
           version=$(node -p "require('@playwright/test/package.json').version")
           grep -q "mcr.microsoft.com/playwright:v$version-" .github/workflows/tests.yml \
             || { echo "Update the container image in tests.yml to v$version."; exit 1; }
-      - run: pnpm exec node --test scripts/check-tailwind.test.mjs
-      # Builds the site; the consumer check installs from that build.
-      - run: pnpm run test:e2e
-      - run: pnpm run test:consumer
+      # Each suite builds the site first: the browser suites through the Playwright web server, and the
+      # consumer check through check-consumer.mjs, which installs from that build.
+      - if: matrix.suite != 'consumer'
+        run: pnpm run test:e2e --project=${{ matrix.suite }}
+      - if: matrix.suite == 'consumer'
+        run: pnpm exec node --test scripts/check-tailwind.test.mjs
+      - if: matrix.suite == 'consumer'
+        run: pnpm run test:consumer
       # Traces and screenshots of failing tests, for debugging what only fails in CI.
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: test-results
+          name: test-results-${{ matrix.suite }}
           path: |
             test-results/
             consumer/test-results/
