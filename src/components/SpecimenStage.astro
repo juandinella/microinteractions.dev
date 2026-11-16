@@ -215,8 +215,6 @@ const tick =
   import { traceHover } from '../scripts/trace-hover';
   import { traceSelect } from '../scripts/trace-select';
 
-  // Traces each specimen's real duration on the strip under its stage, and its easing on the curve glyph.
-  // Scrubbing the strip pauses the component's own CSS transitions at that moment.
   const FRAME = 1000 / 60;
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -273,7 +271,6 @@ const tick =
     const frames = Number(scrub.dataset.frames);
     const pad = String(frames).length;
     let frame = 0;
-    // Where the trace sits on the timeline, in ms; counts back down when it reverses.
     let position = 0;
     let inspecting = false;
     let paused: { animation: Animation; offset: number }[] = [];
@@ -282,7 +279,6 @@ const tick =
     const frameAt = (ms: number) =>
       ms >= timelineDuration ? frames : Math.floor(ms / FRAME + 1e-6);
 
-    // `curveX` places the glyph's dot when the current element runs for less than the full duration.
     function render(ms: number, curveX?: number) {
       position = ms;
       const f = frameAt(ms);
@@ -331,7 +327,6 @@ const tick =
       root.dataset.inspecting = '';
       cancelAnimationFrame(frame);
 
-      // Land any in-flight transition at rest, then start the active state from zero and hold it.
       stage!.getAnimations({ subtree: true }).forEach((a) => a.cancel());
       targets().forEach((el) => (el.dataset.inspect = ''));
       // Components that animate from script start their inspected motion here, synchronously.
@@ -345,7 +340,6 @@ const tick =
       paused = holding.map((animation) => ({ animation, offset: 0 }));
 
       if (confirmationDuration && !reduceMotion.matches) {
-        // Capture the real confirmation transitions after the fill has reached its end.
         holding.forEach((animation) => {
           animation.currentTime = Number(
             animation.effect!.getComputedTiming().endTime,
@@ -382,7 +376,6 @@ const tick =
       if (!inspecting) return;
       inspecting = false;
       delete root.dataset.inspecting;
-      // Release inspection-owned transitions before returning control to the live CSS state.
       targets().forEach((el) => delete el.dataset.inspect);
       paused.forEach(({ animation }) => animation.cancel());
       stage!
@@ -553,7 +546,6 @@ const tick =
     display: none;
   }
 
-  /* Touch offers direct activation as well as frame-by-frame inspection. */
   @media not ((hover: hover) and (pointer: fine)) {
     .hint-fine {
       display: none;
@@ -600,7 +592,6 @@ const tick =
     align-items: center;
   }
 
-  /* One tick per 60fps frame, shown while the strip is in reach */
   .scrubber::before {
     position: absolute;
     top: 50%;
@@ -756,7 +747,6 @@ const tick =
   }
 
   @media (max-width: 780px) {
-    /* Without the side ruler, the hint sits on the left gutter and the demo centers below it. */
     .canvas {
       min-height: 184px;
       padding: 64px 16px 28px;

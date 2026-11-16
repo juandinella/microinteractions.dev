@@ -72,7 +72,6 @@ const isDrag = s.trigger === 'drag';
   import { traceHover } from '../scripts/trace-hover';
   import { traceSelect } from '../scripts/trace-select';
 
-  // Moves the curve glyph's dot along the easing while the demo runs, like the study page's inspector.
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
   document.querySelectorAll<HTMLElement>('[data-row]').forEach((root) => {
@@ -104,7 +103,6 @@ const isDrag = s.trigger === 'drag';
     const timelineDuration = duration + confirmationDuration;
     const release = Number(root.dataset.release || duration);
     const curve = (root.dataset.curve || '0,0,1,1').split(',').map(Number);
-    // Elapsed share of the duration; counts back down when the demo reverses.
     let position = 0;
     let frame = 0;
 
@@ -261,7 +259,6 @@ const isDrag = s.trigger === 'drag';
     gap: 8px;
   }
 
-  /* An underlined text action; the chevron morph study turns its chevron into an arrow on hover. */
   .open {
     display: inline-flex;
     min-height: 44px;
@@ -300,7 +297,6 @@ const isDrag = s.trigger === 'drag';
       text-decoration-color: var(--text);
     }
 
-    /* Hovering the title previews the same action on "Open study": MorphArrow's chevron becomes an arrow. */
     .sheet:has(.title:hover) .open :global(:is(.chevron, .stem)) {
       transform: translateX(2px);
       transition-duration: 180ms;

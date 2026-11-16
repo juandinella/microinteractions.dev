@@ -105,14 +105,12 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
     margin-bottom: 24px;
   }
 
-  /* Centered on the title's first line, whatever size the clamp lands on. */
   .install {
     grid-area: install;
     align-self: start;
     margin-top: calc((1.2 * clamp(24px, 2.6vw, 32px) - 32px) / 2);
   }
 
-  /* Narrow screens give the title the full width; the trigger follows the summary. */
   @media (max-width: 640px) {
     .study-header { grid-template-areas: 'breadcrumb breadcrumb' 'title title' 'summary summary' 'install install'; }
     .install { justify-self: start; margin-top: 16px; }

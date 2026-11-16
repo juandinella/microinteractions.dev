@@ -1,4 +1,3 @@
-// Follows the transition a selection starts on `[data-trace-progress]`, by its clock, from 0 to 1.
 export function traceSelect(
   stage: HTMLElement,
   render: (progress: number) => void,

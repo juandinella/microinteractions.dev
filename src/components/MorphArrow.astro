@@ -6,8 +6,6 @@ interface Props {
 const { direction = 'right' } = Astro.props;
 ---
 
-<!-- The chevron morph study: on hover/focus of the enclosing link, the chevron slides 2px
-     and a stem draws out of it to make an arrow. "left" mirrors the whole glyph. -->
 <svg
   class:list={['morph-arrow', { left: direction === 'left' }]}
   viewBox="0 0 16 16"

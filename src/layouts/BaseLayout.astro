@@ -225,8 +225,6 @@ const socialVideo = video && new URL(video, Astro.site);
     display: none;
   }
 
-  /* Edge fades follow the scroll position: none at the top edge you're resting on,
-     none at the bottom once you reach the end. */
   @property --fade-top {
     syntax: '<length>';
     inherits: false;

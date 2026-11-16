@@ -7,13 +7,11 @@ test('no callback fires on mount', async ({ app }) => {
 });
 
 test('changing a collection keeps the selection and reports what changed once', async ({ app }) => {
-  // Tabs: adding keeps the selected tab; removing it falls back to the first tab.
   await app.getByRole('button', { name: 'Add tab d' }).click();
   await expect(app.getByRole('tab', { name: /Tab b/ })).toHaveAttribute('aria-selected', 'true');
   await app.getByRole('button', { name: 'Remove tab b' }).click();
   await expect(app.getByRole('tab', { name: /Tab a/ })).toHaveAttribute('aria-selected', 'true');
 
-  // Rows: a removed row takes its box with it; the others keep theirs.
   await app.getByRole('checkbox', { name: 'Row B' }).check();
   await app.getByRole('checkbox', { name: 'Row D' }).check();
   await app.getByRole('button', { name: 'Remove row D' }).click();
@@ -21,7 +19,6 @@ test('changing a collection keeps the selection and reports what changed once', 
   await expect(app.getByRole('checkbox', { name: 'Row B' })).toBeChecked();
   await expect(app.locator('[data-count]')).toHaveText('1 of 5');
 
-  // Options: the choice survives while it's an option, then falls back to the default.
   await app.getByText('Option z', { exact: true }).click();
   await app.getByRole('button', { name: 'Remove option y' }).click();
   await expect(app.getByRole('radio', { name: 'Option z' })).toBeChecked();

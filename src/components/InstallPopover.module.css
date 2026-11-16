@@ -177,7 +177,6 @@
   transform: scale(0.97);
 }
 
-/* Leaving is quicker than arriving. */
 .popup[data-ending-style] {
   transition-duration: 100ms;
 }
@@ -209,13 +208,11 @@
   }
 }
 
-/* Reduced motion keeps the fades, without the scale. */
 @media (prefers-reduced-motion: reduce) {
   .trigger:active {
     transform: none;
   }
 
-  /* The color stays; the travel and the turn go. */
   .trigger rect {
     animation: none;
   }

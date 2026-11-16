@@ -20,7 +20,6 @@ const prefix = filename.replace('.astro', '').toLowerCase();
 const study = specimens.find(({ id }) => id === Astro.props.specimen)!;
 const studyUrl = new URL(`/${study.id}/`, Astro.site);
 const prompt = (await getEntry('studies', study.id))?.data.prompt;
-// The prompt leads when a study has one; the code formats follow.
 const variants = [
   ...(prompt ? [{
     id: 'prompt',

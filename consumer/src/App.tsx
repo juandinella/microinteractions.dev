@@ -18,7 +18,6 @@ declare global {
   }
 }
 
-// Every callback lands here, so tests can tell what fired and how often.
 const log = (name: string) => (value?: unknown) => {
   window.calls ??= [];
   window.calls.push(value === undefined ? name : `${name}:${JSON.stringify(value)}`);
@@ -113,7 +112,6 @@ export function App() {
         onReorder={log('reorder')}
       />
 
-      {/* The order lives in state and comes back as `items`, the way a saved list does. */}
       <DragReorder
         aria-label="Saved tasks"
         items={saved.map((id) => ({ id, label: `Saved ${id}` }))}
