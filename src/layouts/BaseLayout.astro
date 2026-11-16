@@ -141,7 +141,8 @@ const socialVideo = video && new URL(video, Astro.site);
       for (const link of document.querySelectorAll<HTMLAnchorElement>('a[href^="http"]')) {
         if (new URL(link.href).origin !== location.origin) {
           link.target = '_blank';
-          link.rel = 'noopener noreferrer';
+          // Markup can opt into sending a referrer (the author link keeps only noopener).
+          if (!link.rel) link.rel = 'noopener noreferrer';
         }
       }
     </script>
