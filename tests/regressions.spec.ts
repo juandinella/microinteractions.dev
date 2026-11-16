@@ -1162,10 +1162,15 @@ test.describe('faq panel', () => {
     const faq = component(page);
     const questions = faq.getByRole('button');
     expect(await offset(faq)).toBeLessThan(0.5);
+    // Counts the moves in the click's own task, after the button's handler. The move lasts 300ms, and on
+    // a busy runner the round trips after the click can outlast it, leaving nothing to count.
+    await faq.evaluate((el) => addEventListener('click', () => {
+      el.dataset.movesOnClick = String(el.querySelector('[data-panel]')!.getAnimations().length);
+    }, { once: true }));
     await questions.nth(3).click();
     await expect(questions.nth(3)).toHaveAttribute('aria-expanded', 'true');
     await expect(questions.first()).toHaveAttribute('aria-expanded', 'false');
-    expect(await faq.locator('[data-panel]').evaluate((panel) => panel.getAnimations().length)).toBe(1);
+    await expect(faq).toHaveAttribute('data-moves-on-click', '1');
     await settled(faq);
     expect(await offset(faq)).toBeLessThan(0.5);
     // Closed answers stay in the DOM for find in page.
