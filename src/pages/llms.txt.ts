@@ -9,7 +9,7 @@ export const GET: APIRoute = ({ site }) => new Response(`${[
   '# Microinteractions',
   `> ${collectionDescription}`,
   `A project by [${author.name}](${author.url}). Every page also returns Markdown when requested with \`Accept: text/markdown\`.`,
-  `For React projects, use the shadcn install command in each study's Markdown. Components use your project's shadcn theme tokens. [Registry index](${new URL('/r/registry.json', site).href}).`,
+  `For React projects, use the shadcn install command in each study's Markdown. Components use your project's shadcn theme tokens. [Registry index](${new URL('/r/registry.json', site).href}). To install by name, add \`"@microinteractions": "${new URL('/r/', site).href}{name}.json"\` to \`registries\` in \`components.json\`, then run \`npx shadcn@latest add @microinteractions/{name}\`.`,
   '## Studies',
   // Every study ships a React port; the registry test fails until a new one has it.
   specimens.map((specimen) => `- [${specimen.title}](${new URL(`/markdown/${specimen.id}.md`, site).href}): ${specimen.summary} [React registry item](${new URL(`/r/${specimen.id}.json`, site).href}).`).join('\n'),
