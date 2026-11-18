@@ -241,13 +241,13 @@ export const specimens: Specimen[] = [
     trigger: 'select',
     triggerLabel: 'Click, tap, arrow keys',
     hint: 'Pick another option',
-    duration: 480,
+    duration: 340,
     durationNote:
-      'The head of the drop reaches the new ring in 420ms and the tail follows 60ms behind, so the drop lands at 480ms. Arrow keys move the selection without the drop.',
+      'The head of the drop reaches the new ring in 300ms and the tail follows 40ms behind, so the drop lands at 340ms. Arrow keys move the selection without the drop.',
     easing: [0.65, 0, 0.35, 1],
     easingName: 'ease-in-out-cubic',
     easingNote:
-      'Head and tail share the curve, offset by 60ms; the gap between them is the drop. The slow start lets it pull away from the old ring before it travels. A choice made mid-pour switches to cubic-bezier(0.23, 1, 0.32, 1), which starts at speed, so the drop never stalls.',
+      'Head and tail share the curve, offset by 40ms; the gap between them is the drop. The slow start lets it pull away from the old ring before it travels. A choice made mid-pour switches to cubic-bezier(0.23, 1, 0.32, 1), which starts at speed, so the drop never stalls.',
     props: ['transform'],
   },
   {

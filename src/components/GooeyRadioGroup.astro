@@ -47,10 +47,10 @@
 
 <script>
   // The dot pours to the new ring as a drop: a head, a tail on the same curve
-  // 60ms later, and blobs between them that taper from head to tail.
+  // 40ms later, and blobs between them that taper from head to tail.
   const PITCH = 44;
-  const DURATION = 420;
-  const LAG = 60;
+  const DURATION = 300;
+  const LAG = 40;
   const FRAMES = 60;
 
   // A cubic-bezier easing: find the curve's t for x, then return its y.
@@ -307,14 +307,14 @@
     color: var(--goo-label);
     font-size: 14px;
     cursor: pointer;
-    transition: color 140ms ease 150ms;
+    transition: color 140ms ease 100ms;
     -webkit-tap-highlight-color: transparent;
   }
 
   /* Each label changes with its ring. */
   .goo-option:has(:checked) {
     color: var(--goo-ink);
-    transition-delay: 315ms;
+    transition-delay: 225ms;
   }
 
   .goo-option:has(:focus-visible),
@@ -343,12 +343,12 @@
     height: 20px;
     border: 2px solid var(--goo-track);
     border-radius: 50%;
-    transition: border-color 140ms ease 150ms;
+    transition: border-color 140ms ease 100ms;
   }
 
   .goo-option:has(:checked) .goo-ring {
     border-color: var(--goo-ink);
-    transition-delay: 315ms;
+    transition-delay: 225ms;
   }
 
   /* Hover darkens a second ring on its own clock; the border's delays are for the drop. */
@@ -370,7 +370,7 @@
 
   /* After a click, hold the hover ring until the ink arrives, so the ring never flashes back to the track. */
   .goo-option:has(:checked) .goo-ring::after {
-    transition-delay: 315ms;
+    transition-delay: 225ms;
   }
 
   .goo-options[data-keyboard] :is(.goo-option, .goo-ring),
