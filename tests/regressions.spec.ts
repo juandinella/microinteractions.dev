@@ -357,14 +357,14 @@ test.describe('gooey radio group', () => {
     await expect(stage.getByRole('radio', { name: 'Pickup' })).toBeChecked();
     expect(await blobAnimations(stage)).toBe(8);
     await expect.poll(() => headY(stage)).toBe(132);
-    await expect(page.locator('[data-trace-readout]')).toHaveText('480');
+    await expect(page.locator('[data-trace-readout]')).toHaveText('340');
   });
 
   test('a new choice mid-pour turns the drop from where it is', async ({ page }) => {
     await page.goto('/gooey-radio-group/');
     const stage = page.locator('[data-stage]');
-    // Start a pour, move it 250ms in, change course and read the new drop's first frame in one task.
-    // Waiting in real time instead lets a slow machine finish the 480ms pour before the read.
+    // Start a pour, move it 150ms in, change course and read the new drop's first frame in one task.
+    // Waiting in real time instead lets a slow machine finish the 340ms pour before the read.
     const [midway, restart, early] = await stage.locator('[data-goo-blob]').last().evaluate((head) => {
       const y = () => new DOMMatrix(getComputedStyle(head).transform).m42;
       const choose = (value: string) => {
@@ -374,7 +374,7 @@ test.describe('gooey radio group', () => {
       };
       choose('pickup');
       head.parentElement!.querySelectorAll('[data-goo-blob]').forEach((blob) =>
-        blob.getAnimations().forEach((pour) => (pour.currentTime = 250)),
+        blob.getAnimations().forEach((pour) => (pour.currentTime = 150)),
       );
       const before = y();
       choose('standard');
@@ -401,8 +401,8 @@ test.describe('gooey radio group', () => {
         const ring = label.querySelector('.goo-ring')!;
         return [getComputedStyle(label).transitionDelay, getComputedStyle(ring).transitionDelay];
       });
-    expect(await timing('Standard')).toEqual(['0.315s', '0.315s']);
-    expect(await timing('Express')).toEqual(['0.15s', '0.15s']);
+    expect(await timing('Standard')).toEqual(['0.225s', '0.225s']);
+    expect(await timing('Express')).toEqual(['0.1s', '0.1s']);
     const hoverRing = (option: string) =>
       stage.locator('.goo-option', { hasText: option }).locator('.goo-ring').evaluate((ring) => getComputedStyle(ring, '::after').opacity);
     await stage.getByText('Express').hover();
