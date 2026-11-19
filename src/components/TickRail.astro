@@ -39,10 +39,10 @@
     <span id="tkr-overview-note">What the rail does and when to reach for it.</span>
     <span id="tkr-install-note">Copy the files, or add them with the shadcn CLI.</span>
     <span id="tkr-usage-note">One link per section, each pointing at its id.</span>
-    <span id="tkr-theming-note">Recolor the ticks with two custom properties.</span>
+    <span id="tkr-theming-note">Recolor the ticks with three custom properties.</span>
     <span id="tkr-keyboard-note">Arrow keys move between ticks; Escape hides the preview.</span>
     <span id="tkr-touch-note">The first tap previews a section, the second goes there.</span>
-    <span id="tkr-motion-note">Lengths and the card change at once, without travel.</span>
+    <span id="tkr-motion-note">Ticks and the card change at once, without travel or fades.</span>
     <span id="tkr-support-note">Works in every current browser, with a no-JS fallback.</span>
   </div>
 
@@ -61,7 +61,7 @@
     </section>
     <section class="tkr-section" id="tkr-theming">
       <h3>Theming</h3>
-      <p>Set the tick color and the current section's color on the component or any ancestor.</p>
+      <p>Set the colors of the ticks, the lit tick, and the current section on the component or any ancestor.</p>
     </section>
     <section class="tkr-section" id="tkr-keyboard">
       <h3>Keyboard</h3>
@@ -73,7 +73,7 @@
     </section>
     <section class="tkr-section" id="tkr-motion">
       <h3>Reduced motion</h3>
-      <p>The ticks change length at once, and the card fades in place instead of traveling.</p>
+      <p>The ticks change length at once, and the card appears, moves, and changes its text without animating.</p>
     </section>
     <section class="tkr-section" id="tkr-support">
       <h3>Browser support</h3>
@@ -96,10 +96,9 @@
   // Tick lengths follow the pointer's exact position, not just the row it's in.
   // A tick at the pointer is full length; the weight falls off on a cosine over RADIUS rows.
   const RADIUS = 3;
-  // The card's trip from one tick to the next, and its height as the text changes.
-  const MOVE = 200;
-  const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
+  // The card's travel and height live in the CSS; these time the text inside it.
   // The old text leaves the way the card travels; the new one comes in from behind, without waiting for it.
+  const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
   const TEXT_OUT = 120;
   const TEXT_IN = 180;
   const SHIFT = 4;
@@ -111,6 +110,8 @@
   const WARM = 400;
   // The section that counts as current is the last one whose top has passed this fraction of the view.
   const READ_LINE = 0.3;
+  // A scroll the script started counts as finished once no scroll event has come for this long.
+  const SCROLL_SETTLE = 150;
 
   class TickRail extends HTMLElement {
     #controller: AbortController | undefined;
@@ -124,11 +125,16 @@
       const ticks = [...this.querySelectorAll<HTMLAnchorElement>('[data-tick]')];
       // A <template>, or any hidden element where a framework can't render one; its first child is the card's text.
       const template = this.querySelector<HTMLElement>('[data-card-template]');
+      const faceSource = template instanceof HTMLTemplateElement ? template.content : template;
       const lines = ticks.map((tick) => tick.querySelector<HTMLElement>('[data-line]'));
       const sections = ticks.map((tick) => document.getElementById(decodeURIComponent(tick.hash.slice(1))));
 
-      if (!rail || !card || !box || !template || !ticks.length || lines.includes(null) || sections.includes(null)) {
-        throw new Error('TickRail: needs a rail, a card with its template, and ticks that each link to a section on the page.');
+      const faceTemplate = faceSource?.firstElementChild;
+      if (
+        !rail || !card || !box || !faceTemplate?.querySelector('[data-face-title]') || !faceTemplate.querySelector('[data-face-text]') ||
+        !ticks.length || lines.includes(null) || sections.includes(null)
+      ) {
+        throw new Error('TickRail: needs a rail, a card with a title and text in its template, and ticks that each link to a section on the page.');
       }
       // Narrowed once the check above has run.
       const bars = lines as HTMLElement[];
@@ -140,17 +146,23 @@
       // Each tick's card text: its label and the description its link points to.
       const previews = ticks.map((tick) => ({
         title: tick.textContent!.trim(),
-        text: tick.getAttribute('aria-describedby')?.split(' ').map((id) => document.getElementById(id)?.textContent ?? '').join(' ').trim() ?? '',
+        text: (tick.getAttribute('aria-describedby') ?? '')
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((id) => document.getElementById(id)?.textContent?.trim() ?? '')
+          .join(' '),
       }));
 
+      // What lights a tick, in order of priority: the mouse over the rail, the mouse over the card (which keeps the
+      // card's tick lit, so the card can be hovered), a tap on touch, and keyboard focus. Escape sets `dismissed`,
+      // which hides the card until another tick is lit.
       let hovered: number | null = null;
       // Pointer position from the first tick's top, in the component's own pixels.
       let pointer: number | null = null;
-      let focused: number | null = null;
-      // A finger can't hover, so a tap lights a tick and a second tap on it follows the link.
+      let overCard = false;
       let pinned: number | null = null;
+      let focused: number | null = null;
       let pressedWith: string | null = null;
-      // Escape hides the card until the pointer or focus moves to another tick.
       let dismissed = false;
       let shown: number | null = null;
       let current = Math.max(0, ticks.findIndex((tick) => tick.hasAttribute('aria-current')));
@@ -158,17 +170,26 @@
       let openTimer = 0;
       let closeTimer = 0;
 
-      targets.forEach((section) => section.hasAttribute('tabindex') || section.setAttribute('tabindex', '-1'));
+      // Sections get focused after a click; only the ones without a tabindex get one, and lose it on disconnect.
+      const tabindexAdded = targets.filter((section) => !section.hasAttribute('tabindex'));
+      tabindexAdded.forEach((section) => section.setAttribute('tabindex', '-1'));
 
-      const anchor = () => hovered ?? pinned ?? focused;
+      const anchor = () => hovered ?? (overCard ? shown : null) ?? pinned ?? focused;
       const lit = () => (dismissed ? null : anchor());
-      // Boxes come back scaled by any transformed or zoomed ancestor; dividing by the element's scale returns to its own units.
-      // The card is positioned from the padding edge, so the border comes off.
-      const scale = () => this.getBoundingClientRect().width / this.offsetWidth || 1;
+      // Boxes come back scaled by any transformed or zoomed ancestor; dividing by the element's vertical scale returns
+      // to its own units. The card is positioned from the padding edge, so the border comes off.
+      const scaleY = () => this.getBoundingClientRect().height / this.offsetHeight || 1;
       const top = (element: Element) =>
-        (element.getBoundingClientRect().top - this.getBoundingClientRect().top) / scale() - this.clientTop;
-      // The resting length, as a fraction of the full one. Read once, so theming it takes a reconnect.
-      const rest = parseFloat(getComputedStyle(this).getPropertyValue('--tkr-rest')) || 0.25;
+        (element.getBoundingClientRect().top - this.getBoundingClientRect().top) / scaleY() - this.clientTop;
+      // Resting lengths, as fractions of the full one: any tick, and the current one while nothing is lit.
+      // Read once, so theming them takes a reconnect.
+      const style = getComputedStyle(this);
+      const read = (name: string, fallback: number) => {
+        const value = parseFloat(style.getPropertyValue(name));
+        return Number.isNaN(value) ? fallback : value;
+      };
+      const restScale = read('--tkr-rest', 1 / 3);
+      const currentScale = read('--tkr-current', 2 / 3);
 
       // Ticks
 
@@ -179,31 +200,37 @@
 
       const render = (instant: boolean) => {
         this.toggleAttribute('data-instant', instant || reduceMotion.matches);
-        const at = anchor();
         const size = ticks[0].offsetHeight;
-        // The pointer's row center, as a fractional index; a focused or tapped tick is its own center.
-        const center = hovered !== null && pointer !== null ? pointer / size - 0.5 : at;
+        // The pointer's row center, as a fractional index; any other lit tick is its own center.
+        const center = hovered !== null && pointer !== null ? pointer / size - 0.5 : anchor();
         ticks.forEach((tick, i) => {
-          const amount = center === null ? (i === current ? 1 : 0) : weight(Math.abs(i - center));
-          bars[i].style.transform = `scaleX(${rest + (1 - rest) * amount})`;
+          const scale =
+            center === null
+              ? i === current ? currentScale : restScale
+              : restScale + (1 - restScale) * weight(Math.abs(i - center));
+          bars[i].style.transform = `scaleX(${scale})`;
           tick.toggleAttribute('data-lit', i === lit());
+        });
+      };
+
+      const setCurrent = (index: number) => {
+        current = index;
+        ticks.forEach((tick, i) => {
+          if (i === index) tick.setAttribute('aria-current', 'location');
+          else tick.removeAttribute('aria-current');
         });
       };
 
       // Card
 
-      const chrome = () => {
-        const style = getComputedStyle(box);
-        return ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce(
-          (sum, key) => sum + parseFloat(style[key as 'paddingTop']),
-          0,
-        );
+      const boxInsets = () => {
+        const { paddingTop, paddingBottom, borderTopWidth, borderBottomWidth } = getComputedStyle(box);
+        return [paddingTop, paddingBottom, borderTopWidth, borderBottomWidth].reduce((sum, value) => sum + parseFloat(value), 0);
       };
 
       // The card's text comes from the template, so each variant styles it in its own markup.
       const face = (index: number) => {
-        const source = template instanceof HTMLTemplateElement ? template.content : template;
-        const element = source.firstElementChild!.cloneNode(true) as HTMLElement;
+        const element = faceTemplate.cloneNode(true) as HTMLElement;
         element.querySelector('[data-face-title]')!.textContent = previews[index].title;
         element.querySelector('[data-face-text]')!.textContent = previews[index].text;
         return element;
@@ -214,17 +241,12 @@
         const leaving = [...box.querySelectorAll<HTMLElement>('[data-face]:not([data-leaving])')];
         const next = face(index);
         box.append(next);
-        const height = next.offsetHeight + chrome();
+        const height = next.offsetHeight + boxInsets();
         if (!animate) {
           box.querySelectorAll('[data-face]').forEach((old) => old !== next && old.remove());
           return height;
         }
-        const travel = !reduceMotion.matches;
-        const away = (sign: number) => ({
-          opacity: 0,
-          transform: travel ? `translateY(${sign * SHIFT}px)` : 'none',
-          filter: travel ? `blur(${BLUR}px)` : 'blur(0px)',
-        });
+        const away = (sign: number) => ({ opacity: 0, transform: `translateY(${sign * SHIFT}px)`, filter: `blur(${BLUR}px)` });
         leaving.forEach((old) => {
           old.setAttribute('data-leaving', '');
           // A face still coming in leaves from where it is, not from full opacity.
@@ -243,61 +265,79 @@
         return height;
       };
 
-      // Centers the card on its tick, kept inside the component.
-      const place = (index: number, height: number, instant: boolean) => {
+      // Applies a change to the card with some of its transitions off, then turns them back on.
+      // `data-jump` drops the travel and the resize but keeps the fade; `data-instant` drops everything.
+      const without = (attribute: 'data-jump' | 'data-instant' | null, change: () => void) => {
+        if (attribute) card.setAttribute(attribute, '');
+        change();
+        if (!attribute) return;
+        void card.offsetWidth;
+        card.removeAttribute(attribute);
+      };
+
+      // Centers the card on its tick, kept 8px inside the component. A card taller than that clips its text.
+      const place = (index: number, needed: number) => {
         const tick = ticks[index];
+        const height = Math.min(needed, this.clientHeight - 16);
         const middle = top(tick) + tick.offsetHeight / 2;
-        const y = Math.min(Math.max(middle - height / 2, 8), this.clientHeight - height - 8);
-        card.toggleAttribute('data-instant', instant);
+        const y = Math.max(Math.min(middle - height / 2, this.clientHeight - height - 8), 8);
         card.style.transform = `translateY(${Math.round(y)}px)`;
         box.style.height = `${height}px`;
-        if (instant) {
-          void card.offsetWidth;
-          card.removeAttribute('data-instant');
-        }
       };
 
-      const show = (index: number, fromKeyboard: boolean) => {
+      // Keyboard changes and reduced motion land at once. A card the pointer opens appears on its tick and fades in;
+      // from there it travels between ticks.
+      const show = (index: number, instant: boolean) => {
         const opening = shown === null;
         if (!opening && index === shown) return;
-        // A card that opens appears on its tick; keyboard moves land at once, since they repeat quickly.
-        const instant = opening || fromKeyboard || reduceMotion.matches;
+        const still = instant || reduceMotion.matches;
         const direction = shown === null || index > shown ? 1 : -1;
-        place(index, swap(index, direction, !opening && !fromKeyboard), instant);
+        const height = swap(index, direction, !opening && !still);
+        without(still ? 'data-instant' : opening ? 'data-jump' : null, () => {
+          place(index, height);
+          card.setAttribute('data-showing', '');
+        });
         shown = index;
-        card.toggleAttribute('data-showing', true);
       };
 
-      const hide = () => {
+      const hide = (instant: boolean) => {
         if (shown === null) return;
         shown = null;
+        overCard = false;
         closedAt = performance.now();
-        card.removeAttribute('data-showing');
+        without(instant || reduceMotion.matches ? 'data-instant' : null, () => card.removeAttribute('data-showing'));
       };
 
-      const update = (fromKeyboard: boolean) => {
-        render(fromKeyboard);
+      // Keyboard changes are instant: the card opens and closes without delays and moves without travel.
+      const update = (instant: boolean) => {
+        render(instant);
         const next = lit();
         clearTimeout(closeTimer);
         if (next === null) {
           clearTimeout(openTimer);
           openTimer = 0;
           if (shown !== null) {
-            if (fromKeyboard) hide();
-            else closeTimer = window.setTimeout(hide, CLOSE_DELAY);
+            if (instant) hide(true);
+            else closeTimer = window.setTimeout(() => hide(false), CLOSE_DELAY);
           }
           return;
         }
-        if (shown !== null) return show(next, fromKeyboard);
+        if (shown !== null) return show(next, instant);
         // A pending open reads the latest tick when it fires, so moving along the rail doesn't restart it.
         if (openTimer) return;
         const warm = performance.now() - closedAt < WARM;
-        if (fromKeyboard || warm || pinned !== null) return show(next, fromKeyboard);
+        if (instant || warm || pinned !== null) return show(next, instant);
         openTimer = window.setTimeout(() => {
           openTimer = 0;
           const latest = lit();
           if (latest !== null) show(latest, false);
         }, OPEN_DELAY);
+      };
+
+      const dismiss = () => {
+        dismissed = true;
+        pinned = null;
+        update(true);
       };
 
       // Pointer
@@ -306,8 +346,8 @@
         'pointermove',
         (event) => {
           if (event.pointerType !== 'mouse') return;
-          const y = (event.clientY - ticks[0].getBoundingClientRect().top) / scale();
-          // Rows are laid out back to back, so the pointer's row is its distance from the first tick in rows.
+          const y = (event.clientY - ticks[0].getBoundingClientRect().top) / scaleY();
+          // Rows are laid out back to back at one height, so the pointer's row is its distance from the first tick in rows.
           const row = Math.floor(y / ticks[0].offsetHeight);
           const next = row >= 0 && row < ticks.length ? row : null;
           pointer = next === null ? null : y;
@@ -328,6 +368,42 @@
           update(false);
         },
         { signal },
+      );
+
+      // The card can be hovered: moving onto it keeps it open (WCAG 1.4.13), and leaving it closes it like the rail.
+      card.addEventListener(
+        'pointerenter',
+        (event) => {
+          if (event.pointerType !== 'mouse' || shown === null) return;
+          overCard = true;
+          update(false);
+        },
+        { signal },
+      );
+
+      card.addEventListener(
+        'pointerleave',
+        (event) => {
+          if (event.pointerType !== 'mouse' || !overCard) return;
+          overCard = false;
+          update(false);
+        },
+        { signal },
+      );
+
+      // The card is a bigger target than its 24px row: a click or tap on it goes to its section, like the tick.
+      card.addEventListener('click', () => shown !== null && ticks[shown].click(), { signal });
+
+      // The card sits beside the scrolling area, not in it, so the wheel over it scrolls that area by hand.
+      card.addEventListener(
+        'wheel',
+        (event) => {
+          if (!scroller) return;
+          event.preventDefault();
+          const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? scroller.clientHeight : 1;
+          scroller.scrollBy({ top: event.deltaY * unit });
+        },
+        { passive: false, signal },
       );
 
       // Focus: only keyboard focus opens the card. A click that focuses a link is already showing it.
@@ -360,14 +436,8 @@
         (event) => {
           const index = ticks.indexOf(event.target as HTMLAnchorElement);
           if (index < 0) return;
-          if (event.key === 'Escape') {
-            if (lit() === null) return;
-            event.preventDefault();
-            dismissed = true;
-            pinned = null;
-            update(true);
-            return;
-          }
+          // A press that never became a click mustn't make a keyboard activation look like a tap.
+          pressedWith = null;
           let next: number | undefined;
           if (event.key === 'ArrowDown') next = Math.min(index + 1, ticks.length - 1);
           else if (event.key === 'ArrowUp') next = Math.max(index - 1, 0);
@@ -380,16 +450,43 @@
         { signal },
       );
 
+      // Escape hides the card wherever focus is, since a card opened by hover covers the content (WCAG 1.4.13).
+      // It only claims the key from the rail, so a dialog or menu elsewhere still gets its own Escape.
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key !== 'Escape' || event.defaultPrevented || shown === null) return;
+          if (rail.contains(event.target as Node)) event.preventDefault();
+          dismiss();
+        },
+        { signal },
+      );
+
+      // A section chosen from the rail stays current until the reader scrolls on their own. Near the end, the scroll
+      // can't bring it to the read line, and the last section would take over.
+      let locked = false;
+      let settling = false;
+      let settleTimer = 0;
+      const settle = () => {
+        clearTimeout(settleTimer);
+        settleTimer = window.setTimeout(() => (settling = false), SCROLL_SETTLE);
+      };
+
       ticks.forEach((tick, i) => {
         tick.addEventListener('pointerdown', (event) => (pressedWith = event.pointerType), { signal });
         tick.addEventListener('pointercancel', () => (pressedWith = null), { signal });
         tick.addEventListener(
           'click',
           (event) => {
-            // A click carries no pointer type; the pointerdown before it says whether it was a tap.
-            const tapped = pressedWith !== null && pressedWith !== 'mouse';
+            const pressed = pressedWith;
             pressedWith = null;
-            if (tapped && pinned !== i) {
+            // Opening in a new tab or window stays the browser's.
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            // Current browsers send clicks as pointer events, with an empty type for the keyboard and assistive tech.
+            // Past that, the pointerdown before the click is the better witness: WebKit reports a tap's click as a mouse.
+            const clickType = 'pointerType' in event ? (event as PointerEvent).pointerType : undefined;
+            const type = clickType === '' ? '' : (pressed ?? clickType);
+            if (type && type !== 'mouse' && pinned !== i) {
               event.preventDefault();
               pinned = i;
               dismissed = false;
@@ -397,23 +494,30 @@
               return;
             }
             pinned = null;
+            setCurrent(i);
             update(true);
+            locked = true;
+            settling = true;
+            settle();
             // On the page, the link scrolls as an anchor. Inside a scrolling container, the script scrolls it,
             // so the window and the URL stay put.
             if (!scroller) return;
             event.preventDefault();
-            scroller.scrollTo({ top: targets[i].offsetTop - scroller.offsetTop, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+            // The distance comes back in screen pixels; the scroller's own scale turns it into its scroll units.
+            const view = scroller.getBoundingClientRect();
+            const y = (targets[i].getBoundingClientRect().top - view.top) / (view.height / scroller.offsetHeight || 1);
+            scroller.scrollTo({ top: scroller.scrollTop + y - scroller.clientTop, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
             targets[i].focus({ preventScroll: true });
           },
           { signal },
         );
       });
 
-      // The next tap outside the rail stands in for the pointer leaving it.
+      // The next tap outside the rail and the card stands in for the pointer leaving it.
       document.addEventListener(
         'pointerdown',
         (event) => {
-          if (pinned === null || rail.contains(event.target as Node)) return;
+          if (pinned === null || rail.contains(event.target as Node) || card.contains(event.target as Node)) return;
           pinned = null;
           update(false);
         },
@@ -425,6 +529,7 @@
       let frame = 0;
       const track = () => {
         frame = 0;
+        if (locked) return;
         const view = scroller ? scroller.getBoundingClientRect() : { top: 0, bottom: innerHeight };
         const line = view.top + (view.bottom - view.top) * READ_LINE;
         let next = 0;
@@ -436,15 +541,16 @@
           : scrollY + innerHeight >= document.documentElement.scrollHeight - 1;
         if (end) next = targets.length - 1;
         if (next === current) return;
-        current = next;
-        ticks.forEach((tick, i) => {
-          if (i === current) tick.setAttribute('aria-current', 'location');
-          else tick.removeAttribute('aria-current');
-        });
+        setCurrent(next);
         render(false);
       };
       const schedule = () => (frame ||= requestAnimationFrame(track));
-      (scroller ?? window).addEventListener('scroll', schedule, { passive: true, signal });
+      const onScroll = () => {
+        if (settling) return settle();
+        locked = false;
+        schedule();
+      };
+      (scroller ?? window).addEventListener('scroll', onScroll, { passive: true, signal });
       window.addEventListener('resize', schedule, { signal });
 
       // Turning reduced motion on mid-move lands the move at once.
@@ -457,16 +563,19 @@
       signal.addEventListener('abort', () => {
         clearTimeout(openTimer);
         clearTimeout(closeTimer);
+        clearTimeout(settleTimer);
         cancelAnimationFrame(frame);
-        hovered = pointer = focused = pinned = null;
-        shown = null;
+        hovered = pointer = focused = pinned = shown = null;
+        overCard = false;
         card.removeAttribute('data-showing');
         box.querySelectorAll('[data-face]').forEach((old) => old.remove());
+        tabindexAdded.forEach((section) => section.removeAttribute('tabindex'));
       });
 
+      // The markup may mark no tick, or more than one; start from exactly one.
+      setCurrent(current);
       track();
       render(true);
-      this.toggleAttribute('data-ready', true);
     }
 
     disconnectedCallback() {
@@ -487,16 +596,19 @@
   .tkr {
     /* Rows are the hit areas; the line inside each one is drawn at full length and scaled down. */
     --tkr-size: 24px;
-    --tkr-length: 40px;
-    --tkr-rest: 0.25;
+    --tkr-length: 24px;
+    /* 8px at rest, and 16px for the current section while nothing is lit. */
+    --tkr-rest: 0.3333;
+    --tkr-current: 0.6667;
+    --tkr-rail: 48px;
     --tkr-tick-color: var(--quiet);
+    --tkr-lit-color: var(--text);
     --tkr-current-color: var(--brand);
 
     position: relative;
     display: grid;
-    grid-template-columns: 60px minmax(0, 1fr);
+    grid-template-columns: var(--tkr-rail) minmax(0, 1fr);
     width: min(100%, 480px);
-    height: 224px;
     overflow: hidden;
     isolation: isolate;
     border: 1px solid var(--line);
@@ -504,10 +616,19 @@
     background: var(--bg);
   }
 
+  /* The rail sets the component's height: its rows plus 16px above and below. */
   .tkr-rail {
     display: grid;
     grid-auto-rows: var(--tkr-size);
     align-content: center;
+    padding-block: 16px;
+  }
+
+  /* A finger needs more than 24px. */
+  @media (pointer: coarse) {
+    .tkr {
+      --tkr-size: 32px;
+    }
   }
 
   /* The link spans the rail's width, so the whole row is the target, not the 2px line. */
@@ -525,7 +646,7 @@
   }
 
   .tkr-tick[data-lit] {
-    color: var(--text);
+    color: var(--tkr-lit-color);
   }
 
   .tkr-tick:focus-visible {
@@ -543,7 +664,7 @@
     white-space: nowrap;
   }
 
-  /* Before the script runs, the current tick is the only long one. */
+  /* Before the script runs, the current tick is the only longer one. */
   .tkr-line {
     display: block;
     width: var(--tkr-length);
@@ -556,7 +677,7 @@
   }
 
   .tkr-tick[aria-current] .tkr-line {
-    transform: none;
+    transform: scaleX(var(--tkr-current));
   }
 
   /* Keyboard moves and the first paint land at once. */
@@ -564,7 +685,9 @@
     transition: none;
   }
 
+  /* contain: size keeps the sections from growing the component; the page fills the rail's height and scrolls. */
   .tkr-page {
+    contain: size;
     overflow-y: auto;
     padding: 0 20px 0 4px;
     overscroll-behavior: contain;
@@ -603,15 +726,21 @@
     text-wrap: pretty;
   }
 
-  /* The card moves as a whole; its box fades, scales from the rail's side, and fits the text. */
+  /* The card moves as a whole; its box fades, scales from the rail's side, and fits the text.
+     It starts where the rail ends, so the pointer can move onto it without leaving both. */
   .tkr-card {
     position: absolute;
     top: 0;
-    left: 64px;
+    left: var(--tkr-rail);
     z-index: 1;
-    width: min(260px, calc(100% - 80px));
+    width: min(260px, calc(100% - var(--tkr-rail) - 16px));
     pointer-events: none;
     transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .tkr-card[data-showing] {
+    cursor: pointer;
+    pointer-events: auto;
   }
 
   .tkr-card-box {
@@ -619,8 +748,10 @@
     box-sizing: border-box;
     padding: 10px 12px;
     overflow: hidden;
+    border: 1px solid var(--line-strong);
     border-radius: 10px;
-    background: var(--ink);
+    background: var(--bg);
+    box-shadow: 0 8px 20px oklch(0.2 0.006 260 / 0.08);
     opacity: 0;
     transform: translateX(-4px) scale(0.98);
     transform-origin: left center;
@@ -639,12 +770,24 @@
       height 200ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
-  .tkr-card[data-instant] {
+  .tkr-card[data-jump] {
     transition: none;
   }
 
-  .tkr-card[data-instant] .tkr-card-box {
+  .tkr-card[data-jump] .tkr-card-box {
     transition-property: opacity, transform;
+  }
+
+  .tkr-card[data-instant],
+  .tkr-card[data-instant] .tkr-card-box {
+    transition: none;
+  }
+
+  /* Raised surfaces get lighter in the dark. */
+  @media (prefers-color-scheme: dark) {
+    .tkr-card-box {
+      background: var(--surface);
+    }
   }
 
   .tkr-face {
@@ -654,17 +797,23 @@
 
   .tkr-face-title {
     margin: 0;
-    color: var(--ink-text);
+    color: var(--text);
     font-size: 13px;
     font-weight: 500;
   }
 
+  /* Previews are short; a longer description stops at three lines instead of outgrowing the component. */
   .tkr-face-text {
+    display: -webkit-box;
     margin: 2px 0 0;
-    color: var(--ink-muted);
+    overflow: hidden;
+    color: var(--muted);
     font-size: 12px;
     line-height: 1.5;
     text-wrap: pretty;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -673,9 +822,11 @@
       transition: none;
     }
 
-    .tkr-card-box {
+    /* Covers the showing state too, whose rule would otherwise bring the transitions back. */
+    .tkr-card-box,
+    .tkr-card[data-showing] .tkr-card-box {
       transform: none;
-      transition-property: opacity;
+      transition: none;
     }
   }
 </style>

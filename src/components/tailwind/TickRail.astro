@@ -1,36 +1,36 @@
-<tick-rail class="group/tkr relative isolate grid h-56 w-[min(100%,480px)] grid-cols-[60px_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-tkr-line bg-tkr-paper [--tkr-rest:0.25]">
-  <nav class="grid auto-rows-6 content-center" aria-label="On this page" data-rail>
+<tick-rail class="group/tkr relative isolate grid w-[min(100%,480px)] grid-cols-[var(--tkr-rail)_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-tkr-line bg-tkr-paper [--tkr-current:0.6667] [--tkr-rail:48px] [--tkr-rest:0.3333] [--tkr-size:24px] pointer-coarse:[--tkr-size:32px]">
+  <nav class="grid auto-rows-(--tkr-size) content-center py-4" aria-label="On this page" data-rail>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-overview" aria-describedby="tkr-overview-note" aria-current="location" data-tick>
       <span class="sr-only">Overview</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-install" aria-describedby="tkr-install-note" data-tick>
       <span class="sr-only">Install</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-usage" aria-describedby="tkr-usage-note" data-tick>
       <span class="sr-only">Usage</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-theming" aria-describedby="tkr-theming-note" data-tick>
       <span class="sr-only">Theming</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-keyboard" aria-describedby="tkr-keyboard-note" data-tick>
       <span class="sr-only">Keyboard</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-touch" aria-describedby="tkr-touch-note" data-tick>
       <span class="sr-only">Touch</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-motion" aria-describedby="tkr-motion-note" data-tick>
       <span class="sr-only">Reduced motion</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
     <a class="group/tick flex items-center pl-3 text-tkr-quiet transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-tkr-current focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring,var(--color-tkr)) data-lit:text-tkr" href="#tkr-support" aria-describedby="tkr-support-note" data-tick>
       <span class="sr-only">Browser support</span>
-      <span class="block h-0.5 w-10 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-none group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
+      <span class="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-tkr group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none" aria-hidden="true" data-line></span>
     </a>
   </nav>
 
@@ -38,14 +38,14 @@
     <span id="tkr-overview-note">What the rail does and when to reach for it.</span>
     <span id="tkr-install-note">Copy the files, or add them with the shadcn CLI.</span>
     <span id="tkr-usage-note">One link per section, each pointing at its id.</span>
-    <span id="tkr-theming-note">Recolor the ticks with two custom properties.</span>
+    <span id="tkr-theming-note">Recolor the ticks with three custom properties.</span>
     <span id="tkr-keyboard-note">Arrow keys move between ticks; Escape hides the preview.</span>
     <span id="tkr-touch-note">The first tap previews a section, the second goes there.</span>
-    <span id="tkr-motion-note">Lengths and the card change at once, without travel.</span>
+    <span id="tkr-motion-note">Ticks and the card change at once, without travel or fades.</span>
     <span id="tkr-support-note">Works in every current browser, with a no-JS fallback.</span>
   </div>
 
-  <div class="overflow-y-auto overscroll-contain pr-5 pl-1" data-scroll>
+  <div class="overflow-y-auto overscroll-contain pr-5 pl-1 contain-size" data-scroll>
     <section class="group/sec border-b border-tkr-line pt-4 pb-5 last:border-b-0 focus:outline-none" id="tkr-overview">
       <h3 class="mb-1 text-[15px] font-medium text-tkr group-focus-visible/sec:underline group-focus-visible/sec:underline-offset-4">Overview</h3>
       <p class="text-[13px]/[1.55] text-pretty text-tkr-muted">A rail of short ticks, one per section. The ticks grow around the pointer, and a card previews the section under it.</p>
@@ -60,7 +60,7 @@
     </section>
     <section class="group/sec border-b border-tkr-line pt-4 pb-5 last:border-b-0 focus:outline-none" id="tkr-theming">
       <h3 class="mb-1 text-[15px] font-medium text-tkr group-focus-visible/sec:underline group-focus-visible/sec:underline-offset-4">Theming</h3>
-      <p class="text-[13px]/[1.55] text-pretty text-tkr-muted">Set the tick color and the current section's color on the component or any ancestor.</p>
+      <p class="text-[13px]/[1.55] text-pretty text-tkr-muted">Set the colors of the ticks, the lit tick, and the current section on the component or any ancestor.</p>
     </section>
     <section class="group/sec border-b border-tkr-line pt-4 pb-5 last:border-b-0 focus:outline-none" id="tkr-keyboard">
       <h3 class="mb-1 text-[15px] font-medium text-tkr group-focus-visible/sec:underline group-focus-visible/sec:underline-offset-4">Keyboard</h3>
@@ -72,7 +72,7 @@
     </section>
     <section class="group/sec border-b border-tkr-line pt-4 pb-5 last:border-b-0 focus:outline-none" id="tkr-motion">
       <h3 class="mb-1 text-[15px] font-medium text-tkr group-focus-visible/sec:underline group-focus-visible/sec:underline-offset-4">Reduced motion</h3>
-      <p class="text-[13px]/[1.55] text-pretty text-tkr-muted">The ticks change length at once, and the card fades in place instead of traveling.</p>
+      <p class="text-[13px]/[1.55] text-pretty text-tkr-muted">The ticks change length at once, and the card appears, moves, and changes its text without animating.</p>
     </section>
     <section class="group/sec border-b border-tkr-line pt-4 pb-5 last:border-b-0 focus:outline-none" id="tkr-support">
       <h3 class="mb-1 text-[15px] font-medium text-tkr group-focus-visible/sec:underline group-focus-visible/sec:underline-offset-4">Browser support</h3>
@@ -80,13 +80,13 @@
     </section>
   </div>
 
-  <div class="group/card pointer-events-none absolute top-0 left-16 z-1 w-[min(260px,calc(100%-80px))] transition-transform duration-200 ease-tkr data-instant:transition-none motion-reduce:transition-none" aria-hidden="true" data-card>
-    <div class="grid origin-left overflow-hidden rounded-[10px] bg-tkr-ink px-3 py-2.5 opacity-0 transform-[translateX(-4px)_scale(0.98)] transition-[opacity,transform,height] duration-[120ms,120ms,200ms] ease-tkr group-data-showing/card:transform-none group-data-showing/card:opacity-100 group-data-showing/card:duration-[180ms,180ms,200ms] group-data-instant/card:transition-[opacity,transform] motion-reduce:transform-none motion-reduce:transition-opacity" data-card-box></div>
+  <div class="group/card pointer-events-none absolute top-0 left-(--tkr-rail) z-1 w-[min(260px,calc(100%-var(--tkr-rail)-16px))] transition-transform duration-200 ease-tkr data-instant:transition-none data-jump:transition-none data-showing:pointer-events-auto data-showing:cursor-pointer motion-reduce:transition-none" aria-hidden="true" data-card>
+    <div class="grid origin-left overflow-hidden rounded-[10px] border border-tkr-line-strong bg-tkr-paper px-3 py-2.5 opacity-0 shadow-[0_8px_20px_oklch(0.2_0.006_260/0.08)] transform-[translateX(-4px)_scale(0.98)] transition-[opacity,transform,height] duration-[120ms,120ms,200ms] ease-tkr group-data-showing/card:transform-none group-data-showing/card:opacity-100 group-data-showing/card:duration-[180ms,180ms,200ms] group-data-jump/card:transition-[opacity,transform] group-data-instant/card:transition-none motion-reduce:transform-none motion-reduce:transition-none" data-card-box></div>
   </div>
   <template data-card-template>
     <div class="col-start-1 row-start-1 self-start" data-face>
-      <p class="text-[13px] font-medium text-tkr-ink-text" data-face-title></p>
-      <p class="mt-0.5 text-xs/normal text-pretty text-tkr-ink-muted" data-face-text></p>
+      <p class="text-[13px] font-medium text-tkr" data-face-title></p>
+      <p class="mt-0.5 line-clamp-3 text-xs/normal text-pretty text-tkr-muted" data-face-text></p>
     </div>
   </template>
 </tick-rail>
@@ -99,9 +99,7 @@
     --color-tkr-line: oklch(0.9 0.003 258.74);
     --color-tkr-paper: oklch(0.995 0.002 258.74);
     --color-tkr-current: oklch(0.40828 0.15418 258.74);
-    --color-tkr-ink: oklch(0.24 0.016 258.74);
-    --color-tkr-ink-text: oklch(0.93 0.012 250);
-    --color-tkr-ink-muted: oklch(0.73 0.02 250);
+    --color-tkr-line-strong: oklch(0.79 0.006 258.74);
     --ease-tkr: cubic-bezier(0.23, 1, 0.32, 1);
   }
 </style>

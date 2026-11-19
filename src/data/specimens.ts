@@ -458,14 +458,14 @@ export const specimens: Specimen[] = [
     duration: 200,
     minDuration: 120,
     durationNote:
-      'The card reaches the next tick in 200ms and fits its height on the same clock. The old text leaves in 120ms as the new one arrives in 180ms, and the ticks follow the pointer on a 160ms transition. The card waits 80ms before it opens, stays 120ms after the pointer leaves, and reopens at once within 400ms of closing.',
+      'The card travels and resizes in 200ms. Its text changes in 120ms out and 180ms in, and the ticks follow the pointer in 160ms.',
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:
       'Starts at full speed, so the ticks and the card answer the pointer at once, then settle.',
     props: ['transform', 'height', 'opacity', 'filter'],
     positioningNote:
-      'Each tick is a 40px line scaled with scaleX. translateY centers the card on its tick, kept inside the component.',
+      'Each tick is a 24px line scaled with scaleX, 8px at rest and 16px for the current section. translateY centers the card on its tick, kept inside the component.',
     detail: {
       label: 'Falloff',
       value: 'Cosine over 3 rows',

@@ -1419,12 +1419,12 @@ test.describe('tick rail', () => {
     const top = await lengths(rail);
     await page.mouse.move(tick.x + 20, tick.y + tick.height - 2);
     const bottom = await lengths(rail);
-    expect(top[3]).toBeGreaterThan(37);
-    expect(bottom[3]).toBeGreaterThan(37);
-    expect(top[2] - bottom[2]).toBeGreaterThan(8);
-    expect(bottom[4] - top[4]).toBeGreaterThan(8);
+    expect(top[3]).toBeGreaterThan(22);
+    expect(bottom[3]).toBeGreaterThan(22);
+    expect(top[2] - bottom[2]).toBeGreaterThan(4);
+    expect(bottom[4] - top[4]).toBeGreaterThan(4);
     // Three rows away, a tick is back at rest.
-    expect(top[6]).toBe(10);
+    expect(top[6]).toBe(8);
   });
 
   test('one card waits for intent, lands on its tick, and reopens at once while warm', async ({ page }) => {
@@ -1483,12 +1483,12 @@ test.describe('tick rail', () => {
     expect(await page.evaluate(() => [scrollY, location.hash])).toEqual([scrollY, '']);
   });
 
-  test('without JavaScript, the ticks are links and the current one is already long', async ({ browser }) => {
+  test('without JavaScript, the ticks are links and the current one is already longer', async ({ browser }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
     await page.goto('http://127.0.0.1:8791/tick-rail/');
     const rail = component(page);
-    expect(await lengths(rail)).toEqual([40, 10, 10, 10, 10, 10, 10, 10]);
+    expect(await lengths(rail)).toEqual([16, 8, 8, 8, 8, 8, 8, 8]);
     await expect(rail.getByRole('link', { name: 'Usage' })).toHaveAttribute('href', '#tkr-usage');
     await context.close();
   });
