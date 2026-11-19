@@ -10,6 +10,7 @@ import TabIndicator from '../components/TabIndicator.astro';
 import WormDots from '../components/WormDots.astro';
 import DragReorder from '../components/DragReorder.astro';
 import FaqPanel from '../components/FaqPanel.astro';
+import TickRail from '../components/TickRail.astro';
 import textSwapSource from '../components/TextSwapButton.astro?raw';
 import textSwapTailwindSource from '../components/tailwind/TextSwapButton.astro?raw';
 import chevronMorphSource from '../components/ChevronMorphButtons.astro?raw';
@@ -34,6 +35,8 @@ import dragReorderSource from '../components/DragReorder.astro?raw';
 import dragReorderTailwindSource from '../components/tailwind/DragReorder.astro?raw';
 import faqPanelSource from '../components/FaqPanel.astro?raw';
 import faqPanelTailwindSource from '../components/tailwind/FaqPanel.astro?raw';
+import tickRailSource from '../components/TickRail.astro?raw';
+import tickRailTailwindSource from '../components/tailwind/TickRail.astro?raw';
 import type { SpecimenId } from './specimens';
 import type { ReducedMotion } from './source';
 
@@ -159,6 +162,15 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'FaqPanel.astro',
     includeScript: true,
     inspection: 'timeline',
+    reducedMotion: 'component',
+  },
+  'tick-rail': {
+    component: TickRail,
+    source: tickRailSource,
+    tailwindSource: tickRailTailwindSource,
+    filename: 'TickRail.astro',
+    includeScript: true,
+    inspection: 'none',
     reducedMotion: 'component',
   },
 };

@@ -1,0 +1,681 @@
+<tick-rail class="tkr">
+  <nav class="tkr-rail" aria-label="On this page" data-rail>
+    <a class="tkr-tick" href="#tkr-overview" aria-describedby="tkr-overview-note" aria-current="location" data-tick>
+      <span class="tkr-label">Overview</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+    <a class="tkr-tick" href="#tkr-install" aria-describedby="tkr-install-note" data-tick>
+      <span class="tkr-label">Install</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+    <a class="tkr-tick" href="#tkr-usage" aria-describedby="tkr-usage-note" data-tick>
+      <span class="tkr-label">Usage</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+    <a class="tkr-tick" href="#tkr-theming" aria-describedby="tkr-theming-note" data-tick>
+      <span class="tkr-label">Theming</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+    <a class="tkr-tick" href="#tkr-keyboard" aria-describedby="tkr-keyboard-note" data-tick>
+      <span class="tkr-label">Keyboard</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+    <a class="tkr-tick" href="#tkr-touch" aria-describedby="tkr-touch-note" data-tick>
+      <span class="tkr-label">Touch</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+    <a class="tkr-tick" href="#tkr-motion" aria-describedby="tkr-motion-note" data-tick>
+      <span class="tkr-label">Reduced motion</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+    <a class="tkr-tick" href="#tkr-support" aria-describedby="tkr-support-note" data-tick>
+      <span class="tkr-label">Browser support</span>
+      <span class="tkr-line" aria-hidden="true" data-line></span>
+    </a>
+  </nav>
+
+  <!-- Each tick's preview text. Screen readers get it as the link's description; the card shows it on hover and focus. -->
+  <div hidden>
+    <span id="tkr-overview-note">What the rail does and when to reach for it.</span>
+    <span id="tkr-install-note">Copy the files, or add them with the shadcn CLI.</span>
+    <span id="tkr-usage-note">One link per section, each pointing at its id.</span>
+    <span id="tkr-theming-note">Recolor the ticks with two custom properties.</span>
+    <span id="tkr-keyboard-note">Arrow keys move between ticks; Escape hides the preview.</span>
+    <span id="tkr-touch-note">The first tap previews a section, the second goes there.</span>
+    <span id="tkr-motion-note">Lengths and the card change at once, without travel.</span>
+    <span id="tkr-support-note">Works in every current browser, with a no-JS fallback.</span>
+  </div>
+
+  <div class="tkr-page" data-scroll>
+    <section class="tkr-section" id="tkr-overview">
+      <h3>Overview</h3>
+      <p>A rail of short ticks, one per section. The ticks grow around the pointer, and a card previews the section under it.</p>
+    </section>
+    <section class="tkr-section" id="tkr-install">
+      <h3>Install</h3>
+      <p>Copy the markup, styles, and script, or install the React port with the shadcn CLI.</p>
+    </section>
+    <section class="tkr-section" id="tkr-usage">
+      <h3>Usage</h3>
+      <p>Give every section an id and the rail one link per section. The links work as plain anchors before the script runs.</p>
+    </section>
+    <section class="tkr-section" id="tkr-theming">
+      <h3>Theming</h3>
+      <p>Set the tick color and the current section's color on the component or any ancestor.</p>
+    </section>
+    <section class="tkr-section" id="tkr-keyboard">
+      <h3>Keyboard</h3>
+      <p>Tab reaches each tick. Up and Down move between them, Home and End jump, and Escape hides the card.</p>
+    </section>
+    <section class="tkr-section" id="tkr-touch">
+      <h3>Touch</h3>
+      <p>A finger can't hover, so the first tap shows the card and a second tap on the same tick follows the link.</p>
+    </section>
+    <section class="tkr-section" id="tkr-motion">
+      <h3>Reduced motion</h3>
+      <p>The ticks change length at once, and the card fades in place instead of traveling.</p>
+    </section>
+    <section class="tkr-section" id="tkr-support">
+      <h3>Browser support</h3>
+      <p>Current Chrome, Edge, Firefox, and Safari. Without JavaScript, the ticks are ordinary links.</p>
+    </section>
+  </div>
+
+  <div class="tkr-card" aria-hidden="true" data-card>
+    <div class="tkr-card-box" data-card-box></div>
+  </div>
+  <template data-card-template>
+    <div class="tkr-face" data-face>
+      <p class="tkr-face-title" data-face-title></p>
+      <p class="tkr-face-text" data-face-text></p>
+    </div>
+  </template>
+</tick-rail>
+
+<script>
+  // Tick lengths follow the pointer's exact position, not just the row it's in.
+  // A tick at the pointer is full length; the weight falls off on a cosine over RADIUS rows.
+  const RADIUS = 3;
+  // The card's trip from one tick to the next, and its height as the text changes.
+  const MOVE = 200;
+  const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
+  // The old text leaves the way the card travels; the new one comes in from behind, without waiting for it.
+  const TEXT_OUT = 120;
+  const TEXT_IN = 180;
+  const SHIFT = 4;
+  const BLUR = 3;
+  // Crossing the rail on the way somewhere else shouldn't flash a card, and leaving it for a moment shouldn't close it.
+  const OPEN_DELAY = 80;
+  const CLOSE_DELAY = 120;
+  // A card closed this recently reopens without the delay.
+  const WARM = 400;
+  // The section that counts as current is the last one whose top has passed this fraction of the view.
+  const READ_LINE = 0.3;
+
+  class TickRail extends HTMLElement {
+    #controller: AbortController | undefined;
+
+    connectedCallback() {
+      this.#controller = new AbortController();
+      const { signal } = this.#controller;
+      const rail = this.querySelector<HTMLElement>('[data-rail]');
+      const card = this.querySelector<HTMLElement>('[data-card]');
+      const box = this.querySelector<HTMLElement>('[data-card-box]');
+      const ticks = [...this.querySelectorAll<HTMLAnchorElement>('[data-tick]')];
+      // A <template>, or any hidden element where a framework can't render one; its first child is the card's text.
+      const template = this.querySelector<HTMLElement>('[data-card-template]');
+      const lines = ticks.map((tick) => tick.querySelector<HTMLElement>('[data-line]'));
+      const sections = ticks.map((tick) => document.getElementById(decodeURIComponent(tick.hash.slice(1))));
+
+      if (!rail || !card || !box || !template || !ticks.length || lines.includes(null) || sections.includes(null)) {
+        throw new Error('TickRail: needs a rail, a card with its template, and ticks that each link to a section on the page.');
+      }
+      // Narrowed once the check above has run.
+      const bars = lines as HTMLElement[];
+      const targets = sections as HTMLElement[];
+      // A scrolling container inside the component, or the page itself.
+      const scroller = this.querySelector<HTMLElement>('[data-scroll]');
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+      // Each tick's card text: its label and the description its link points to.
+      const previews = ticks.map((tick) => ({
+        title: tick.textContent!.trim(),
+        text: tick.getAttribute('aria-describedby')?.split(' ').map((id) => document.getElementById(id)?.textContent ?? '').join(' ').trim() ?? '',
+      }));
+
+      let hovered: number | null = null;
+      // Pointer position from the first tick's top, in the component's own pixels.
+      let pointer: number | null = null;
+      let focused: number | null = null;
+      // A finger can't hover, so a tap lights a tick and a second tap on it follows the link.
+      let pinned: number | null = null;
+      let pressedWith: string | null = null;
+      // Escape hides the card until the pointer or focus moves to another tick.
+      let dismissed = false;
+      let shown: number | null = null;
+      let current = Math.max(0, ticks.findIndex((tick) => tick.hasAttribute('aria-current')));
+      let closedAt = -Infinity;
+      let openTimer = 0;
+      let closeTimer = 0;
+
+      targets.forEach((section) => section.hasAttribute('tabindex') || section.setAttribute('tabindex', '-1'));
+
+      const anchor = () => hovered ?? pinned ?? focused;
+      const lit = () => (dismissed ? null : anchor());
+      // Boxes come back scaled by any transformed or zoomed ancestor; dividing by the element's scale returns to its own units.
+      // The card is positioned from the padding edge, so the border comes off.
+      const scale = () => this.getBoundingClientRect().width / this.offsetWidth || 1;
+      const top = (element: Element) =>
+        (element.getBoundingClientRect().top - this.getBoundingClientRect().top) / scale() - this.clientTop;
+      // The resting length, as a fraction of the full one. Read once, so theming it takes a reconnect.
+      const rest = parseFloat(getComputedStyle(this).getPropertyValue('--tkr-rest')) || 0.25;
+
+      // Ticks
+
+      const weight = (distance: number) => {
+        const t = Math.min(distance / RADIUS, 1);
+        return (1 + Math.cos(Math.PI * t)) / 2;
+      };
+
+      const render = (instant: boolean) => {
+        this.toggleAttribute('data-instant', instant || reduceMotion.matches);
+        const at = anchor();
+        const size = ticks[0].offsetHeight;
+        // The pointer's row center, as a fractional index; a focused or tapped tick is its own center.
+        const center = hovered !== null && pointer !== null ? pointer / size - 0.5 : at;
+        ticks.forEach((tick, i) => {
+          const amount = center === null ? (i === current ? 1 : 0) : weight(Math.abs(i - center));
+          bars[i].style.transform = `scaleX(${rest + (1 - rest) * amount})`;
+          tick.toggleAttribute('data-lit', i === lit());
+        });
+      };
+
+      // Card
+
+      const chrome = () => {
+        const style = getComputedStyle(box);
+        return ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce(
+          (sum, key) => sum + parseFloat(style[key as 'paddingTop']),
+          0,
+        );
+      };
+
+      // The card's text comes from the template, so each variant styles it in its own markup.
+      const face = (index: number) => {
+        const source = template instanceof HTMLTemplateElement ? template.content : template;
+        const element = source.firstElementChild!.cloneNode(true) as HTMLElement;
+        element.querySelector('[data-face-title]')!.textContent = previews[index].title;
+        element.querySelector('[data-face-text]')!.textContent = previews[index].text;
+        return element;
+      };
+
+      // Swaps the card's text and returns the height the card needs for it.
+      const swap = (index: number, direction: number, animate: boolean) => {
+        const leaving = [...box.querySelectorAll<HTMLElement>('[data-face]:not([data-leaving])')];
+        const next = face(index);
+        box.append(next);
+        const height = next.offsetHeight + chrome();
+        if (!animate) {
+          box.querySelectorAll('[data-face]').forEach((old) => old !== next && old.remove());
+          return height;
+        }
+        const travel = !reduceMotion.matches;
+        const away = (sign: number) => ({
+          opacity: 0,
+          transform: travel ? `translateY(${sign * SHIFT}px)` : 'none',
+          filter: travel ? `blur(${BLUR}px)` : 'blur(0px)',
+        });
+        leaving.forEach((old) => {
+          old.setAttribute('data-leaving', '');
+          // A face still coming in leaves from where it is, not from full opacity.
+          old.getAnimations().forEach((animation) => {
+            animation.commitStyles();
+            animation.cancel();
+          });
+          old
+            .animate([away(direction)], { duration: TEXT_OUT, easing: EASE, fill: 'forwards' })
+            .finished.then(() => old.remove(), () => {});
+        });
+        next.animate([away(-direction), { opacity: 1, transform: 'none', filter: 'blur(0px)' }], {
+          duration: TEXT_IN,
+          easing: EASE,
+        });
+        return height;
+      };
+
+      // Centers the card on its tick, kept inside the component.
+      const place = (index: number, height: number, instant: boolean) => {
+        const tick = ticks[index];
+        const middle = top(tick) + tick.offsetHeight / 2;
+        const y = Math.min(Math.max(middle - height / 2, 8), this.clientHeight - height - 8);
+        card.toggleAttribute('data-instant', instant);
+        card.style.transform = `translateY(${Math.round(y)}px)`;
+        box.style.height = `${height}px`;
+        if (instant) {
+          void card.offsetWidth;
+          card.removeAttribute('data-instant');
+        }
+      };
+
+      const show = (index: number, fromKeyboard: boolean) => {
+        const opening = shown === null;
+        if (!opening && index === shown) return;
+        // A card that opens appears on its tick; keyboard moves land at once, since they repeat quickly.
+        const instant = opening || fromKeyboard || reduceMotion.matches;
+        const direction = shown === null || index > shown ? 1 : -1;
+        place(index, swap(index, direction, !opening && !fromKeyboard), instant);
+        shown = index;
+        card.toggleAttribute('data-showing', true);
+      };
+
+      const hide = () => {
+        if (shown === null) return;
+        shown = null;
+        closedAt = performance.now();
+        card.removeAttribute('data-showing');
+      };
+
+      const update = (fromKeyboard: boolean) => {
+        render(fromKeyboard);
+        const next = lit();
+        clearTimeout(closeTimer);
+        if (next === null) {
+          clearTimeout(openTimer);
+          openTimer = 0;
+          if (shown !== null) {
+            if (fromKeyboard) hide();
+            else closeTimer = window.setTimeout(hide, CLOSE_DELAY);
+          }
+          return;
+        }
+        if (shown !== null) return show(next, fromKeyboard);
+        // A pending open reads the latest tick when it fires, so moving along the rail doesn't restart it.
+        if (openTimer) return;
+        const warm = performance.now() - closedAt < WARM;
+        if (fromKeyboard || warm || pinned !== null) return show(next, fromKeyboard);
+        openTimer = window.setTimeout(() => {
+          openTimer = 0;
+          const latest = lit();
+          if (latest !== null) show(latest, false);
+        }, OPEN_DELAY);
+      };
+
+      // Pointer
+
+      rail.addEventListener(
+        'pointermove',
+        (event) => {
+          if (event.pointerType !== 'mouse') return;
+          const y = (event.clientY - ticks[0].getBoundingClientRect().top) / scale();
+          // Rows are laid out back to back, so the pointer's row is its distance from the first tick in rows.
+          const row = Math.floor(y / ticks[0].offsetHeight);
+          const next = row >= 0 && row < ticks.length ? row : null;
+          pointer = next === null ? null : y;
+          if (next === hovered) return render(false);
+          hovered = next;
+          dismissed = false;
+          update(false);
+        },
+        { signal },
+      );
+
+      rail.addEventListener(
+        'pointerleave',
+        (event) => {
+          if (event.pointerType !== 'mouse') return;
+          hovered = null;
+          pointer = null;
+          update(false);
+        },
+        { signal },
+      );
+
+      // Focus: only keyboard focus opens the card. A click that focuses a link is already showing it.
+      rail.addEventListener(
+        'focusin',
+        (event) => {
+          const index = ticks.indexOf(event.target as HTMLAnchorElement);
+          if (index < 0 || !(event.target as HTMLElement).matches(':focus-visible')) return;
+          focused = index;
+          dismissed = false;
+          update(true);
+        },
+        { signal },
+      );
+
+      rail.addEventListener(
+        'focusout',
+        (event) => {
+          if (rail.contains(event.relatedTarget as Node | null)) return;
+          focused = null;
+          pinned = null;
+          update(true);
+        },
+        { signal },
+      );
+
+      // Up and Down move focus between ticks, stopping at the ends; Home and End jump.
+      rail.addEventListener(
+        'keydown',
+        (event) => {
+          const index = ticks.indexOf(event.target as HTMLAnchorElement);
+          if (index < 0) return;
+          if (event.key === 'Escape') {
+            if (lit() === null) return;
+            event.preventDefault();
+            dismissed = true;
+            pinned = null;
+            update(true);
+            return;
+          }
+          let next: number | undefined;
+          if (event.key === 'ArrowDown') next = Math.min(index + 1, ticks.length - 1);
+          else if (event.key === 'ArrowUp') next = Math.max(index - 1, 0);
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = ticks.length - 1;
+          if (next === undefined) return;
+          event.preventDefault();
+          ticks[next].focus();
+        },
+        { signal },
+      );
+
+      ticks.forEach((tick, i) => {
+        tick.addEventListener('pointerdown', (event) => (pressedWith = event.pointerType), { signal });
+        tick.addEventListener('pointercancel', () => (pressedWith = null), { signal });
+        tick.addEventListener(
+          'click',
+          (event) => {
+            // A click carries no pointer type; the pointerdown before it says whether it was a tap.
+            const tapped = pressedWith !== null && pressedWith !== 'mouse';
+            pressedWith = null;
+            if (tapped && pinned !== i) {
+              event.preventDefault();
+              pinned = i;
+              dismissed = false;
+              update(false);
+              return;
+            }
+            pinned = null;
+            update(true);
+            // On the page, the link scrolls as an anchor. Inside a scrolling container, the script scrolls it,
+            // so the window and the URL stay put.
+            if (!scroller) return;
+            event.preventDefault();
+            scroller.scrollTo({ top: targets[i].offsetTop - scroller.offsetTop, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+            targets[i].focus({ preventScroll: true });
+          },
+          { signal },
+        );
+      });
+
+      // The next tap outside the rail stands in for the pointer leaving it.
+      document.addEventListener(
+        'pointerdown',
+        (event) => {
+          if (pinned === null || rail.contains(event.target as Node)) return;
+          pinned = null;
+          update(false);
+        },
+        { signal },
+      );
+
+      // Current section
+
+      let frame = 0;
+      const track = () => {
+        frame = 0;
+        const view = scroller ? scroller.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+        const line = view.top + (view.bottom - view.top) * READ_LINE;
+        let next = 0;
+        targets.forEach((section, i) => {
+          if (section.getBoundingClientRect().top <= line) next = i;
+        });
+        const end = scroller
+          ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1
+          : scrollY + innerHeight >= document.documentElement.scrollHeight - 1;
+        if (end) next = targets.length - 1;
+        if (next === current) return;
+        current = next;
+        ticks.forEach((tick, i) => {
+          if (i === current) tick.setAttribute('aria-current', 'location');
+          else tick.removeAttribute('aria-current');
+        });
+        render(false);
+      };
+      const schedule = () => (frame ||= requestAnimationFrame(track));
+      (scroller ?? window).addEventListener('scroll', schedule, { passive: true, signal });
+      window.addEventListener('resize', schedule, { signal });
+
+      // Turning reduced motion on mid-move lands the move at once.
+      reduceMotion.addEventListener(
+        'change',
+        () => reduceMotion.matches && this.getAnimations({ subtree: true }).forEach((animation) => animation.finish()),
+        { signal },
+      );
+
+      signal.addEventListener('abort', () => {
+        clearTimeout(openTimer);
+        clearTimeout(closeTimer);
+        cancelAnimationFrame(frame);
+        hovered = pointer = focused = pinned = null;
+        shown = null;
+        card.removeAttribute('data-showing');
+        box.querySelectorAll('[data-face]').forEach((old) => old.remove());
+      });
+
+      track();
+      render(true);
+      this.toggleAttribute('data-ready', true);
+    }
+
+    disconnectedCallback() {
+      this.#controller?.abort();
+    }
+  }
+
+  // A script in <head> would otherwise upgrade the element before its children are parsed.
+  // The guard lets the script run twice on one page without throwing.
+  const define = () => {
+    if (!customElements.get('tick-rail')) customElements.define('tick-rail', TickRail);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', define);
+  else define();
+</script>
+
+<style>
+  .tkr {
+    /* Rows are the hit areas; the line inside each one is drawn at full length and scaled down. */
+    --tkr-size: 24px;
+    --tkr-length: 40px;
+    --tkr-rest: 0.25;
+    --tkr-tick-color: var(--quiet);
+    --tkr-current-color: var(--brand);
+
+    position: relative;
+    display: grid;
+    grid-template-columns: 60px minmax(0, 1fr);
+    width: min(100%, 480px);
+    height: 224px;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--bg);
+  }
+
+  .tkr-rail {
+    display: grid;
+    grid-auto-rows: var(--tkr-size);
+    align-content: center;
+  }
+
+  /* The link spans the rail's width, so the whole row is the target, not the 2px line. */
+  .tkr-tick {
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    color: var(--tkr-tick-color);
+    transition: color 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tkr-tick[aria-current] {
+    color: var(--tkr-current-color);
+  }
+
+  .tkr-tick[data-lit] {
+    color: var(--text);
+  }
+
+  .tkr-tick:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--text));
+    outline-offset: -2px;
+    border-radius: 4px;
+  }
+
+  .tkr-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Before the script runs, the current tick is the only long one. */
+  .tkr-line {
+    display: block;
+    width: var(--tkr-length);
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+    transform: scaleX(var(--tkr-rest));
+    transform-origin: left center;
+    transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .tkr-tick[aria-current] .tkr-line {
+    transform: none;
+  }
+
+  /* Keyboard moves and the first paint land at once. */
+  .tkr[data-instant] .tkr-line {
+    transition: none;
+  }
+
+  .tkr-page {
+    overflow-y: auto;
+    padding: 0 20px 0 4px;
+    overscroll-behavior: contain;
+  }
+
+  .tkr-section {
+    padding: 16px 0 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tkr-section:last-child {
+    border-bottom: 0;
+  }
+
+  .tkr-section:focus {
+    outline: none;
+  }
+
+  .tkr-section:focus-visible h3 {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .tkr-section h3 {
+    margin: 0 0 4px;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .tkr-section p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  /* The card moves as a whole; its box fades, scales from the rail's side, and fits the text. */
+  .tkr-card {
+    position: absolute;
+    top: 0;
+    left: 64px;
+    z-index: 1;
+    width: min(260px, calc(100% - 80px));
+    pointer-events: none;
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .tkr-card-box {
+    display: grid;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--ink);
+    opacity: 0;
+    transform: translateX(-4px) scale(0.98);
+    transform-origin: left center;
+    transition:
+      opacity 120ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+      height 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .tkr-card[data-showing] .tkr-card-box {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 180ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+      height 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .tkr-card[data-instant] {
+    transition: none;
+  }
+
+  .tkr-card[data-instant] .tkr-card-box {
+    transition-property: opacity, transform;
+  }
+
+  .tkr-face {
+    grid-area: 1 / 1;
+    align-self: start;
+  }
+
+  .tkr-face-title {
+    margin: 0;
+    color: var(--ink-text);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .tkr-face-text {
+    margin: 2px 0 0;
+    color: var(--ink-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tkr-line,
+    .tkr-card {
+      transition: none;
+    }
+
+    .tkr-card-box {
+      transform: none;
+      transition-property: opacity;
+    }
+  }
+</style>

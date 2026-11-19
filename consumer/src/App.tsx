@@ -10,6 +10,7 @@ import { PluckedLink } from '@/components/plucked-underline';
 import { ResizableSidebar } from '@/components/resize-handle';
 import { TabIndicator } from '@/components/tab-indicator';
 import { TextSwapButton } from '@/components/text-swap';
+import { TickRail } from '@/components/tick-rail';
 import { WormDots } from '@/components/worm-dots';
 
 declare global {
@@ -123,6 +124,21 @@ export function App() {
         onValueChange={log('faq')}
         items={['one', 'two', 'three'].map((value) => ({ value, question: `Question ${value}`, answer: <p>Answer {value}</p> }))}
       />
+
+      <TickRail
+        items={['one', 'two', 'three', 'four', 'five'].map((value) => ({
+          id: `section-${value}`,
+          label: `Section ${value}`,
+          description: `About ${value}`,
+        }))}
+      >
+        {['one', 'two', 'three', 'four', 'five'].map((value) => (
+          <section key={value} id={`section-${value}`} className="py-10">
+            <h3>Section {value}</h3>
+            <p>Text {value}</p>
+          </section>
+        ))}
+      </TickRail>
 
       <WormDots
         aria-label="Slides"
