@@ -4,7 +4,7 @@ test('the server markup hydrates with one form and every element', async ({ app,
   const html = await (await request.get('/')).text();
   // A nested form would be dropped by the parser and break hydration.
   expect(html.match(/<form\b/g)).toHaveLength(1);
-  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots', 'drag-reorder', 'faq-panel']) expect(html).toContain(`<${tag}`);
+  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots', 'drag-reorder', 'faq-panel', 'tick-rail']) expect(html).toContain(`<${tag}`);
   await expect(app.getByRole('button', { name: 'Delete project', exact: true })).toBeVisible();
 });
 
@@ -191,4 +191,21 @@ test('the FAQ opens one answer at a time, keeps the rest findable, and reports e
   await expect(app.locator('faq-panel [data-answer][hidden="until-found"]')).toHaveCount(3);
 
   expect((await calls(app)).filter((call) => call.startsWith('faq'))).toEqual(['faq:"three"', 'faq:"one"', 'faq:null']);
+});
+
+test('the tick rail previews the section under the pointer and follows the scroll', async ({ app }) => {
+  const rail = app.locator('tick-rail');
+  const tick = (name: string) => rail.getByRole('link', { name: `Section ${name}` });
+  await expect(tick('one')).toHaveAttribute('aria-current', 'location');
+  await expect(tick('three')).toHaveAccessibleDescription('About three');
+
+  await tick('three').hover();
+  await expect(rail.locator('[data-card]')).toHaveAttribute('data-showing', '');
+  await expect(rail.locator('[data-card-box] [data-face]:not([data-leaving]) [data-face-title]')).toHaveText('Section three');
+
+  // Inside its own scrolling area, a click scrolls that area and focuses the section, without a hash.
+  await tick('two').click();
+  await expect(tick('two')).toHaveAttribute('aria-current', 'location');
+  await expect(app.locator('#section-two')).toBeFocused();
+  expect(await app.evaluate(() => location.hash)).toBe('');
 });

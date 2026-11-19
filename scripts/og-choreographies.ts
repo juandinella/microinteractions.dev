@@ -32,6 +32,7 @@ export interface Choreography {
 const dot = (nth: number) => ({ selector: '[data-dot]', nth });
 const tab = (nth: number) => ({ selector: '[data-tab]', nth, x: 0.4 });
 const question = (nth: number) => ({ selector: '[data-trigger]', nth, x: 0.35 });
+const tick = (nth: number) => ({ selector: '[data-tick]', nth, x: 0.4 });
 const link = (nth: number) => ({ selector: '[data-pluck]', nth, x: 0.5, y: 0.55 });
 const option = (nth: number) => ({ selector: '.goo-option', nth, x: 0.3 });
 const box = (nth: number) => ({ selector: '[data-box-cell]', nth });
@@ -238,6 +239,26 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
       await d.wait(650);
       await d.move({ frame: [0.74, 0.86] });
       await d.wait(300);
+    },
+  },
+  'tick-rail': {
+    rest: { frame: [0.74, 0.86] },
+    async play(d) {
+      await d.wait(350);
+      await d.move(tick(1), 500);
+      await d.wait(300);
+      // Slow enough that the ticks visibly lean toward the pointer between rows.
+      await d.move(tick(6), 1400);
+      await d.wait(350);
+      await d.move(tick(3), 700);
+      await d.wait(300);
+      await d.click(tick(3));
+      await d.wait(800);
+      // Back to the top, so the clip ends where it started.
+      await d.click(tick(0));
+      await d.wait(700);
+      await d.move({ frame: [0.74, 0.86] });
+      await d.wait(400);
     },
   },
 };

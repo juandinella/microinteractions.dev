@@ -1,0 +1,72 @@
+---
+observe: Move the pointer slowly inside one tick. The ticks above and below keep changing before you reach the next row.
+references:
+  - title: Preview Rail
+    author: beUI
+    url: https://beui.dev/components/motion/preview-rail
+  - title: aria-current
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-current
+  - title: Understanding Target Size (Minimum)
+    author: W3C
+    url: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+  - title: Element.animate()
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Element/animate
+prompt:
+  task: "Build a table of contents as a rail of short ticks, one per section of a long page. The ticks grow around the pointer, one card previews the section under it, and the current section's tick follows the scroll."
+  behavior:
+    - "Mark up the rail as a `<nav>` of links, one per section, each with `href=\"#<section id>\"`, a visually hidden label, and `aria-describedby` pointing to a short description kept in a `hidden` element. Inside each link, draw the tick as a 2px line, 24px long, scaled down with `transform: scaleX()` from its left edge. Let the link span the rail's width and a 24px row, 32px under `(pointer: coarse)`, so the row is the target. Let the rail set the component's height, its rows plus 16px above and below, and give the scrolling area `contain: size` so the sections fill that height instead of growing it."
+    - "Compute every tick's length from the pointer's exact position, not from the row it's in. Take the pointer's distance from the first tick's top, divide it by the row height, and subtract 0.5 to get the pointer's position as a fractional row. Weight each tick by `(1 + cos(π · min(d / 3, 1))) / 2`, where `d` is its distance to that position in rows, and set `scaleX(rest + (1 − rest) · weight)` with `rest = 1/3`, so a tick at rest is 8px. Update on every `pointermove`, and give the line a CSS transition on `transform` so each update eases in."
+    - "Show one card for the whole rail, `aria-hidden=\"true\"`, starting where the rail ends. Give it `pointer-events: none` except while it shows, so the pointer can move onto it and keep it open, and close it after the same delay when the pointer leaves it. Center it on the lit tick with `translateY()`, clamped 8px inside the component, and set its height to fit the text. Animate both with CSS transitions, so a new tick retargets the move from wherever the card is."
+    - "Build the card's text from a `<template>` in the markup, filled with the tick's label and description. On a change, append the new text and fade the old one out over it: the old text moves 4px the way the card travels and blurs 3px, the new one comes in from 4px behind, both with `element.animate()`. Don't wait for the old text to leave. When a change interrupts an entering text, commit its current styles before it leaves, so it fades from where it is."
+    - "Open the card 80ms after the pointer enters the rail, and read the lit tick when the timer fires, so moving along the rail doesn't restart it. Close it 120ms after the pointer leaves. If it closed less than 400ms ago, open it again without the delay. A card that opens appears on its tick, without traveling there."
+    - "Track the current section from the scroll: the last section whose top has passed 30% of the view, or the last one when the view reaches the end. Mark its tick with `aria-current=\"location\"`, color it, and draw it at 16px while nothing is lit, longer than the rest and shorter than a tick under the pointer. Read the scroll in a `requestAnimationFrame` after each `scroll` event."
+    - "Leave clicks with a modifier key or another button to the browser, so a tick still opens in a new tab. On a plain click, mark the chosen section current at once and keep it until the reader scrolls on their own: near the end of the page, the scroll can't bring it to the read line and the last section would take over. When the sections scroll inside a container in the component, scroll that container to the section, measured with `getBoundingClientRect()` against the container plus its `scrollTop`, and focus it with `preventScroll`, so the window and the URL stay put. On a full page, let the link work as an anchor."
+    - "Before the script runs, draw every tick at rest and the current one at 16px with CSS alone, so the first paint is already right. Without JavaScript, the ticks are ordinary links."
+    - "Add every listener with the `signal` of an `AbortController` created in `connectedCallback()`, and abort it in `disconnectedCallback()`, clearing the timers and the card."
+  timing:
+    - "Ticks: 160ms on `cubic-bezier(0.23, 1, 0.32, 1)`, retargeted on every pointer move."
+    - "Card: 200ms on `cubic-bezier(0.23, 1, 0.32, 1)` for `transform` and `height`. It appears in 180ms with opacity, `translateX(-4px)`, and `scale(0.98)` from its left edge, and disappears in 120ms."
+    - "Text: the old text leaves in 120ms and the new one arrives in 180ms, both on `cubic-bezier(0.23, 1, 0.32, 1)`, starting together."
+    - "Delays: 80ms to open, 120ms to close, and no delay within 400ms of the last close."
+  accessibility:
+    - "Each tick is a link with its section's name as its text and the description as `aria-describedby`, so screen readers get what the card shows. The card itself is `aria-hidden`."
+    - "Open the card on keyboard focus only when the link matches `:focus-visible`. Up and Down move focus between ticks, stopping at the ends; Home and End jump; Escape hides the card from anywhere on the page, until another tick is lit, since a card opened by hover covers the content (WCAG 1.4.13). Keyboard changes land at once: focus opens the card and Escape closes it without a fade, and moves update the ticks and the card without transitions."
+    - "On touch, the first tap on a tick shows its card and a second tap on the same tick follows the link. A tap outside the rail closes the card. Take the pointer type from the `pointerdown` before the click, since WebKit reports a tap's click as a mouse. When the click itself is a pointer event with an empty type, it came from the keyboard or assistive technology, so treat it as a plain activation."
+    - "Give each tick a 24px row and the rail's full width, the WCAG 2.2 minimum target size, rather than the 2px line, and 32px rows on coarse pointers. The card is a target too: a click or tap on it goes to its section."
+    - "Draw resting ticks in a color with at least 3:1 contrast against the background, and mark the current one with a second color as well as its length."
+    - "With `prefers-reduced-motion: reduce`, drop every transition: the ticks change length at once, and the card appears, moves, and swaps its text without animating."
+  avoid:
+    - "Computing the lengths from the hovered row alone. Every tick then jumps when the pointer crosses a row and holds still inside one, which a transition hides but doesn't remove."
+    - "One tooltip per tick. Each one opens and closes on its own, so moving along the rail flashes cards instead of moving one."
+    - "Waiting for the old text to leave before the new one enters. Scanning the rail quickly then lags a step behind the pointer."
+    - "Opening the card with no delay. Crossing the rail on the way to the content flashes a card every time."
+    - "Scaling the line with the `scale` property while the script writes `transform`, or the two multiply."
+---
+
+## Ticks that follow the pointer
+
+A table of contents for a long page, drawn as one short tick per section. The ticks grow around the pointer like a dock, so the one under it stands out.
+
+A tick's length depends on its distance from the pointer, in rows, on a cosine that reaches rest three rows away. Measuring from the pointer's exact position keeps the neighbors moving inside a row. A falloff by row looks the same at a glance, but every tick jumps when the pointer crosses into the next row and holds still in between.
+
+## One card for the whole rail
+
+Hover or focus a tick and a card shows the section's name and description. The rail has one card, which slides from tick to tick. Its text moves the same way: the old line leaves 4px ahead with a 3px blur while the new one comes in from behind.
+
+The card waits 80ms before opening, so crossing the rail on the way to the content doesn't flash it. It stays 120ms after the pointer leaves and reopens at once within 400ms. The pointer can move onto it, and a click on it goes to the section.
+
+The current section's tick follows the scroll. While nothing is lit, it keeps its color and stays a little longer than the rest.
+
+<Implementation specimen={props.specimenId} />
+
+Recolor the CSS version with `--tkr-tick-color`, `--tkr-lit-color`, and `--tkr-current-color`. `--tkr-rail` sets the rail's width.
+
+## Keyboard, touch, and reduced motion
+
+Each tick is a link, and the card's text is its description, so screen readers hear what the card shows. Without JavaScript the ticks still work as links. Up and Down move between ticks, Home and End jump, and Escape hides the card from anywhere on the page. Nothing the keyboard does animates.
+
+On touch, the first tap shows the card, and a second tap on the tick or a tap on the card goes there. The hit area is the whole row across the rail, 24px tall or 32px on touch screens, though the line is 2px.
+
+With reduced motion, the ticks change length at once and the card appears and moves without transitions.

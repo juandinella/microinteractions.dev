@@ -11,6 +11,7 @@ const elements = [
   'worm-dots',
   'drag-reorder',
   'faq-panel',
+  'tick-rail',
 ];
 
 // Opens the app once its custom elements are defined, and fails the test on any console error,

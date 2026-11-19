@@ -1381,3 +1381,172 @@ test.describe('faq panel', () => {
     expect(code.css.HTML).not.toContain('data-trace-progress');
   });
 });
+
+test.describe('tick rail', () => {
+  const component = (page: import('@playwright/test').Page) => page.locator('[data-stage] tick-rail');
+  const lengths = (rail: import('@playwright/test').Locator) =>
+    rail.evaluate((el) => [...el.querySelectorAll('[data-line]')].map((line) => Math.round(line.getBoundingClientRect().width)));
+  const title = (rail: import('@playwright/test').Locator) =>
+    rail.locator('[data-card-box] [data-face]:not([data-leaving]) [data-face-title]');
+  // How far the card's center sits from its tick's.
+  const offset = (rail: import('@playwright/test').Locator, index: number) => rail.evaluate((el, index) => {
+    const tick = el.querySelectorAll('[data-tick]')[index].getBoundingClientRect();
+    const box = el.querySelector('[data-card-box]')!.getBoundingClientRect();
+    return Math.abs(box.top + box.height / 2 - (tick.top + tick.height / 2));
+  }, index);
+  // Synthetic mouse events on the rail, timed in the page, so a slow runner can't stretch the delays.
+  const showsAfter = (rail: import('@playwright/test').Locator, index: number) => rail.evaluate((el, index) => new Promise<number>((resolve) => {
+    const card = el.querySelector('[data-card]')!;
+    const tick = el.querySelectorAll('[data-tick]')[index].getBoundingClientRect();
+    const start = performance.now();
+    new MutationObserver((_, observer) => {
+      if (!card.hasAttribute('data-showing')) return;
+      observer.disconnect();
+      resolve(performance.now() - start);
+    }).observe(card, { attributes: true, attributeFilter: ['data-showing'] });
+    el.querySelector('[data-rail]')!.dispatchEvent(new PointerEvent('pointermove', {
+      pointerType: 'mouse', clientX: tick.left + 20, clientY: tick.top + tick.height / 2, bubbles: true,
+    }));
+  }), index);
+
+  test('the ticks follow the pointer inside a row, not only across rows', async ({ page }) => {
+    // Without transitions, each length is read as soon as the pointer moves.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/tick-rail/');
+    const rail = component(page);
+    const tick = (await rail.locator('[data-tick]').nth(3).boundingBox())!;
+    await page.mouse.move(tick.x + 20, tick.y + 2);
+    const top = await lengths(rail);
+    await page.mouse.move(tick.x + 20, tick.y + tick.height - 2);
+    const bottom = await lengths(rail);
+    expect(top[3]).toBeGreaterThan(22);
+    expect(bottom[3]).toBeGreaterThan(22);
+    expect(top[2] - bottom[2]).toBeGreaterThan(4);
+    expect(bottom[4] - top[4]).toBeGreaterThan(4);
+    // Three rows away, a tick is back at rest.
+    expect(top[6]).toBe(8);
+  });
+
+  test('one card waits for intent, lands on its tick, and reopens at once while warm', async ({ page }) => {
+    await page.goto('/tick-rail/');
+    const rail = component(page);
+    const card = rail.locator('[data-card]');
+    expect(await showsAfter(rail, 2)).toBeGreaterThanOrEqual(70);
+    await expect(title(rail)).toHaveText('Usage');
+    await expect.poll(() => offset(rail, 2)).toBeLessThan(1);
+
+    const ticks = rail.locator('[data-tick]');
+    const box = (await ticks.nth(5).boundingBox())!;
+    await page.mouse.move(box.x + 20, box.y + box.height / 2);
+    await expect(title(rail)).toHaveText('Touch');
+    await expect.poll(() => offset(rail, 5)).toBeLessThan(1);
+
+    await page.mouse.move(box.x + 400, box.y + 200);
+    await expect(card).not.toHaveAttribute('data-showing');
+    expect(await showsAfter(rail, 1)).toBeLessThan(40);
+    await expect(title(rail)).toHaveText('Install');
+  });
+
+  test('the keyboard moves between ticks at once, Escape hides the card, and Enter scrolls inside the demo', async ({ page }) => {
+    await page.goto('/tick-rail/');
+    const rail = component(page);
+    const card = rail.locator('[data-card]');
+    const ticks = rail.getByRole('link');
+    await expect(ticks.first()).toHaveAttribute('aria-current', 'location');
+    await expect(ticks.nth(1)).toHaveAccessibleDescription('Copy the files, or add them with the shadcn CLI.');
+
+    // Focus fades the card in; the moves after it land at once.
+    await ticks.first().focus();
+    await expect(card).toHaveAttribute('data-showing', '');
+    await expect.poll(() => card.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+    await page.keyboard.press('ArrowDown');
+    await expect(ticks.nth(1)).toBeFocused();
+    await expect(title(rail)).toHaveText('Install');
+    expect(await card.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+    expect(await offset(rail, 1)).toBeLessThan(1);
+
+    await page.keyboard.press('End');
+    await expect(ticks.last()).toBeFocused();
+    await expect(title(rail)).toHaveText('Browser support');
+    await page.keyboard.press('Escape');
+    await expect(card).not.toHaveAttribute('data-showing');
+
+    await page.keyboard.press('Home');
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
+    await expect(title(rail)).toHaveText('Theming');
+    const scrollY = await page.evaluate(() => scrollY);
+    await page.keyboard.press('Enter');
+    await expect(rail.locator('#tkr-theming')).toBeFocused();
+    await expect(ticks.nth(3)).toHaveAttribute('aria-current', 'location');
+    await expect(ticks.first()).not.toHaveAttribute('aria-current');
+    await expect(card).not.toHaveAttribute('data-showing');
+    expect(await page.evaluate(() => [scrollY, location.hash])).toEqual([scrollY, '']);
+  });
+
+  test('without JavaScript, the ticks are links and the current one is already longer', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto('http://127.0.0.1:8791/tick-rail/');
+    const rail = component(page);
+    expect(await lengths(rail)).toEqual([16, 8, 8, 8, 8, 8, 8, 8]);
+    await expect(rail.getByRole('link', { name: 'Usage' })).toHaveAttribute('href', '#tkr-usage');
+    await context.close();
+  });
+
+  test('with reduced motion, nothing transitions but the card still opens', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/tick-rail/');
+    const rail = component(page);
+    const transitions = await rail.evaluate((el) =>
+      [el.querySelector('[data-line]')!, el.querySelector('[data-card]')!].map((node) => getComputedStyle(node).transitionDuration),
+    );
+    // The site's reduced-motion reset shortens every transition to a microsecond.
+    for (const duration of transitions) expect(parseFloat(duration)).toBeLessThan(0.001);
+    expect(await showsAfter(rail, 4)).toBeGreaterThanOrEqual(70);
+    await expect(title(rail)).toHaveText('Keyboard');
+    expect(await offset(rail, 4)).toBeLessThan(1);
+  });
+
+  test('the Tailwind version shares the script and its hooks', async ({ page }) => {
+    await page.goto('/tick-rail/');
+    const code: Record<string, Record<string, string>> = {};
+    for (const format of ['css', 'tailwind']) {
+      await page.locator(`[data-source-format][value="${format}"]`).check();
+      const variant = page.locator(`[data-source-variant="${format}"]`);
+      code[format] = {};
+      for (const language of ['HTML', 'JavaScript']) {
+        await variant.getByRole('tab', { name: language, exact: true }).click();
+        code[format][language] = (await variant.getByRole('tabpanel', { name: language, exact: true }).locator('code').textContent())!;
+      }
+    }
+    expect(code.tailwind.JavaScript).toBe(code.css.JavaScript);
+    for (const hook of ['data-rail', 'data-tick', 'data-line', 'data-scroll', 'data-card', 'data-card-box', 'data-card-template', 'data-face-title', 'data-face-text']) {
+      expect(code.tailwind.HTML).toContain(hook);
+    }
+  });
+});
+
+test.describe('tick rail on touch', () => {
+  test.use({ hasTouch: true });
+
+  test('the first tap previews a section, the second goes there, and a tap outside closes the card', async ({ page }) => {
+    await page.goto('/tick-rail/');
+    const rail = page.locator('[data-stage] tick-rail');
+    const card = rail.locator('[data-card]');
+    const ticks = rail.getByRole('link');
+
+    await ticks.nth(2).tap();
+    await expect(card).toHaveAttribute('data-showing', '');
+    await expect(rail.locator('[data-card-box] [data-face]:not([data-leaving]) [data-face-title]')).toHaveText('Usage');
+    await expect(ticks.first()).toHaveAttribute('aria-current', 'location');
+
+    await ticks.nth(2).tap();
+    await expect(ticks.nth(2)).toHaveAttribute('aria-current', 'location');
+    await expect(card).not.toHaveAttribute('data-showing');
+
+    await ticks.nth(4).tap();
+    await expect(card).toHaveAttribute('data-showing', '');
+    await page.locator('h1').tap();
+    await expect(card).not.toHaveAttribute('data-showing');
+  });
+});

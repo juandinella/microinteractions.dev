@@ -15,7 +15,8 @@ export type SpecimenId =
   | 'tab-indicator'
   | 'worm-dots'
   | 'drag-reorder'
-  | 'faq-panel';
+  | 'faq-panel'
+  | 'tick-rail';
 
 export const categories = [
   'Actions',
@@ -439,6 +440,37 @@ export const specimens: Specimen[] = [
       value: 'Moves with the panel',
       why: 'the text moves with the panel',
       note: 'Both answers move 6px the way the panel travels, with a 3px blur. The old one fades out ahead of the panel; the new one starts before it is gone and follows from 6px behind.',
+    },
+  },
+  {
+    id: 'tick-rail',
+    published: '2026-11-19',
+    title: 'Tick rail',
+    category: 'Navigation',
+    summary: 'Grow the ticks around the pointer and preview the section under it.',
+    seoTitle: 'Table of contents rail with section previews',
+    seoDescription:
+      'A tick rail for long pages: ticks grow around the pointer, one card previews the section, and the current tick follows the scroll. Works with keyboard and touch.',
+    trigger: 'hover',
+    triggerLabel: 'Hover, focus, tap',
+    hint: 'Hover or focus the rail',
+    touchHint: 'Tap a tick, then tap it again',
+    duration: 200,
+    minDuration: 120,
+    durationNote:
+      'The card travels and resizes in 200ms. Its text changes in 120ms out and 180ms in, and the ticks follow the pointer in 160ms.',
+    easing: [0.23, 1, 0.32, 1],
+    easingName: 'ease-out-quint',
+    easingNote:
+      'Starts at full speed, so the ticks and the card answer the pointer at once, then settle.',
+    props: ['transform', 'height', 'opacity', 'filter'],
+    positioningNote:
+      'Each tick is a 24px line scaled with scaleX, 8px at rest and 16px for the current section. translateY centers the card on its tick, kept inside the component.',
+    detail: {
+      label: 'Falloff',
+      value: 'Cosine over 3 rows',
+      why: 'the ticks follow the pointer, not the row',
+      note: 'Each tick’s length comes from its distance to the pointer, measured in rows, so its neighbors keep changing while the pointer moves inside a row. A falloff by row only changes when the pointer crosses into the next one.',
     },
   },
 ];
