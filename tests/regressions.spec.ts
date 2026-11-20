@@ -1074,7 +1074,8 @@ test.describe('drag to reorder', () => {
     const x = box.x + box.width / 2;
     await page.mouse.move(x, box.y + box.height / 2);
     await page.mouse.down();
-    await page.mouse.move(x + 30, box.y + box.height / 2 + pitch * 2, { steps: 8 });
+    // One move, so every row starts from rest and gets its stagger.
+    await page.mouse.move(x + 30, box.y + box.height / 2 + pitch * 2);
     const shifts = await items.evaluateAll((els) => els.map((el) => ({ transform: (el as HTMLElement).style.transform, delay: (el as HTMLElement).style.transitionDelay })));
     expect(shifts[0].transform).toMatch(/^translate\(30px, /);
     expect(shifts.slice(1).map((shift) => shift.delay)).toEqual(['24ms', '0ms', '0ms', '24ms']);
@@ -1109,6 +1110,86 @@ test.describe('drag to reorder', () => {
     await expect(component(page).locator('[data-status]')).toHaveText('Cancelled. Draft changelog is back at position 1 of 5.');
     await page.mouse.up();
     expect(await labels(page)).toEqual(['Draft changelog', 'Review pull request', 'Update icons', 'Fix focus ring', 'Ship release']);
+  });
+
+  test('rows at rest wait by distance, rows still moving retarget at once', async ({ page }) => {
+    // A frozen clock: the second move happens while the rows are still moving, however slow the runner is.
+    await page.clock.install();
+    await page.goto('/drag-reorder/');
+    const items = component(page).locator('[data-item]');
+    const delays = () => items.evaluateAll((els) => els.slice(1).map((el) => (el as HTMLElement).style.transitionDelay));
+    const box = (await items.nth(0).boundingBox())!;
+    const pitch = (await items.nth(1).boundingBox())!.y - box.y;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + pitch * 2);
+    expect(await delays()).toEqual(['24ms', '0ms', '0ms', '24ms']);
+    await page.mouse.move(x, y + pitch * 3);
+    expect(await delays()).toEqual(['0ms', '0ms', '0ms', '0ms']);
+    await page.clock.runFor(400);
+    await page.mouse.move(x, y + pitch * 2);
+    expect(await delays()).toEqual(['24ms', '0ms', '0ms', '24ms']);
+    await page.mouse.up();
+    await page.clock.runFor(400);
+    await expect.poll(() => labels(page)).toEqual(['Review pull request', 'Update icons', 'Draft changelog', 'Fix focus ring', 'Ship release']);
+  });
+
+  test('with reduced motion the rows beside the gap still part, and the number shows the slot', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/drag-reorder/');
+    const items = component(page).locator('[data-item]');
+    const box = (await items.nth(0).boundingBox())!;
+    const pitch = (await items.nth(1).boundingBox())!.y - box.y;
+    await page.mouse.move(box.x + 60, box.y + 22);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 60, box.y + 22 + pitch * 2);
+    const ys = await items.evaluateAll((els) => els.slice(1).map((el) => Number(/translateY\(([-\d.]+)px\)/.exec((el as HTMLElement).style.transform)?.[1])));
+    expect(ys.map((y) => Math.round(y + pitch))).toEqual([0, -8, 8, 0]);
+    // Every row shows the position it would have after a drop here, so no two rows share a number.
+    expect(await items.locator('[data-position]').allTextContents()).toEqual(['03', '01', '02', '04', '05']);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(items.nth(0).locator('[data-position]')).toHaveText('01');
+  });
+
+  test('on touch the row scrolls the page and only the grip lifts it', async ({ page }) => {
+    await page.goto('/drag-reorder/');
+    const handle = component(page).locator('[data-handle]').first();
+    expect(await handle.evaluate((el) => getComputedStyle(el).touchAction)).toBe('pan-y');
+    const grip = handle.locator('[data-grip]');
+    expect(await grip.evaluate((el) => getComputedStyle(el).touchAction)).toBe('none');
+    // The grip's hit area is 44px tall and reaches the row's left edge.
+    const hit = await grip.evaluate((el) => {
+      const style = getComputedStyle(el, '::before');
+      const box = el.getBoundingClientRect();
+      const row = el.closest('[data-item]')!.getBoundingClientRect();
+      return { height: box.height - parseFloat(style.top) - parseFloat(style.bottom), left: box.left + parseFloat(style.left) - row.left, width: box.width - parseFloat(style.left) - parseFloat(style.right) };
+    });
+    expect(Math.round(hit.height)).toBe(44);
+    expect(Math.round(hit.width)).toBe(44);
+    expect(Math.round(hit.left)).toBeLessThanOrEqual(1);
+  });
+
+  test('a held Space picks up once, and a pointer press drops a row picked up with the keyboard', async ({ page }) => {
+    await page.goto('/drag-reorder/');
+    const handles = component(page).locator('[data-handle]');
+    const status = component(page).locator('[data-status]');
+    await handles.nth(0).focus();
+    await page.keyboard.down('Space');
+    await page.keyboard.down('Space');
+    await page.keyboard.down('Space');
+    await page.keyboard.up('Space');
+    await expect(handles.nth(0)).toHaveAttribute('aria-pressed', 'true');
+    const box = (await handles.nth(2).boundingBox())!;
+    await page.mouse.move(box.x + 60, box.y + 22);
+    await page.mouse.down();
+    await expect(handles.nth(0)).toHaveAttribute('aria-pressed', 'false');
+    await expect(status).toHaveText('Dropped Draft changelog at position 1 of 5.');
+    await page.mouse.move(box.x + 60, box.y + 22 + 60, { steps: 4 });
+    await expect(component(page)).toHaveAttribute('data-dragging', '');
+    await page.mouse.up();
   });
 
   test('picks up with Space, moves with the arrow keys, and announces', async ({ page }) => {
