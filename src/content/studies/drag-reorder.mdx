@@ -10,42 +10,44 @@ references:
 prompt:
   task: "Build a list you reorder by lifting a row out of it. The rest closes up, and the gap at the pointer opens by nudging the rows beside it apart: the nearest move first, and each one further out moves later and by less."
   behavior:
-    - "Make the list a `<ul>` of equal-height `<li>` rows. Put one `<button type=\"button\">` in each row, filling it, as the drag handle and the keyboard control, with `touch-action: none` and `user-select: none`. Measure the distance between the first two rows once on `pointerdown`, so no frame reads layout between its writes."
-    - "On `pointerdown` with the primary button, capture the pointer and ignore a second one. Treat a press that moves less than 3px as a click. Past that, lift the row: raise its `z-index`, give it a large shadow and a stronger border, and move it with `translate(x, y)` straight from the pointer, sideways too, with no transition."
+    - "Make the list a `<ul>` of equal-height `<li>` rows. Put one `<button type=\"button\">` in each row, filling it, as the drag handle and the keyboard control, with `touch-action: pan-y` and `user-select: none`. Put a grip icon inside it with `touch-action: none` and a 44px hit area reaching the row's edge: on touch only the grip lifts the row, so the page still scrolls over the list. Measure the distance between the first two rows once on `pointerdown`, so no frame reads layout between its writes."
+    - "On `pointerdown` with the primary button, capture the pointer and ignore a second one. Treat a press that moves less than 3px with a mouse, or 10px with a finger, as a click. If the row is still landing from the last drop, take it over from where it is on screen instead of letting it jump to its slot. Past that, lift the row: raise its `z-index`, give it a large shadow and a stronger border, and move it with `translate(x, y)` straight from the pointer, sideways too, with no transition."
     - "Take the lifted row out of the arrangement: every row after it moves up one slot to close its place, so the list is one row shorter. Compute the gap as the lifted row's start plus its offset divided by the row distance, rounded and clamped; it is the index the row would be inserted at."
-    - "Open the gap only by nudging. The row on each side of it moves away by `8px × 0.7ⁿ`, where n counts the steps from the gap, so the nearest pair moves 8px, the next 5.6px, then 3.9px. Delay each by `24ms × n` with `transition-delay`, so the nearest pair move first, together. Write each row's `transform` directly on the element, never through a CSS variable on the list, which would restyle every row. Add the nudge to the slot's translation in the same `transform`."
-    - "Mark the gap with a 2px line across the list, centered in it, that glides to each new gap in 150ms `ease-out` and fades in at the first gap instead of gliding in from the top."
+    - "Open the gap only by nudging. The row on each side of it moves away by `8px × 0.7ⁿ`, where n counts the steps from the gap, so the nearest pair moves 8px, the next 5.6px, then 3.9px. Delay each row at rest with `transition-delay` by a stagger that falls off the same way, `24ms × (1 − 0.7ⁿ) / 0.3` (0, 24, 41, 53ms), so the nearest pair move first, together, and the ripple doesn't tick like a metronome. A row that is still moving gets no delay: it retargets at once. Write each row's `transform` directly on the element, never through a CSS variable on the list, which would restyle every row. Add the nudge to the slot's translation in the same `transform`."
+    - "Mark the gap with a 2px line across the list, centered in it, that glides to each new gap in 150ms `ease-out` and fades in at the first gap instead of gliding in from the top. While dragging, every row's position number shows where it would be after a drop at that gap."
     - "Give every row `transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1)`, so a row retargets from wherever it is when the gap moves again. Nothing overshoots."
     - "On release, move the lifted row to the gap's slot with the same 250ms transition, drop the nudge and the delays so every row lands together, and keep its `z-index` until it lands so no row paints over it. When it ends, reorder the real DOM and clear every transform in the same frame with transitions off, so nothing visibly moves. Restore focus to the handle if it had it. Fire a bubbling `reorder` event with the ids in their new order."
     - "On `pointercancel`, on `lostpointercapture`, or on Escape, settle back to the starting slot and commit nothing, and announce the cancel instead of a drop. Assume rows of equal height and no scrolling while a drag is in progress: both are measured once, on `pointerdown`."
     - "Use a custom element: add every listener with the `signal` of an `AbortController` created in `connectedCallback()`, and abort it in `disconnectedCallback()`. On abort, clear the timers, the transforms, the line, and the lifted and grabbed states."
   timing:
     - "Rows and the dropped row: 250ms on `cubic-bezier(0.23, 1, 0.32, 1)`, `transform` only."
-    - "Row delay: `24ms × n`, from the gap outward."
+    - "Row delay: `24ms × (1 − 0.7ⁿ) / 0.3` from the gap outward (0, 24, 41, 53ms), only for rows at rest."
     - "Gap line: 150ms `ease-out`."
     - "Lifted row: no transition while the pointer is down."
   accessibility:
     - "Name the list on the `<ul>`, not on the custom element, which is a generic and can't carry a name. Make the handle a real `<button>` with the row's label as its text, and give it `aria-pressed=\"false\"` from the start, `true` while it is picked up. Describe the controls in a visually hidden element and point to it with `aria-describedby`."
-    - "Space or Enter picks the row up. ArrowUp and ArrowDown move it one place, Home and End to the ends, Space or Enter drops it, and Escape returns it to where it started. Moving focus away drops it where it is. Keep focus on the handle after each move. At either end, say so (\"Already at the first position.\"). If a pointer drop is still landing, finish it first, so the keyboard moves the real order."
+    - "Space or Enter picks the row up; ignore their auto-repeat, so a held key doesn't pick up and drop over and over. ArrowUp and ArrowDown move it one place, Home and End to the ends, Space or Enter drops it, and Escape returns it to where it started. Moving focus away drops it where it is. Keep focus on the handle after each move. At either end, say so (\"Already at the first position.\"). If a pointer drop is still landing, finish it first, so the keyboard moves the real order."
     - "Announce every step in a visually hidden `aria-live=\"polite\"` element: \"Picked up Update icons. Position 3 of 5. Use the arrow keys to move, Space to drop, Escape to cancel.\", then \"Moved to position 2 of 5.\", then \"Dropped Update icons at position 2 of 5.\" A pointer drag announces only the drop."
     - "Keyboard moves jump without animating: they repeat too often, and the announcement and the focus ring already say where the row went."
     - "Show a visible position number on each row, updated after every move, with `aria-hidden` since the announcements already say it. Show focus as a 2px outline at a 2px offset on the handle."
-    - "With `prefers-reduced-motion: reduce`, the rows jump to their slots without the nudge or the delay, the line only fades, and the lifted row still follows the pointer. In `forced-colors: active`, outline a lifted or picked-up row in `Highlight`."
+    - "With `prefers-reduced-motion: reduce`, nothing glides: the rows jump to their slots, the two beside the gap part by 8px in place with no delay, the line only fades, and the lifted row still follows the pointer. In `forced-colors: active`, outline a lifted or picked-up row in `Highlight`."
   avoid:
     - "A bounce or overshoot when the gap closes."
     - "Animating the lifted row with a transition. It would trail the pointer."
     - "Holding a full-size empty slot for the lifted row. The gap is only the nudge."
     - "Reordering the DOM on every slot change while dragging. The row under the pointer would swap its box mid-gesture."
     - "A drag that works only with a pointer."
+    - "A `transition-delay` on a row that is already moving. It stops mid-flight for the delay, and a fast drag queues up."
+    - "`touch-action: none` on the whole row. On a phone the page can't scroll past the list."
 ---
 
 ## Lift the row, nudge the rest
 
 Press a row and move it: it leaves the list and follows the pointer, sideways too, with a larger shadow. The rows after its old slot move up and close the hole, so the list is one row shorter while you drag.
 
-The gap at the pointer is only a nudge. The two rows beside it move 8px away from it, the next pair 5.6px, then 3.9px: each step is `0.7` times the last, or `8px × 0.7ⁿ` with n counting the steps from the gap. The delay is a stagger of `24ms × n`, so the two rows beside the gap start together and the rest follow. A 2px line in the gap shows where the row will land. The gap spreads outward from the pointer instead of the list swapping in blocks. The rule comes from Kubai's post, which also uses it on a dock of icons, with 10px.
+The gap at the pointer is only a nudge. The two rows beside it move 8px away from it, the next pair 5.6px, then 3.9px: each step is `0.7` times the last, or `8px × 0.7ⁿ` with n counting the steps from the gap. The delay falls off the same way: the two rows beside the gap start together, the next pair 24ms later, then 41ms and 53ms, each wait 0.7 times the last. Equal waits would ripple out like a metronome. A 2px line in the gap shows where the row will land. The gap spreads outward from the pointer instead of the list swapping in blocks. The rule comes from Kubai's post, which also uses it on a dock of icons, with 10px.
 
-The nudge and the slot translation share one `transform`, so a single transition carries both. A row that is still moving when the gap jumps retargets from where it is, so a fast drag doesn't queue up.
+The nudge and the slot translation share one `transform`, so a single transition carries both. Only rows at rest wait. A row that is still moving when the gap jumps retargets at once from where it is: with a delay it would stop mid-flight, and a fast drag would queue up.
 
 ## Ease-out, no rebound
 
@@ -59,10 +61,10 @@ While you drag, the DOM order doesn't change. The lifted row follows the pointer
 
 ## Keyboard, touch, and reduced motion
 
-Each row is a button. Space or Enter picks it up, the arrow keys, Home, and End move it, Space or Enter drops it, and Escape puts it back, also during a pointer drag. A polite live region announces the pickup, each move, and the drop, with the position out of the total. Keyboard moves don't animate: a held key repeats too fast, and the announcement and the focus state already say where the row went. Moving focus away drops the row where it is.
+Each row is a button. Space or Enter picks it up, the arrow keys, Home, and End move it, Space or Enter drops it, and Escape puts it back, also during a pointer drag. A polite live region announces the pickup, each move, and the drop, with the position out of the total. Keyboard moves don't animate: a held key repeats too fast, and the announcement and the focus state already say where the row went. A held Space doesn't pick up and drop over and over. Moving focus away drops the row where it is.
 
-On touch the whole row is the handle, so `touch-action: none` stops the page from scrolling under a finger on a row. In a long page, use a narrower grip as the handle, or start the drag after a long press.
+On touch the row scrolls the page and the grip lifts it. The button has `touch-action: pan-y` and the grip `touch-action: none`, with a 44px hit area that reaches the row's edge. A finger has to move 10px before the row lifts, a mouse 3px.
 
 Two limits. Rows must be the same height, and the layout is measured once when the drag starts. If the page or a scrolling container moves mid-drag, the gap stops matching what you see, and there is no autoscroll at the edges.
 
-With reduced motion the rows jump to their slots without the nudge or the stagger, the line only fades, and the lifted row still follows your hand. In forced colors mode a lifted row gets a `Highlight` outline.
+With reduced motion nothing glides: the rows jump to their slots, the two beside the gap part by 8px in place, the line only fades, and the lifted row still follows your hand. While you drag, every row's number shows where it would be after a drop at the gap, so the target never depends on motion. In forced colors mode a lifted row gets a `Highlight` outline.

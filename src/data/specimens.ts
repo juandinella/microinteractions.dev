@@ -394,10 +394,10 @@ export const specimens: Specimen[] = [
     trigger: 'drag',
     triggerLabel: 'Drag, Space, arrow keys',
     hint: 'Drag an item up or down',
-    touchHint: 'Drag an item up or down',
+    touchHint: 'Drag a row by its grip',
     duration: 250,
     durationNote:
-      'Every row moves for 250ms, starting 24ms × n after the two beside the gap (n is the steps from the gap). The dropped row also settles in 250ms, and the insertion line glides in 150ms. Keyboard moves jump.',
+      'Every row moves for 250ms. Rows at rest start 0, 24, 41 and 53ms after the gap moves, nearest first, each wait 0.7 times the last; a row already moving retargets at once. The dropped row also settles in 250ms, and the insertion line glides in 150ms. Keyboard moves jump.',
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:
@@ -409,7 +409,7 @@ export const specimens: Specimen[] = [
       label: 'Nudge',
       value: '8px × 0.7ⁿ',
       why: 'the rows move apart',
-      note: 'n is the steps from the gap. The two rows beside it move 8px and start first; the next pair move 5.6px and start 24ms later, then 3.9px, and so on. The gap is only the nudge, marked by a line: the lifted row\u2019s own slot closes up.',
+      note: 'n is the steps from the gap. The two rows beside it move 8px and start first; the next pair move 5.6px and start 24ms later, then 3.9px at 41ms, and so on. The gap is only the nudge, marked by a line: the lifted row\u2019s own slot closes up.',
     },
   },
   {

@@ -81,24 +81,26 @@ export function DragReorder({ items, 'aria-label': ariaLabel, onReorder, classNa
           {rows.map((item, index) => (
             <li
               key={item.id}
-              className="relative h-11 rounded-[10px] border border-border bg-card [transition:transform_250ms_cubic-bezier(0.23,1,0.32,1),box-shadow_150ms_ease-out] group-data-instant/list:[transition:none] data-dragging:z-2 dark:data-dragging:bg-accent dark:data-grabbed:bg-accent data-settling:z-2 data-dragging:border-input data-dragging:shadow-xl data-dragging:[transition:box-shadow_150ms_ease-out] data-grabbed:border-input data-grabbed:shadow-lg pointer-fine:not-group-data-dragging/dr:hover:border-input forced-colors:data-dragging:outline-2 forced-colors:data-dragging:outline-[Highlight] forced-colors:data-grabbed:outline-2 forced-colors:data-grabbed:outline-[Highlight] motion-reduce:[transition:box-shadow_150ms_ease-out]"
+              className="relative h-11 rounded-[10px] border border-border bg-card [transition:transform_250ms_cubic-bezier(0.23,1,0.32,1),box-shadow_150ms_ease-out] group-data-instant/list:[transition:none] data-dragging:z-2 dark:data-dragging:bg-accent dark:data-grabbed:bg-accent data-settling:z-2 data-dragging:will-change-transform data-settling:will-change-transform data-dragging:border-input data-dragging:shadow-xl data-dragging:[transition:box-shadow_150ms_ease-out] data-grabbed:border-input data-grabbed:shadow-lg pointer-fine:not-group-data-dragging/dr:hover:border-input forced-colors:data-dragging:outline-2 forced-colors:data-dragging:outline-[Highlight] forced-colors:data-grabbed:outline-2 forced-colors:data-grabbed:outline-[Highlight] motion-reduce:[transition:box-shadow_150ms_ease-out]"
               data-item
               data-id={item.id}
             >
               <button
-                className="flex size-full cursor-grab touch-none items-center gap-2.5 rounded-[inherit] px-3 text-left text-sm text-card-foreground select-none [-webkit-tap-highlight-color:transparent] group-data-dragging/dr:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="flex size-full cursor-grab touch-pan-y items-center gap-2.5 rounded-[inherit] px-3 text-left text-sm text-card-foreground select-none [-webkit-tap-highlight-color:transparent] group-data-dragging/dr:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 type="button"
                 aria-pressed="false"
                 data-handle
               >
-                <svg className="flex-none text-muted-foreground" viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true">
-                  <circle cx="2.5" cy="3" r="1.25" />
-                  <circle cx="7.5" cy="3" r="1.25" />
-                  <circle cx="2.5" cy="8" r="1.25" />
-                  <circle cx="7.5" cy="8" r="1.25" />
-                  <circle cx="2.5" cy="13" r="1.25" />
-                  <circle cx="7.5" cy="13" r="1.25" />
-                </svg>
+                <span className="relative flex flex-none touch-none before:absolute before:-inset-y-3.5 before:-right-5.5 before:-left-3" data-grip>
+                  <svg className="flex-none text-muted-foreground" viewBox="0 0 10 16" width="10" height="16" fill="currentColor" aria-hidden="true">
+                    <circle cx="2.5" cy="3" r="1.25" />
+                    <circle cx="7.5" cy="3" r="1.25" />
+                    <circle cx="2.5" cy="8" r="1.25" />
+                    <circle cx="7.5" cy="8" r="1.25" />
+                    <circle cx="2.5" cy="13" r="1.25" />
+                    <circle cx="7.5" cy="13" r="1.25" />
+                  </svg>
+                </span>
                 <span className="min-w-0 truncate" data-label>
                   {item.label}
                 </span>
