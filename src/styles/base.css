@@ -38,10 +38,11 @@ input {
     scroll-behavior: auto !important;
   }
 
-  /* Text swap and the resize grip keep their own fades; hold-to-confirm keeps its fill as a time indicator. */
-  *:not(.swap-layer, .hold-layer-progress, .rsb-grip),
+  /* Text swap, the resize grip, the selection band and the gooey ring and label keep their own fades;
+     hold-to-confirm keeps its fill as a time indicator. */
+  *:not(.swap-layer, .hold-layer-progress, .rsb-grip, .dst-band, .goo-option, .goo-ring),
   *::before,
-  *::after {
+  *:not(.goo-ring)::after {
     transition-duration: 0.001ms !important;
   }
 }
