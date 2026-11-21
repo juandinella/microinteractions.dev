@@ -27,14 +27,19 @@
   // Where the trailing edge starts moving, as a fraction of a swipe. The leading edge reaches the next dot by then,
   // and each edge's move lasts the rest: halfway through, the worm spans both dots.
   const TRAIL_START = 0.5;
-  // A press that moves less than this is a tap.
-  const SLOP = 4;
-  // Release snap, and a tap's travel plus a little per extra dot crossed, so a long jump crawls instead of smearing.
+  // A press that moves less than this is a tap. Fingers wobble more than a mouse, so touch gets more room.
+  const MOUSE_SLOP = 4;
+  const TOUCH_SLOP = 10;
+  // Release snap, and a tap's travel: the same time however many dots it crosses.
   const SNAP = 180;
   const TRAVEL = 280;
-  const PER_DOT = 40;
-  // While scrubbing, the scroll closes in on the pointer with this time constant instead of jumping to it.
+  // A scrub closes in on the pointer with this time constant, so a press far from the worm glides there.
+  // Once it has caught up, it follows the pointer exactly.
   const CATCH_UP = 60;
+  // On touch, a dot waits this long before showing pressed, so a thumb scrolling the page past it doesn't light it up.
+  const PRESS_DELAY = 100;
+  // iOS follows a tap with a pointerenter of type mouse. The ring ignores mouse events this long after a touch.
+  const TOUCH_GHOST = 50;
   // The slide is announced once the scroll has been still this long, never mid-swipe.
   const ANNOUNCE_AFTER = 250;
 
@@ -195,9 +200,11 @@
         track.style.scrollSnapType = '';
       };
 
+      // Each write draws the worm at once: the scroll event arrives a frame later, and the worm would trail the slides.
       const jump = (index: number) => {
         takeOver();
         track.scrollLeft = index * size.step;
+        render();
         release();
       };
 
@@ -209,6 +216,7 @@
         const tick = (now: number) => {
           const t = clamp((now - start) / duration);
           track.scrollLeft = (from + (index - from) * easeOut(t)) * size.step;
+          render();
           if (t < 1) frame = requestAnimationFrame(tick);
           else release();
         };
@@ -224,36 +232,52 @@
         travel(index, duration);
       };
 
-      // Touching the track hands the scroll back to the browser mid-travel.
+      // Grabbing the slides mid-travel hands the scroll back to the browser: a finger or a pen on the track,
+      // or a sideways wheel. A mouse can't drag a scroll container, and a vertical wheel scrolls the page,
+      // so neither takes over: a click on a slide would otherwise stop the travel partway.
       const yieldToTrack = () => driving && pointer === undefined && release();
-      track.addEventListener('pointerdown', yieldToTrack, { signal });
-      track.addEventListener('wheel', yieldToTrack, { passive: true, signal });
+      track.addEventListener('pointerdown', (event) => event.pointerType !== 'mouse' && yieldToTrack(), { signal });
+      track.addEventListener('wheel', (event) => Math.abs(event.deltaX) > Math.abs(event.deltaY) && yieldToTrack(), {
+        passive: true,
+        signal,
+      });
 
       // Measured from the first dot, so the strip's padding extends the hit area past both ends without shifting the mapping.
       const toPosition = (clientX: number) =>
         clamp((clientX - dots[0].getBoundingClientRect().left - size.gap / 2) / size.gap, 0, last);
 
-      // Scrub: press anywhere on the strip. A press that doesn't move is a tap and travels to the nearest dot;
+      // Scrub: press anywhere on the strip. A press that doesn't move is a tap and travels to the dot it went down on;
       // once it moves past the slop, the scroll follows the pointer in fractions and snaps on release.
       let downX = 0;
+      let slop = MOUSE_SLOP;
       let goal = 0;
+      // The dot a scrub started from, where Escape takes it back.
+      let from = 0;
+      let caught = false;
       let scrubbing = false;
       let pressed: HTMLElement | undefined;
+      let pressTimer = 0;
+      let lastTouch = -Infinity;
 
       const unpress = () => {
+        clearTimeout(pressTimer);
         pressed?.removeAttribute('data-pressed');
         pressed = undefined;
       };
 
       const follow = () => {
+        caught = false;
         let then = performance.now();
         const tick = (now: number) => {
           // Input is aligned to frames, so the frame's timestamp can precede the press that started the scrub.
           const elapsed = Math.max(now - then, 0);
           then = now;
           const p = position();
-          const blend = reduceMotion.matches ? 1 : 1 - Math.exp(-elapsed / CATCH_UP);
+          // A twentieth of a slide is close enough to count as caught; from then on the slides are the pointer.
+          if (!caught && Math.abs(goal - p) < 0.05) caught = true;
+          const blend = reduceMotion.matches || caught ? 1 : 1 - Math.exp(-elapsed / CATCH_UP);
           track.scrollLeft = (p + (goal - p) * blend) * size.step;
+          render();
           frame = requestAnimationFrame(tick);
         };
         frame = requestAnimationFrame(tick);
@@ -266,8 +290,13 @@
           if (pointer !== undefined || event.button !== 0) return;
           pointer = event.pointerId;
           downX = event.clientX;
-          pressed = (event.target as HTMLElement).closest<HTMLElement>('[data-dot]') ?? undefined;
-          pressed?.setAttribute('data-pressed', '');
+          const fine = event.pointerType === 'mouse';
+          slop = fine ? MOUSE_SLOP : TOUCH_SLOP;
+          // The dot a tap here travels to, so a press in the strip's padding past either end shows too.
+          const target = dots[Math.round(toPosition(downX))];
+          pressed = target;
+          if (fine) target.setAttribute('data-pressed', '');
+          else pressTimer = window.setTimeout(() => target.setAttribute('data-pressed', ''), PRESS_DELAY);
           strip.setPointerCapture(event.pointerId);
         },
         { signal },
@@ -278,8 +307,9 @@
         (event) => {
           if (event.pointerId !== pointer) return;
           if (!scrubbing) {
-            if (Math.abs(event.clientX - downX) < SLOP) return;
+            if (Math.abs(event.clientX - downX) < slop) return;
             scrubbing = true;
+            from = Math.round(position());
             unpress();
             takeOver();
             this.toggleAttribute('data-scrubbing', true);
@@ -301,16 +331,14 @@
         if (hovered >= 0 && !strip.matches(':hover')) hideRing();
         const wasScrubbing = scrubbing;
         scrubbing = false;
-        cancelAnimationFrame(frame);
+        // Only the scrub's own loop: a tap still travelling from an earlier press keeps going.
+        if (wasScrubbing) cancelAnimationFrame(frame);
         if (!committed) {
           if (wasScrubbing) travel(Math.round(position()), SNAP);
           return;
         }
-        if (!wasScrubbing) {
-          const index = Math.round(toPosition(event.clientX));
-          settle(index, TRAVEL + PER_DOT * Math.max(Math.abs(index - position()) - 1, 0));
-          return;
-        }
+        // From where the press went down, not where it lifted: a finger rolls a few pixels as it leaves the glass.
+        if (!wasScrubbing) return settle(Math.round(toPosition(downX)), TRAVEL);
         // From where the pointer let go, not where the catch-up has reached: a quick scrub can end before it arrives.
         settle(Math.round(goal), SNAP);
       };
@@ -318,6 +346,35 @@
       strip.addEventListener('pointerup', end, { signal });
       strip.addEventListener('pointercancel', end, { signal });
       strip.addEventListener('lostpointercapture', end, { signal });
+
+      // Escape takes a scrub back to the dot it started from, and drops a press that hasn't moved yet.
+      // It listens on the document: Safari doesn't focus a clicked button, so focus may be anywhere.
+      // The release that follows finds no pointer and does nothing.
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key !== 'Escape' || pointer === undefined) return;
+          event.preventDefault();
+          const id = pointer;
+          pointer = undefined;
+          unpress();
+          this.removeAttribute('data-scrubbing');
+          if (strip.hasPointerCapture(id)) strip.releasePointerCapture(id);
+          if (scrubbing) travel(from, SNAP);
+          scrubbing = false;
+        },
+        { signal },
+      );
+
+      // Remembers the last touch, so the mouse events iOS sends after it don't light up the ring.
+      strip.addEventListener(
+        'pointerup',
+        (event) => {
+          if (event.pointerType !== 'mouse') lastTouch = performance.now();
+        },
+        { signal },
+      );
+      const afterTouch = () => performance.now() - lastTouch < TOUCH_GHOST;
 
       // Keyboard: Enter or Space on a dot goes there, arrows, Home, and End move one tab stop. None of it animates.
       strip.addEventListener(
@@ -343,7 +400,6 @@
           event.preventDefault();
           spoken = next;
           jump(next);
-          render();
           dots[next].focus({ preventScroll: true });
         },
         { signal },
@@ -353,7 +409,7 @@
       strip.addEventListener(
         'pointerenter',
         (event) => {
-          if (event.pointerType !== 'mouse' || !finePointer.matches) return;
+          if (event.pointerType !== 'mouse' || !finePointer.matches || afterTouch()) return;
           placeRing(Math.round(toPosition(event.clientX)), true);
           halo.setAttribute('data-visible', '');
         },
@@ -363,7 +419,7 @@
       strip.addEventListener(
         'pointermove',
         (event) => {
-          if (hovered < 0 || event.pointerType !== 'mouse') return;
+          if (hovered < 0 || event.pointerType !== 'mouse' || afterTouch()) return;
           const index = Math.round(toPosition(event.clientX));
           if (index !== hovered) placeRing(index, false);
         },
@@ -580,7 +636,7 @@
     outline-offset: 2px;
   }
 
-  /* Behind the dots: the dot nearest the mouse, ringed. Glides on a short ease-out that retargets mid-move. */
+  /* Behind the dots: the dot nearest the mouse, ringed. Glides on the tap's curve, short, and retargets mid-move. */
   .wd-ring {
     position: absolute;
     top: calc(50% - var(--wd-ring) / 2);
@@ -591,10 +647,9 @@
     background: color-mix(in oklch, var(--wd-color) 8%, transparent);
     opacity: 0;
     pointer-events: none;
-    transition:
-      transform 80ms ease-out,
-      width 80ms ease-out,
-      opacity 80ms ease-out;
+    transition-property: transform, width, opacity;
+    transition-duration: 80ms;
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   .wd-ring[data-visible] {
@@ -622,7 +677,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .wd-ring {
-      transition: opacity 80ms ease-out;
+      transition-property: opacity;
     }
   }
 
