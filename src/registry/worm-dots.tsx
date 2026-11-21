@@ -69,7 +69,7 @@ export function WormDots({ slides, 'aria-label': ariaLabel, className, slideClas
           data-strip
         >
           <span
-            className="pointer-events-none absolute top-[calc(50%-var(--wd-ring)/2)] left-(--wd-reach) size-(--wd-ring) rounded-full bg-foreground/8 opacity-0 transition-[transform,width,opacity] duration-80 ease-[ease-out] data-visible:opacity-100 forced-colors:bg-transparent forced-colors:shadow-[inset_0_0_0_1px_CanvasText] motion-reduce:transition-opacity"
+            className="pointer-events-none absolute top-[calc(50%-var(--wd-ring)/2)] left-(--wd-reach) size-(--wd-ring) rounded-full bg-foreground/8 opacity-0 transition-[transform,width,opacity] duration-80 ease-[cubic-bezier(0.23,1,0.32,1)] data-visible:opacity-100 forced-colors:bg-transparent forced-colors:shadow-[inset_0_0_0_1px_CanvasText] motion-reduce:transition-opacity"
             aria-hidden="true"
             data-ring
           />

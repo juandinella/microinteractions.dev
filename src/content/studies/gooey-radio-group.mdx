@@ -11,28 +11,29 @@ prompt:
   task: "Build a radio group whose checked dot pours into the newly chosen option as a liquid drop, on native radio inputs."
   behavior:
     - "Keep native `<input type=\"radio\">` elements in a `<fieldset>` with a `<legend>`. Native radios already make the group one Tab stop with arrow-key selection (a roving tabindex) and submit with the form. Make each option a `<label>` 44px tall that contains its input and a decorative ring. Make the input transparent with `appearance: none; opacity: 0` and stretch it over the row with `position: absolute; inset: 0`, so the whole row is its hit area."
-    - "Draw each ring as a 20px circle with a 2px border inside its label. When an option is checked, its ring and label take the text color together, so the choice reads as one event."
+    - "Draw each ring as a 20px circle with a 2px border inside its label. Color the unchecked ring `oklch(0.62 0.01 258.74)`, and `oklch(0.54 0.014 258.74)` in dark mode, about 3.6:1 against the page: the ring is the control's only outline, and WCAG asks 3:1 for that. A pale border at the usual divider gray reads as disabled. When an option is checked, its ring and label take the text color together, so the choice reads as one event."
     - "Draw the dot as eight 10px circles in one absolutely positioned layer above the labels, with `pointer-events: none` and `aria-hidden=\"true\"`. Give the layer `z-index: 1` and the options container `isolation: isolate`. The container becomes a stacking context, so the layer never stacks above the page's own UI."
     - "Apply an SVG filter to that layer only: `feGaussianBlur` with `stdDeviation=\"3\"`, then `feColorMatrix` with the alpha row `0 0 0 18 -7`, then `feComposite` with `in=\"SourceGraphic\"`, `in2` set to the matrix result, and `operator=\"atop\"`. The blur makes nearby circles overlap; the alpha row removes anything under about 39% opacity and makes anything over about 44% solid, so overlapping circles fuse into one outline; `atop` paints their sharp color inside it. Keep the rings and labels outside the filter, or they blur too."
     - "Leave the `<filter>` without an `id` in the markup. The script gives each group's filter a unique `id` and sets the layer's `filter` to it. Duplicate ids are invalid, and `url(#id)` resolves to the first match, so a second group would borrow, or lose, another group's filter. The goo only shows while the drop moves, which needs the script anyway."
     - "At rest, stack all eight circles on the checked row. Set `--goo-index` with one `:has()` rule per option, such as `.options:has(label:nth-of-type(2) :checked) { --goo-index: 1; }`, and `transform: translateY(calc(var(--goo-index) * 44px))`. The selection then shows before any script runs (progressive enhancement). With nothing checked, hide the layer with `.options:not(:has(:checked)) .layer { opacity: 0; }`; otherwise the dot sits on the first row as if it were selected."
     - "On `change`, ignore events whose target is not one of the group's radios. Otherwise, animate the circles with the Web Animations API. Number them 0 (tail) to 7 (head). Head and tail follow the same easing curve; the tail starts 40ms later. Place circle n at `tail + (head − tail) × n ÷ 7`, and scale it by `thin + (1 − thin) × (n ÷ 7)²`, where `thin = max(1 − gap ÷ 96.8, 0.3)` and gap is the distance between head and tail in pixels (96.8px is 2.2 rows). The squared share keeps the head full and narrows the shape toward the tail, so it reads as a drop; `thin` makes the tail thinner the further the drop stretches."
     - "Compute every position and scale from one function of elapsed time. Sample it at 61 evenly spaced points (60 intervals) into keyframes with `easing: 'linear'`, and leave `fill` at its default, so each animation hands back to the CSS resting state when it ends."
-    - "Make the drop interruptible. On a new `change` mid-pour, evaluate that same function at the running animation's `currentTime` to get the head and tail positions, cancel the animation, and start the new drop from those positions on `cubic-bezier(0.23, 1, 0.32, 1)` instead. It starts at speed; the ease-in-out would stall the drop at zero velocity and accelerate again."
+    - "Make the drop interruptible. On a new `change` mid-pour, evaluate that same function at the running animation's `currentTime` to get the head and tail positions, cancel the animation, and start the new drop from those positions on `cubic-bezier(0.23, 1, 0.32, 1)` instead. It starts at speed; the ease-in-out would stall the drop at zero velocity and accelerate again. Drop the tail's 40ms lag on a redirect: the tail is already moving, and holding it still would freeze it for 40ms. Head and tail then close in from the current stretch and land together at 300ms."
     - "When nothing was checked before, there is nothing to pour from. Scale the stacked circles on the new row from 0.3 to 1. Animate the scale only: the filter's alpha cut turns an opacity fade into a pop."
-    - "On fine pointers, darken an unchecked ring on hover with a second ring in its `::after` pseudo-element, fading its opacity from 0 to 1. The ring's own border transitions wait for the drop, so they would make the hover lag. Once the option is checked, delay the overlay’s fade-out by 225ms, so the ring goes straight from the hover color to the text color without passing through gray."
+    - "Time the new ring and label to the curve that is running. On every animated change, set `--goo-arrive` on the options container: `225ms` for a pour, `130ms` for a redirect or the first-choice swell, the moment each curve has covered more than 90% of the way. Use `transition-delay: var(--goo-arrive, 225ms)` on the checked ring, label, and hover overlay. A fixed 225ms would light the ring about 100ms after an ease-out drop has landed. Set it to `0ms` on the form's `reset` event, which restores the default radio without a drop."
+    - "On fine pointers, darken an unchecked ring on hover with a second ring in its `::after` pseudo-element, fading its opacity from 0 to 1. The ring's own border transitions wait for the drop, so they would make the hover lag. Once the option is checked, delay the overlay’s fade-out by the same `--goo-arrive` as the ring, so the ring goes straight from the hover color to the text color without passing through gray."
   timing:
     - "Drop: the head travels in 300ms on `cubic-bezier(0.65, 0, 0.35, 1)`; the tail follows on the same curve 40ms later, so the drop lands at 340ms, whatever the distance."
     - "Old ring and label: back to their resting colors in 140ms after a 100ms delay, as the tail leaves."
-    - "New ring and label: to the text color in 140ms after a 225ms delay, as the head arrives."
-    - "Redirected drop: the same 300ms and 40ms lag, on `cubic-bezier(0.23, 1, 0.32, 1)`."
-    - "First choice: the dot swells in 300ms on `cubic-bezier(0.23, 1, 0.32, 1)`."
+    - "New ring and label: to the text color in 140ms after a 225ms delay, as the head arrives, about 93% of the way."
+    - "Redirected drop: head and tail in 300ms on `cubic-bezier(0.23, 1, 0.32, 1)`, without the 40ms lag, so it lands at 300ms. The new ring and label start after 130ms, where that curve has covered about 94%."
+    - "First choice: the dot swells in 300ms on `cubic-bezier(0.23, 1, 0.32, 1)`; ring and label start after 130ms."
     - "Hover ring: 150ms `ease-out` on `opacity`, with no delay."
   accessibility:
     - "Show focus on the row with `label:has(:focus-visible)` and a 2px outline, since the input itself is invisible."
     - "WebKit stops matching `:focus-visible` once arrow keys move focus between radios. Set `data-keyboard` on the options container on `keydown` and remove it on `pointerdown`, and also show the outline for `[data-keyboard] label:has(:focus)`. Keep the attribute until the next `pointerdown`; clearing it on pointer movement would hide Safari's focus ring whenever the mouse brushes past. Never use plain `:focus` alone: Chrome and Firefox focus a radio on click, so mouse users would see the outline."
     - "While `data-keyboard` is set, skip the drop and the ring and label transitions. Arrow keys can repeat faster than the drop travels."
-    - "With `prefers-reduced-motion: reduce`, skip the drop and remove the ring, label, and hover transitions."
+    - "With `prefers-reduced-motion: reduce`, skip the drop: the dot jumps to its new ring. Keep the ring and label color transitions at 140ms and set their delays to 0, so the change still registers without waiting for a drop that isn't there. The hover overlay keeps its 150ms fade, so the ring still never flashes to gray."
     - "Selected and unselected differ in shape, a ring with a dot against an empty ring, not only in color."
   avoid:
     - "Hiding the radios with `display: none` or replacing them with `<div>` elements and click handlers."
@@ -47,19 +48,23 @@ The dot is eight small circles in their own layer, and only that layer goes thro
 
 At rest, all eight circles sit on top of each other and read as a regular radio dot. When the selection changes, the head and the tail travel on the same ease-in-out curve, the tail 40ms behind. The six circles between them spread out and shrink toward the tail, so the outline tapers into a drop instead of a dumbbell. The longer the drop stretches, the thinner its tail gets, down to 30% of the dot.
 
-The rings sit outside the filter and stay sharp. The old ring lets go as the tail leaves it and the new one darkens as the head arrives. Each label changes with its ring, so a choice reads as one event.
+The rings sit outside the filter and stay sharp. The old ring lets go as the tail leaves it and the new one darkens as the head arrives, 225ms in, when the head has covered about 93% of the way. Each label changes with its ring, so a choice reads as one event.
+
+An unchecked ring is darker than the site's borders. It's the only outline the control has, and WCAG asks for 3:1 against the page for that; the usual divider gray sits under 2:1 and reads as disabled.
 
 ## Keyframes from a function
 
 A delayed CSS transition could lag the tail, but it couldn't taper the drop by the distance between head and tail. The script samples the head and tail at 61 points along the motion, computes every circle's position and scale, and gives each circle its own keyframes through the Web Animations API.
 
-The resting position stays in CSS. One `:has()` rule per option sets `--goo-index`, so the dot marks the selection before the script runs. A new choice mid-pour finds the head and tail at the running animation's current time and starts the next drop from there. That drop uses ease-out, because ease-in-out would stall a moving drop at zero velocity before accelerating again.
+The resting position stays in CSS. One `:has()` rule per option sets `--goo-index`, so the dot marks the selection before the script runs. A new choice mid-pour finds the head and tail at the running animation's current time and starts the next drop from there. That drop uses ease-out, because ease-in-out would stall a moving drop at zero velocity before accelerating again. Its tail skips the 40ms lag, since it's already moving, so head and tail close in from wherever they are and land together at 300ms.
 
-When nothing is checked yet, the first choice has nowhere to pour from, so the dot swells into its ring. It grows by scale alone, since the filter's alpha cut would turn a fade into a pop.
+Ease-out also arrives sooner. It covers 94% of the way in about 130ms, while the pour takes 225ms to cover 93%, so a fixed 225ms would light the ring after the drop had already landed. The script sets `--goo-arrive` on each change, and the new ring and label wait for that instead.
+
+When nothing is checked yet, the first choice has nowhere to pour from, so the dot swells into its ring. It grows by scale alone, since the filter's alpha cut would turn a fade into a pop. The swell runs on the same ease-out, so its ring and label follow after 130ms too.
 
 <Implementation specimen={props.specimenId} />
 
-To recolor the CSS version, set `--goo-fg`, `--goo-ring-color`, or `--goo-muted` on the fieldset or any ancestor. Each group gets its own filter `id`, and `isolation: isolate` keeps the drop under the rest of the page's UI, such as a sticky header.
+To recolor the CSS version, set `--goo-fg`, `--goo-ring-color`, or `--goo-muted` on the fieldset or any ancestor. Keep a custom ring color at 3:1 against its background. Each group gets its own filter `id`, and `isolation: isolate` keeps the drop under the rest of the page's UI, such as a sticky header.
 
 ## Keyboard, touch, and reduced motion
 
@@ -67,4 +72,4 @@ Native radios make the group one Tab stop and move the selection with the arrow 
 
 Safari stops matching `:focus-visible` once the arrow keys move focus to the next radio. The script sets `data-keyboard` on a key press and clears it on the next pointer press, and CSS treats `:focus` inside it as keyboard focus.
 
-A tap works like a click, and the whole row is the hit area. With reduced motion, the dot moves without the drop. The selected option always has a dot inside its ring, so the state doesn't depend on color.
+A tap works like a click, and the whole row is the hit area. With reduced motion, the dot jumps to its new ring; ring and label still change color over 140ms, without waiting. The selected option always has a dot inside its ring, so the state doesn't depend on color.
