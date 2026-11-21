@@ -1,5 +1,5 @@
 ---
-observe: Move the pointer down the divider and the grip moves with it. Drag the sidebar below 60px to collapse it, then drag it back out. Press Escape mid-drag to put it back where it was.
+observe: Move the pointer down the divider and the grip moves with it. Drag the sidebar past its 120px minimum and the edge gives a little, then collapses below 60px; drag it back out. Press Escape mid-drag to put it back where it was.
 references:
   - title: Window Splitter Pattern
     author: WAI-ARIA Authoring Practices Guide
@@ -17,12 +17,13 @@ prompt:
   task: "Build a sidebar resize handle: a 1px divider between a sidebar and a main pane that the user drags to change the sidebar's width, with a grip that appears where the pointer meets the divider."
   behavior:
     - "Lay the two panes out with CSS Grid. Keep the sidebar width in one custom property, `--rsb-width: 160px`, used by `grid-template-columns` (`var(--rsb-width) minmax(0, 1fr)`) and by the handle's `translate`, so each frame writes one value. Read the starting width from it, in px. Keep the main pane's minimum in another, `--rsb-main-min: 140px`, and clamp the column in CSS as well (`min(var(--rsb-width), 100% - var(--rsb-main-min))`), so a narrow container lays out at its final width before the script runs. Put the separator between the two panes in the DOM so the reading and tab order match the layout; it is absolutely positioned, so the order doesn't change the grid. Give the container `overflow: hidden`, so a sidebar narrower than the corner radius stays inside the rounded corners. Give both panes `min-width: 0` and `overflow: hidden`, and truncate the sidebar's labels with an ellipsis, so text never makes a column wider than the drag asked for."
-    - "Make the handle an absolutely positioned hit area that straddles the divider: 12px wide, 24px under `(pointer: coarse)`, offset left by half its width and moved with `translate` to `--rsb-width`, but never closer to the left edge than half its width (`max(var(--rsb-width), var(--rsb-hit) / 2)`), so a collapsed sidebar keeps the whole hit area inside the container. Draw the 1px line as its `::before`. Set `touch-action: none` and `cursor: col-resize` on it."
-    - "Draw the grip as a 4×32px pill inside the handle, hidden at rest. On `pointerenter`, place it at the pointer's `clientY`, clamped 8px inside the handle's ends, before it fades in, so it appears under the pointer instead of sliding there. On `pointermove`, keep it at the pointer with no smoothing. Round its position to device pixels. Skip both for touch, where the grip stays at the middle."
-    - "On `pointerdown`, call `preventDefault()` so the press selects no text and doesn't focus the handle, call `setPointerCapture()` on the handle, and record the pointer's x and the starting width. Ignore non-primary pointers, presses during a drag, and Ctrl-click, which opens the context menu on macOS. While dragging, set the width to the starting width plus the pointer's horizontal travel, rounded to whole pixels because `clientX` can be fractional, clamped between 120px and 320px, and never leave the main pane narrower than `--rsb-main-min`."
-    - "Collapse the sidebar when the proposed width drops below half the minimum (60px), and reopen it at the minimum when the proposed width rises past that again. Double-click resets the width to the starting one."
+    - "Make the handle an absolutely positioned hit area that straddles the divider: 12px wide, 24px under `(pointer: coarse)`, offset left by half its width and moved with `translate` to `--rsb-width`, but never closer to the left edge than half its width (`max(var(--rsb-width), var(--rsb-hit) / 2)`), so a collapsed sidebar keeps the whole hit area inside the container. Draw the 1px line as its `::before`. Set `touch-action: pan-y`, so a vertical scroll that starts on the divider still scrolls the page, and `cursor: col-resize`."
+    - "Draw the grip as a 4×32px pill inside the handle, hidden at rest. Show it from the first `pointermove` of a mouse that actually moved, not from `pointerenter`: skip pointers other than `mouse`, and skip a move with no `movementX` or `movementY` at the same position as the last pointer event on the page, so content scrolled under a still cursor, or a tap on a touch laptop, doesn't reveal it. Place it at the pointer's `clientY`, clamped 8px inside the handle's ends, before it fades in, so it appears under the pointer instead of sliding there, and keep it there on every later move with no smoothing. Round its position to device pixels. Touch never moves it: its grip stays at the middle."
+    - "On `pointerdown`, call `preventDefault()` so the press selects no text and doesn't focus the handle, call `setPointerCapture()` on the handle, and record the pointer's x and the starting width. Ignore non-primary pointers, presses during a drag, and Ctrl-click, which opens the context menu on macOS. If a snap is running and the sidebar isn't collapsing, stop it and take the width on screen, rounded and clamped, as the starting width, so the divider stays where the pointer caught it; a snap below the minimum runs on."
+    - "Start resizing only once the pointer has travelled 10px horizontally on touch, or 2px with a mouse, and measure the drag from the point where it crossed, so the divider starts from rest instead of jumping. A mouse shows the press on `pointerdown`; touch shows it when the drag starts or after 100ms, whichever comes first. While dragging, set the width to the starting width plus the pointer's horizontal travel, rounded to whole pixels because `clientX` can be fractional, clamped between 120px and 320px, and never leave the main pane narrower than `--rsb-main-min`."
+    - "Collapse the sidebar when the proposed width drops below half the minimum (60px), and reopen it at the minimum when the proposed width rises past that again. Between 60px and 120px, keep the width, `aria-valuenow`, and the width a release commits at 120px, the minimum, but let the edge on screen give with the pointer as an iOS rubber band, `-(1 - 1 / ((120 - proposed) * 0.55 / 120 + 1)) * 120`, rounded to whole pixels: about 10px at 100px, 26px at 61px. On release or cancel, return the give to the minimum on the snap below; with reduced motion the give still follows the pointer and the return is instant. Keep a hard stop at the maximum: there is no next state to signal there, and the `w-resize` cursor marks the limit. Double-click resets the width to the starting one."
     - "Keep two widths: the one the user chose, and the one on screen, derived from it by clamping to what the container allows. Update the chosen width when a drag ends, on keys, and on double-click, never during a drag, so a collapse remembers the width from before the drag and a cancelled drag leaves it untouched. When the container grows again, the chosen width comes back."
-    - "Animate collapsing, reopening, cancelling, and the double-click reset as an offset: the difference between the width on screen and the new width, decaying to zero, added on every frame to whatever width the pointer asks for. The pointer keeps control during the animation, and a new snap starts from the width on screen."
+    - "Animate collapsing, reopening, cancelling, the give's return, and the double-click reset as an offset: the difference between the width on screen and the new width, decaying to zero, added on every frame to whatever width the pointer asks for. The pointer keeps control during the animation, and a new snap starts from the width on screen."
     - "While dragging, set the cursor and `user-select: none` on the root element, so the cursor holds and no text gets selected when the pointer leaves the handle. Show `e-resize` when the sidebar is collapsed and `w-resize` at the maximum."
     - "End the drag on `pointerup`. On `pointercancel`, on `lostpointercapture` without a `pointerup`, on Escape, and when the window loses focus, snap back to the chosen width, fitted to the container as it is now, since it may have changed mid-drag. Escape ends the drag while the button is still down, so release the pointer capture and decide the hover state from the last pointer position."
     - "Make the sidebar `inert` while it is collapsed or the container leaves it no room, and report the same state in `aria-valuetext`. Hide the divider line once the width on screen drops below half the hit area, where the handle stops following the edge, not when the collapse starts."
@@ -31,20 +32,23 @@ prompt:
   timing:
     - "Grip reveal: `opacity` and `scale`, from 0.5 to 1 on the y axis, in 120ms after a 60ms `transition-delay`. It leaves in 100ms with no delay. `opacity` uses `ease-out` and `scale` uses `cubic-bezier(0.23, 1, 0.32, 1)`."
     - "Press: the grip widens from 4px to 6px on `width` in 100ms on `cubic-bezier(0.23, 1, 0.32, 1)`, and darkens on `background-color` in 120ms `ease-out`."
-    - "Collapse, reopen, cancel, and double-click reset: 240ms on `cubic-bezier(0.32, 0.72, 0, 1)`, run from JavaScript. During a drag the width follows the pointer 1:1."
+    - "Collapse, reopen, cancel, the give's return to the minimum, and double-click reset: 240ms on `cubic-bezier(0.32, 0.72, 0, 1)`, run from JavaScript. During a drag the width follows the pointer 1:1 between the limits."
+    - "Keyboard focus shows the grip with no transition."
   accessibility:
     - "Give the handle `role=\"separator\"`, `tabindex=\"0\"`, `aria-orientation=\"vertical\"`, an `aria-label`, `aria-controls` pointing at the sidebar, and `aria-valuemin`, `aria-valuemax`, `aria-valuenow`, and `aria-valuetext` (\"160 pixels\", \"Collapsed\"), updated on every change."
-    - "Left and Right move the divider by 12px, 48px with Shift, and stop at the minimum and maximum, so an arrow never hides the sidebar. Home collapses the sidebar, matching `aria-valuemin=\"0\"`, and End goes to the maximum. Enter collapses the sidebar and restores its last width. Keyboard changes are never animated. Ignore arrows with Alt, Meta, or Ctrl: Alt+Left and Cmd+Left go back in the browser."
-    - "Keyboard focus shows the grip at the middle of the divider and darkens it and the line to the text color, since there is no pointer to follow."
+    - "Left and Right move the divider by 12px, 48px with Shift, and stop at the minimum and maximum, so an arrow never hides the sidebar. Home collapses the sidebar, matching `aria-valuemin=\"0\"`, and End goes to the maximum. Enter collapses the sidebar and restores its last width, once per press: ignore Enter's key repeat (`event.repeat`) but still call `preventDefault()` on it, while the arrows keep repeating. Keyboard changes are never animated. Ignore arrows with Alt, Meta, or Ctrl: Alt+Left and Cmd+Left go back in the browser."
+    - "Keyboard focus shows the grip at the middle of the divider at once, without the fade, and darkens it and the line to the text color, since there is no pointer to follow."
     - "Under `(hover: none)`, keep the grip visible at the middle. Touch has no hover to reveal it."
-    - "With `prefers-reduced-motion: reduce`, the grip fades without scaling, the press widens it at once, and collapsing and reopening happen at once."
-    - "Hide the handle until the custom element is defined (`:not(:defined)`); without the script there is nothing to drag. In forced-colors mode, draw the grip in `CanvasText`, and the focused grip and line in `Highlight`."
+    - "With `prefers-reduced-motion: reduce`, the grip fades without scaling, the press widens it at once, and collapsing, reopening, and the give's return happen at once. The give itself still follows the pointer."
+    - "Hide the handle until the custom element is defined (`:not(:defined)`); without the script there is nothing to drag. In forced-colors mode, draw the line and the grip in `CanvasText`, since the line's token would otherwise be painted as the canvas, and the focused grip and line in `Highlight`."
   avoid:
     - "A grip fixed at the middle of a full-height divider. The pointer reaches the divider wherever it happens to be, usually far from the middle."
     - "Easing the grip toward the pointer. A grip that lags points at the wrong spot."
     - "Widening the grip on press with `scale()`, which stretches its rounded ends into ovals."
     - "A CSS transition on `grid-template-columns` for the collapse. The next `pointermove` cancels it, and the sidebar jumps."
     - "A hit area no wider than the 1px line."
+    - "`touch-action: none` on the handle. Every scroll that starts on the divider is blocked, and any wobble resizes."
+    - "A hard stop at the minimum. The edge stops dead at 120px and then jumps shut, with no warning that a collapse is next."
 ---
 
 ## A grip where the pointer is
@@ -53,7 +57,7 @@ The divider is a 1px line inside a 12px hit area, so the place to grab is wider 
 
 Here the grip appears where the pointer meets the line and moves along it. It shows up under the pointer rather than sliding over from its last position, and it follows with no smoothing, because it marks where a press will land.
 
-The pointer crosses the divider every time it moves between the panes. The grip waits 60ms before appearing, longer than a pointer takes to cross 12px, so passing over doesn't flash it. The cursor changes at once, so the delay costs no feedback. Keyboard focus has no pointer to follow: it shows the grip at the middle of the divider and darkens the grip and the line.
+The pointer crosses the divider every time it moves between the panes. The grip waits 60ms before appearing, longer than a pointer takes to cross 12px, so passing over doesn't flash it. The cursor changes at once, so the delay costs no feedback. Only a mouse that moved shows it: a page scrolled under a still cursor, or a tap on a touch laptop, also enters the handle, and neither means the pointer came to the divider. Keyboard focus has no pointer to follow: it shows the grip at the middle of the divider at once, without the fade, and darkens the grip and the line.
 
 <Implementation specimen={props.specimenId} />
 
@@ -61,13 +65,17 @@ The pointer crosses the divider every time it moves between the panes. The grip 
 
 A press widens the grip from 4px to 6px and darkens it. It changes `width`, because `scale()` would stretch the rounded ends into ovals.
 
-The sidebar follows the pointer 1:1. Its width is the width on press plus the pointer's horizontal travel, so pressing a few pixels off the line doesn't make the divider jump. Pointer capture (`setPointerCapture()`) keeps the drag going when the pointer leaves the handle, and for the length of the drag the root element carries the cursor and `user-select: none`. The cursor shows the only direction left: `w-resize` at the maximum, `e-resize` on a collapsed sidebar.
+A press becomes a drag after 2px of horizontal travel with a mouse, 10px on touch, so a click or a wobbly tap doesn't nudge the width. From there the sidebar follows the pointer 1:1. Its width is the width at that point plus the pointer's horizontal travel since, so pressing a few pixels off the line doesn't make the divider jump. Grabbing the divider while it snaps stops the snap where it is on screen. Pointer capture (`setPointerCapture()`) keeps the drag going when the pointer leaves the handle, and for the length of the drag the root element carries the cursor and `user-select: none`. The cursor shows the only direction left: `w-resize` at the maximum, `e-resize` on a collapsed sidebar.
 
 Escape, a cancelled pointer, or the window losing focus cancel the drag and snap the sidebar back.
 
 ## Collapsing
 
-Dragging below half the minimum width collapses the sidebar, and dragging back past that point reopens it at the minimum. Both settle in 240ms on a drawer curve, as do a cancelled drag and the double-click that resets the width. With reduced motion they happen at once, and the grip fades in without growing.
+Dragging below half the minimum width collapses the sidebar, and dragging back past that point reopens it at the minimum. Between the two, the width stays at the 120px minimum, but the edge gives with the pointer, each pixel a little less than the last: about 10px at 100px, 26px just before the collapse. A hard stop at 120px would leave the pointer behind and then shut without warning; the give says the next state is close. Let go there and the edge returns to the minimum.
+
+Collapsing, reopening, the give's return, a cancelled drag, and the double-click that resets the width all settle in 240ms on a drawer curve. With reduced motion they happen at once; the give still follows the pointer, and the grip fades in without growing.
+
+The maximum keeps a hard stop. Past it there is no next state to warn of, and the `w-resize` cursor already marks the limit.
 
 The snap runs in JavaScript. A CSS transition on `grid-template-columns` would be cancelled by the next `pointermove`, and the sidebar would jump. The script animates the gap between the width on screen and the width the pointer asks for, shrinking it to zero and adding it to whatever the pointer does next, so the pointer keeps control and a second snap starts from what is on screen.
 
@@ -79,4 +87,8 @@ The container clips the sidebar to its rounded corners, so the last frames of a 
 
 The handle follows the window splitter pattern: a focusable `separator` whose value is the sidebar's width. The arrow keys move it by 12px, or 48px with Shift, and stop at the limits. Home collapses the sidebar, End widens it to the maximum, and Enter toggles between collapsed and the last width. Keyboard changes never animate. Arrows with Alt, Cmd, or Ctrl stay with the browser, where Alt+Left goes back.
 
-Touch has no hover, so the grip stays visible at the middle and the hit area grows to 24px.
+Holding Enter toggles once. Its key repeat is ignored, so the sidebar doesn't flicker open and shut, while a held arrow keeps moving the divider.
+
+Touch has no hover, so the grip stays visible at the middle and the hit area grows to 24px. The handle sets `touch-action: pan-y`: a vertical swipe that starts on the divider scrolls the page, and the browser cancels the pointer, which ends the drag and leaves the width as it was. The press look waits 100ms or for the drag to start, so a scroll doesn't flash it.
+
+In forced-colors mode the line and grip are drawn in `CanvasText`, and in `Highlight` when focused.
