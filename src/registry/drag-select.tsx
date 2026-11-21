@@ -27,7 +27,7 @@ type DragSelectTableProps = {
 };
 
 const check = (
-  <svg viewBox="0 0 18 18" aria-hidden="true" className="pointer-events-none absolute inset-0 size-4.5 fill-none stroke-primary-foreground stroke-2 [stroke-linecap:round] [stroke-linejoin:round] forced-colors:stroke-[HighlightText] forced-colors:forced-color-adjust-none [stroke-dasharray:1] [stroke-dashoffset:1] peer-checked:[stroke-dashoffset:0] peer-checked:transition-[stroke-dashoffset] peer-checked:duration-(--dst-draw) peer-checked:ease-(--dst-ease) peer-indeterminate:[stroke-dashoffset:1] peer-indeterminate:transition-none">
+  <svg viewBox="0 0 18 18" aria-hidden="true" className="pointer-events-none absolute inset-0 m-auto size-4.5 fill-none stroke-primary-foreground stroke-2 [stroke-linecap:round] [stroke-linejoin:round] forced-colors:stroke-[HighlightText] forced-colors:forced-color-adjust-none [stroke-dasharray:1] [stroke-dashoffset:1] peer-checked:[stroke-dashoffset:0] peer-checked:transition-[stroke-dashoffset] peer-checked:duration-(--dst-draw) peer-checked:ease-(--dst-ease) peer-indeterminate:[stroke-dashoffset:1] peer-indeterminate:transition-none">
     <path pathLength={1} d="M5 9.4l2.7 2.6L13 6.5" />
   </svg>
 );
@@ -94,30 +94,30 @@ export function DragSelectTable({
   }, [key]);
 
   return (
-    <drag-select-table key={key} ref={root} className={cn('block [--dst-ease:cubic-bezier(0.23,1,0.32,1)] w-[min(100%,480px)] rounded-2xl border border-border bg-background text-foreground [--dst-draw:0ms] [--dst-follow:0ms] [--dst-row:40px] pointer-coarse:[--dst-row:44px] motion-safe:[--dst-draw:160ms] motion-safe:[--dst-follow:90ms] data-dragging:select-none', className)}>
+    <drag-select-table key={key} ref={root} className={cn('block [--dst-ease:cubic-bezier(0.23,1,0.32,1)] w-[min(100%,480px)] rounded-2xl border border-border bg-background text-foreground [--dst-draw:0ms] [--dst-follow:0ms] [--dst-head:36px] [--dst-row:40px] pointer-coarse:[--dst-head:44px] pointer-coarse:[--dst-row:44px] motion-safe:[--dst-draw:160ms] motion-safe:[--dst-follow:90ms] data-keyboard:[--dst-draw:0ms] data-dragging:select-none', className)}>
       <div className="flex items-baseline justify-between gap-4 px-5 pt-4.5 pb-2.5">
         <p className="m-0 text-[15px] font-medium">{title}</p>
         <p className="m-0 font-mono text-xs text-muted-foreground tabular-nums" data-count>
           {`0 of ${rows.length}`}
         </p>
       </div>
-      <div className="relative isolate max-h-[calc(36px+var(--dst-row)*5.5)] overflow-y-auto overscroll-contain px-2 pb-2 [scrollbar-color:var(--color-input)_transparent] scrollbar-thin" data-scroll>
+      <div className="relative isolate max-h-[calc(var(--dst-head)+var(--dst-row)*5.5)] overflow-y-auto overscroll-contain pointer-coarse:overscroll-y-auto px-2 pb-2 [scrollbar-color:var(--color-input)_transparent] scrollbar-thin" data-scroll>
         <table className="w-full border-separate border-spacing-0 text-sm" aria-label={title}>
           <thead>
             <tr>
-              <th className="sticky top-0 z-2 h-9 border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] text-start font-mono text-[11px] font-normal text-muted-foreground w-11" scope="col">
-                <span className="relative mx-auto grid size-4.5 place-items-center">
-                  <input type="checkbox" aria-label="Select all" data-all className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-12 scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight]" />
+              <th className="sticky top-0 z-2 h-(--dst-head) border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] text-start font-mono text-[11px] font-normal text-muted-foreground w-11" scope="col">
+                <label className="absolute inset-0 grid cursor-pointer place-items-center">
+                  <input type="checkbox" aria-label="Select all" data-all className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-[calc(var(--dst-head)+12px)] scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] in-data-keyboard:transition-none checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight]" />
                   {check}
-                  <svg viewBox="0 0 18 18" aria-hidden="true" className="pointer-events-none absolute inset-0 size-4.5 fill-none stroke-primary-foreground stroke-2 [stroke-linecap:round] [stroke-linejoin:round] forced-colors:stroke-[HighlightText] forced-colors:forced-color-adjust-none opacity-0 peer-indeterminate:opacity-100">
+                  <svg viewBox="0 0 18 18" aria-hidden="true" className="pointer-events-none absolute inset-0 m-auto size-4.5 fill-none stroke-primary-foreground stroke-2 [stroke-linecap:round] [stroke-linejoin:round] forced-colors:stroke-[HighlightText] forced-colors:forced-color-adjust-none opacity-0 peer-indeterminate:opacity-100">
                     <path d="M5.5 9h7" />
                   </svg>
-                </span>
+                </label>
               </th>
-              <th className="sticky top-0 z-2 h-9 border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] pe-3 text-start font-mono text-[11px] font-normal text-muted-foreground" scope="col">
+              <th className="sticky top-0 z-2 h-(--dst-head) border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] pe-3 text-start font-mono text-[11px] font-normal text-muted-foreground" scope="col">
                 {headers.label}
               </th>
-              <th className="sticky top-0 z-2 h-9 border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] pe-3 text-start font-mono text-[11px] font-normal text-muted-foreground" scope="col">
+              <th className="sticky top-0 z-2 h-(--dst-head) border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] pe-3 text-start font-mono text-[11px] font-normal text-muted-foreground" scope="col">
                 {headers.detail}
               </th>
             </tr>
@@ -127,7 +127,7 @@ export function DragSelectTable({
               <tr key={row.id} className="cursor-pointer *:h-(--dst-row) *:align-middle [&[data-selected]]:*:bg-foreground/8 data-[edge~=top]:*:first:rounded-ss-lg data-[edge~=top]:*:last:rounded-se-lg data-[edge~=bottom]:*:first:rounded-es-lg data-[edge~=bottom]:*:last:rounded-ee-lg pointer-fine:not-[&[data-selected]]:hover:*:bg-muted pointer-fine:not-[&[data-selected]]:hover:*:first:rounded-s-lg pointer-fine:not-[&[data-selected]]:hover:*:last:rounded-e-lg forced-colors:[&[data-selected]]:*:bg-[SelectedItem] forced-colors:[&[data-selected]]:*:text-[SelectedItemText] forced-colors:[&[data-selected]]:*:forced-color-adjust-none">
                 <td className="group/cell w-11 cursor-pointer touch-none p-0 select-none [-webkit-touch-callout:none]" data-box-cell>
                   <span className="relative mx-auto grid size-4.5 place-items-center">
-                    <input type="checkbox" aria-label={row.label} defaultChecked={checked.has(row.id)} className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-12 scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight] pointer-fine:group-hover/cell:not-checked:not-indeterminate:border-muted-foreground" />
+                    <input type="checkbox" aria-label={row.label} defaultChecked={checked.has(row.id)} className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-[calc(var(--dst-head)+12px)] scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] in-data-keyboard:transition-none checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight] pointer-fine:group-hover/cell:not-checked:not-indeterminate:border-muted-foreground" />
                     {check}
                   </span>
                 </td>
@@ -139,7 +139,7 @@ export function DragSelectTable({
             ))}
           </tbody>
         </table>
-        <span className="pointer-events-none absolute top-0 left-0 z-1 w-7 opacity-0 transition-opacity duration-150 ease-out [--dst-band-fill:color-mix(in_oklch,var(--color-ring)_12%,transparent)] [--dst-band-line:var(--color-ring)] data-shown:opacity-100 data-[mode=clear]:[--dst-band-fill:transparent] data-[mode=clear]:[--dst-band-line:var(--color-muted-foreground)]" data-band aria-hidden="true">
+        <span className="pointer-events-none absolute top-0 left-0 z-1 w-7 opacity-0 transition-opacity duration-100 ease-(--dst-ease) data-shown:duration-150 [--dst-band-fill:color-mix(in_oklch,var(--color-ring)_12%,transparent)] [--dst-band-line:var(--color-ring)] data-shown:opacity-100 data-[mode=clear]:[--dst-band-fill:transparent] data-[mode=clear]:[--dst-band-line:var(--color-muted-foreground)]" data-band aria-hidden="true">
           <span className="absolute top-0 left-0 w-7 origin-top border-[1.5px] border-(--dst-band-line) bg-(--dst-band-fill) transition-transform duration-(--dst-follow) ease-(--dst-ease) in-data-instant:transition-none forced-colors:border-[Highlight] h-3.5 rounded-t-[14px] border-b-0" data-band-top />
           <span className="absolute top-0 left-0 w-7 origin-top border-[1.5px] border-(--dst-band-line) bg-(--dst-band-fill) transition-transform duration-(--dst-follow) ease-(--dst-ease) in-data-instant:transition-none forced-colors:border-[Highlight] h-px border-y-0" data-band-body />
           <span className="absolute top-0 left-0 w-7 origin-top border-[1.5px] border-(--dst-band-line) bg-(--dst-band-fill) transition-transform duration-(--dst-follow) ease-(--dst-ease) in-data-instant:transition-none forced-colors:border-[Highlight] h-3.5 rounded-b-[14px] border-t-0" data-band-bottom />
