@@ -117,6 +117,9 @@
         current = to;
         // Arrow keys repeat faster than the drop travels, so a keyboard move lands at once.
         if (this.hasAttribute('data-keyboard') || reduceMotion.matches) return;
+        // The new ring and label wait until the head is about 94% of the way there. The ease-out of a
+        // redirect or a swell gets there in 130ms; the ease-in-out pour takes 225ms.
+        this.style.setProperty('--goo-arrive', redirected || from === undefined ? '130ms' : '225ms');
 
         if (from === undefined) {
           // The first choice has nowhere to pour from, so the dot swells into its ring.
@@ -134,14 +137,17 @@
         }
 
         const ease = redirected ? redirect : pour;
+        // A redirected tail is already moving, so it doesn't wait: head and tail close in on the
+        // new ring from the current stretch and land together at 300ms.
+        const lag = redirected ? 0 : LAG;
         const at = (ms: number): [number, number] => [
           head + (to - head) * ease(clamp(ms / DURATION)),
-          tail + (to - tail) * ease(clamp((ms - LAG) / DURATION)),
+          tail + (to - tail) * ease(clamp((ms - lag) / DURATION)),
         ];
         positionAt = at;
         const keyframes: Keyframe[][] = blobs.map(() => []);
         for (let frame = 0; frame <= FRAMES; frame++) {
-          const [y1, y2] = at((frame / FRAMES) * (DURATION + LAG));
+          const [y1, y2] = at((frame / FRAMES) * (DURATION + lag));
           // The tail thins as the drop stretches.
           const thin = Math.max(1 - Math.abs(y1 - y2) / (PITCH * 2.2), 0.3);
           blobs.forEach((_, index) => {
@@ -153,7 +159,7 @@
           });
         }
         animations = blobs.map((blob, index) =>
-          blob.animate(keyframes[index], { duration: DURATION + LAG, easing: 'linear' }),
+          blob.animate(keyframes[index], { duration: DURATION + lag, easing: 'linear' }),
         );
       }, { signal });
 
@@ -162,6 +168,8 @@
       this.closest('form')?.addEventListener(
         'reset',
         () => {
+          // The reset lands without a drop, so the new ring doesn't wait for one.
+          this.style.setProperty('--goo-arrive', '0ms');
           clearTimeout(resetTimer);
           resetTimer = setTimeout(() => {
             animations.forEach((animation) => animation.cancel());
@@ -226,7 +234,8 @@
 <style>
   .goo-group {
     --goo-ink: var(--goo-fg, var(--text));
-    --goo-track: var(--goo-ring-color, var(--line-strong));
+    /* An unchecked ring is the control's only outline, so it keeps 3:1 against the page. */
+    --goo-track: var(--goo-ring-color, oklch(0.62 0.01 258.74));
     --goo-label: var(--goo-muted, var(--muted));
 
     min-width: 0;
@@ -234,6 +243,12 @@
     padding: 0;
     border: 0;
     color: var(--goo-ink);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .goo-group {
+      --goo-track: var(--goo-ring-color, oklch(0.54 0.014 258.74));
+    }
   }
 
   .goo-legend {
@@ -314,7 +329,7 @@
   /* Each label changes with its ring. */
   .goo-option:has(:checked) {
     color: var(--goo-ink);
-    transition-delay: 225ms;
+    transition-delay: var(--goo-arrive, 225ms);
   }
 
   .goo-option:has(:focus-visible),
@@ -334,7 +349,8 @@
     appearance: none;
   }
 
-  /* The old ring lets go as the tail leaves it; the new one darkens as the head arrives. */
+  /* The old ring lets go as the tail leaves it; the new one darkens as the head arrives.
+     The script sets --goo-arrive for each drop, since a redirect arrives sooner than a pour. */
   .goo-ring {
     position: absolute;
     top: 12px;
@@ -348,7 +364,7 @@
 
   .goo-option:has(:checked) .goo-ring {
     border-color: var(--goo-ink);
-    transition-delay: 225ms;
+    transition-delay: var(--goo-arrive, 225ms);
   }
 
   /* Hover darkens a second ring on its own clock; the border's delays are for the drop. */
@@ -370,7 +386,7 @@
 
   /* After a click, hold the hover ring until the ink arrives, so the ring never flashes back to the track. */
   .goo-option:has(:checked) .goo-ring::after {
-    transition-delay: 225ms;
+    transition-delay: var(--goo-arrive, 225ms);
   }
 
   .goo-options[data-keyboard] :is(.goo-option, .goo-ring),
@@ -378,11 +394,14 @@
     transition: none;
   }
 
+  /* The dot jumps, so the colors stop waiting for a drop, but they still change over 140ms. */
   @media (prefers-reduced-motion: reduce) {
     .goo-option,
+    .goo-option:has(:checked),
     .goo-ring,
-    .goo-ring::after {
-      transition: none;
+    .goo-option:has(:checked) .goo-ring,
+    .goo-option:has(:checked) .goo-ring::after {
+      transition-delay: 0ms;
     }
   }
 </style>
