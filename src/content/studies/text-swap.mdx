@@ -9,14 +9,15 @@ prompt:
   behavior:
     - "Stack the current and next label in the same CSS Grid cell (`grid-area: 1 / 1`) so the button always fits the wider label."
     - On hover, the current label slides down by 120% of its height and fades out while the next label slides in from above. Both blur by up to 5px while they overlap.
+    - "Run the swap in 220ms and the return in 160ms on `cubic-bezier(0.23, 1, 0.32, 1)`. Derive the duration from the swap state, `calc(160ms + var(--swap-state) * 60ms)`, so each direction gets its own time."
     - Use CSS transitions, not keyframes, so leaving mid-swap reverses from the current position.
     - Clip overflow on the button so the moving labels stay inside it.
-    - Scale the button to 0.97 while pressed, over 160ms.
+    - Scale the button to 0.97 while pressed, over 160ms. Space on a focused button presses it too.
   accessibility:
     - "Only swap on hover for fine pointers, behind `@media (hover: hover) and (pointer: fine)`."
     - "`:focus-visible` shows the next label immediately, without a transition, and adds a focus ring."
     - Give the button a stable `aria-label` that describes the action and includes the visible label. Hide both visual labels with `aria-hidden="true"`.
-    - "With `prefers-reduced-motion: reduce`, crossfade the labels over 150ms linear, without sliding, blurring, or scaling on press."
+    - "With `prefers-reduced-motion: reduce`, crossfade the labels over 150ms on the same ease-out curve, without sliding, blurring, or scaling on press. A linear crossfade leaves both labels at half opacity midway."
   avoid:
     - Measuring label widths with JavaScript or animating `width`.
     - Bounce or spring easing.
@@ -26,9 +27,9 @@ prompt:
 
 Both labels sit in the same CSS Grid cell with `grid-area: 1 / 1`. A grid cell sizes to its largest item, and a label at `opacity: 0` still takes up space, so the button fits the wider label in either state and its width never changes. Nothing is measured with JavaScript.
 
-On hover, the current label slides down and fades out while the next one slides in from above. A 5px blur softens the moment they overlap. All three properties share an ease-out curve, so the swap answers the pointer right away and slows as the new label lands. Because these are transitions, leaving mid-swap reverses from wherever the labels are.
+On hover, the current label slides down and fades out while the next one slides in from above. A 5px blur softens the moment they overlap. All three properties share an ease-out curve, so the swap answers the pointer right away and slows as the new label lands. The swap takes 220ms and the return 160ms, because someone leaving the button has already moved on. Both durations come from the same `--swap-state` variable that drives the labels. Because these are transitions, leaving mid-swap reverses from wherever the labels are.
 
-Keyboard focus shows the second label at once, with a focus ring. With reduced motion, the labels crossfade without sliding or blurring. Screen readers hear one stable `aria-label` while both visual labels stay hidden from them.
+Pressing scales the button to 0.97, whether the press comes from a pointer or from Space on a focused button. Keyboard focus shows the second label at once, with a focus ring. With reduced motion, the labels crossfade on the same ease-out curve, without sliding, blurring or the press scale. A linear fade would leave both labels at half opacity halfway through. The curve brings the new label most of the way in early. Screen readers hear one stable `aria-label` while both visual labels stay hidden from them.
 
 <Implementation specimen={props.specimenId} />
 

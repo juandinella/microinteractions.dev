@@ -148,7 +148,8 @@ export const specimens: Specimen[] = [
     hint: 'Hover or focus the button',
     duration: 220,
     durationNote:
-      'Keeps the swap quick, while leaving time to follow the label change.',
+      'The swap takes 220ms, which leaves time to follow the label change. The return takes 160ms, because leaving needs no waiting. Keyboard focus swaps instantly, and reduced motion crossfades in 150ms.',
+    release: 160,
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:
