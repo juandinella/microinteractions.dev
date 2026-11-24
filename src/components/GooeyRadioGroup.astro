@@ -290,7 +290,7 @@
     position: absolute;
     z-index: 1;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
     width: 44px;
     height: 100%;
     pointer-events: none;
@@ -304,7 +304,7 @@
   .goo-blob {
     position: absolute;
     top: 17px;
-    left: 17px;
+    inset-inline-start: 17px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -317,7 +317,8 @@
     display: flex;
     height: 44px;
     align-items: center;
-    padding: 0 16px 0 44px;
+    padding-block: 0;
+    padding-inline: 44px 16px;
     border-radius: 10px;
     color: var(--goo-label);
     font-size: 14px;
@@ -354,7 +355,7 @@
   .goo-ring {
     position: absolute;
     top: 12px;
-    left: 12px;
+    inset-inline-start: 12px;
     width: 20px;
     height: 20px;
     border: 2px solid var(--goo-track);
