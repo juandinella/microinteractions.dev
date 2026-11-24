@@ -21,6 +21,9 @@ type WormDotsProps = {
 
 // The element manages the current slide, the worm, and the announcements after it upgrades.
 // It counts the slides once, so a different number of slides remounts it, back on the first.
+// Built for 2 to 9 slides: each dot takes 24px, and at 320px a tenth pushes the counter out of the
+// carousel. One slide shows on its own, without dots, and none renders nothing.
+// The carousel runs left to right in any page direction; each slide takes its own from its text.
 export function WormDots({ slides, 'aria-label': ariaLabel, className, slideClassName }: WormDotsProps) {
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
@@ -28,10 +31,23 @@ export function WormDots({ slides, 'aria-label': ariaLabel, className, slideClas
   }, []);
 
   const total = slides.length;
+  if (total === 0) return null;
+  if (total === 1) {
+    return (
+      <div className={cn('@container grid w-full', className)}>
+        <div className="flex justify-center [--wd-peek:clamp(16px,8cqi,36px)] [--wd-slide:min(100cqi-2*var(--wd-peek),280px)]">
+          <div dir="auto" className={cn('h-35 w-(--wd-slide) rounded-xl border border-border bg-card text-card-foreground', slideClassName)}>
+            {slides[0]}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <worm-dots
       key={total}
+      dir="ltr"
       className={cn(
         'group/wd @container grid w-full gap-1.5 [--wd-dot:6px] [--wd-gap:24px] [--wd-hit:40px] [--wd-pill:12px] [--wd-reach:12px] [--wd-ring:16px] pointer-coarse:[--wd-hit:44px]',
         className,
@@ -52,6 +68,7 @@ export function WormDots({ slides, 'aria-label': ariaLabel, className, slideClas
               'h-35 w-(--wd-slide) flex-none snap-center snap-always rounded-xl border border-border bg-card text-card-foreground',
               slideClassName,
             )}
+            dir="auto"
             role="group"
             aria-roledescription="slide"
             aria-label={`${index + 1} of ${total}`}

@@ -1,11 +1,11 @@
-<worm-dots class="wd" role="region" aria-roledescription="carousel" aria-label="Slides">
+<worm-dots class="wd" dir="ltr" role="region" aria-roledescription="carousel" aria-label="Slides">
   <div class="wd-track" tabindex="-1" data-track>
-    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="1 of 6" data-slide>01</div>
-    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="2 of 6" data-slide>02</div>
-    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="3 of 6" data-slide>03</div>
-    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="4 of 6" data-slide>04</div>
-    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="5 of 6" data-slide>05</div>
-    <div class="wd-slide" role="group" aria-roledescription="slide" aria-label="6 of 6" data-slide>06</div>
+    <div class="wd-slide" role="group" dir="auto" aria-roledescription="slide" aria-label="1 of 6" data-slide>01</div>
+    <div class="wd-slide" role="group" dir="auto" aria-roledescription="slide" aria-label="2 of 6" data-slide>02</div>
+    <div class="wd-slide" role="group" dir="auto" aria-roledescription="slide" aria-label="3 of 6" data-slide>03</div>
+    <div class="wd-slide" role="group" dir="auto" aria-roledescription="slide" aria-label="4 of 6" data-slide>04</div>
+    <div class="wd-slide" role="group" dir="auto" aria-roledescription="slide" aria-label="5 of 6" data-slide>05</div>
+    <div class="wd-slide" role="group" dir="auto" aria-roledescription="slide" aria-label="6 of 6" data-slide>06</div>
   </div>
   <div class="wd-pager">
     <div class="wd-strip" role="group" aria-label="Choose slide" data-strip>
@@ -64,7 +64,8 @@
   const clamp = (value: number, min = 0, max = 1) => Math.min(Math.max(value, min), max);
   const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
-  // Left to right only: in dir="rtl", scrollLeft runs negative and the mapping would need mirroring.
+  // Left to right only: in dir="rtl", scrollLeft runs negative and the mapping would need mirroring, so the
+  // markup fixes dir="ltr" on the carousel and lets each slide take its text direction from its content.
   class WormDots extends HTMLElement {
     #controller: AbortController | undefined;
 
