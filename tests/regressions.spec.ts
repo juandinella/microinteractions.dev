@@ -256,7 +256,9 @@ test.describe('plucked underline', () => {
       const read = () => getComputedStyle(path).transform;
       const pointer = (type: string) =>
         link.dispatchEvent(new PointerEvent(type, { pointerType: 'mouse', clientX: link.getBoundingClientRect().left + 20 }));
+      // Hover arms on enter and plucks on the first move.
       pointer('pointerenter');
+      pointer('pointermove');
       // By 250ms the underline has opened, so leaving starts its closing transition.
       link.querySelector('svg')!.getAnimations().forEach((opening) => opening.finish());
       const [ring] = path.getAnimations();
@@ -290,7 +292,7 @@ test.describe('plucked underline', () => {
     expect(state).toEqual({ focusVisible: true, transform: 'matrix(1, 0, 0, 0.001, 0, 0)', running: 0 });
   });
 
-  test('losing keyboard focus closes a flat underline', async ({ page }) => {
+  test('losing keyboard focus closes the underline at once', async ({ page }) => {
     await page.goto('/plucked-underline/');
     const link = page.locator('[data-stage] [data-pluck]').first();
     await link.focus();
@@ -301,7 +303,7 @@ test.describe('plucked underline', () => {
         transform: getComputedStyle(link.querySelector('path')!).transform,
       };
     });
-    expect(state).toEqual({ closing: 1, transform: 'matrix(1, 0, 0, 0.001, 0, 0)' });
+    expect(state).toEqual({ closing: 0, transform: 'none' });
   });
 
   test.describe('on touch', () => {
@@ -1409,7 +1411,7 @@ test.describe('faq panel', () => {
       buttons[1].click();
       const [next] = panel.getAnimations();
       const start = next.effect!.getKeyframes()[0].transform as string;
-      return { at, start: Number(start.match(/-?[\d.]+/)![0]), easing: next.effect!.getTiming().easing };
+      return { at, start: Number(start.match(/-?[\d.]+/)![0]), easing: (next.effect as KeyframeEffect).getKeyframes()[0].easing };
     });
     expect(Math.abs(turn.start - turn.at)).toBeLessThan(0.5);
     expect(turn.easing).toBe('cubic-bezier(0.23, 1, 0.32, 1)');
@@ -1446,7 +1448,8 @@ test.describe('faq panel', () => {
     await expect(questions.first()).toHaveAttribute('aria-expanded', 'true');
     await page.keyboard.press('Enter');
     await expect(questions.nth(1)).toHaveAttribute('aria-expanded', 'true');
-    expect(await faq.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+    // Nothing moves; only the new answer's 150ms fade runs, and the faq panel tests cover it.
+    expect(await faq.evaluate((el) => [el, el.querySelector('[data-panel]')!, ...el.querySelectorAll('[data-answer]')].flatMap((node) => node.getAnimations()).length)).toBe(0);
     expect(await offset(faq)).toBeLessThan(0.5);
   });
 
@@ -2253,5 +2256,1059 @@ test.describe('worm dots: taps, scrub and Escape', () => {
       return { atOnce, later, cancelled: second.hasAttribute('data-pressed') };
     });
     expect(state).toEqual({ atOnce: false, later: true, cancelled: false });
+  });
+});
+
+test.describe('chevron morph: gallery tap and press', () => {
+  test.use({ reducedMotion: 'no-preference' });
+
+  const demoButton = (page: Page) => page.locator('[data-stage] .morph-button').first();
+  const stemOpacity = (button: Locator) =>
+    button.locator('[data-trace-progress]').evaluate((stem) => Number(getComputedStyle(stem).opacity));
+
+  // WebKit reports a tap's click as a mouse event; only the pointerdown says it was touch.
+  const syntheticTap = (button: Locator) =>
+    button.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const at = {
+        bubbles: true, cancelable: true, composed: true,
+        clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2,
+      };
+      const pointer = { ...at, pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 };
+      element.dispatchEvent(new PointerEvent('pointerdown', pointer));
+      element.dispatchEvent(new PointerEvent('pointerup', pointer));
+      element.dispatchEvent(new MouseEvent('click', { ...at, detail: 1, button: 0 }));
+    });
+
+  const pressOutside = (page: Page) =>
+    page.locator('h1').evaluate((heading) => {
+      heading.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, cancelable: true, pointerId: 8, pointerType: 'touch', isPrimary: true, button: 0,
+      }));
+    });
+
+  test.describe('chevron morph gallery tap', () => {
+    test('a second tap keeps the arrow instead of toggling it off', async ({ page }) => {
+      await page.goto('/chevron-morph/');
+      const button = demoButton(page);
+      await syntheticTap(button);
+      await expect(button).toHaveAttribute('data-touch-active', '');
+      await syntheticTap(button);
+      await expect(button).toHaveAttribute('data-touch-active', '');
+      await expect.poll(() => stemOpacity(button)).toBe(1);
+      await pressOutside(page);
+      await expect(button).not.toHaveAttribute('data-touch-active');
+    });
+
+    test('keyboard, programmatic and mouse clicks leave the attribute alone', async ({ page }) => {
+      await page.goto('/chevron-morph/');
+      const button = demoButton(page);
+      // A touch press first, so a stale pointer type can't excuse the keyboard click.
+      await syntheticTap(button);
+      await pressOutside(page);
+      await expect(button).not.toHaveAttribute('data-touch-active');
+
+      await button.focus();
+      await page.keyboard.press('Enter');
+      await expect(button).not.toHaveAttribute('data-touch-active');
+      await page.keyboard.press('Space');
+      await expect(button).not.toHaveAttribute('data-touch-active');
+      // Assistive technologies click with detail 0.
+      await button.evaluate((element: HTMLButtonElement) => element.click());
+      await expect(button).not.toHaveAttribute('data-touch-active');
+
+      await button.click();
+      await expect(button).not.toHaveAttribute('data-touch-active');
+    });
+  });
+
+  test.describe('chevron morph real taps', () => {
+    test.use({ hasTouch: true });
+
+    test('two taps leave the arrow showing', async ({ page }) => {
+      await page.goto('/chevron-morph/');
+      const button = demoButton(page);
+      await button.tap();
+      await expect(button).toHaveAttribute('data-touch-active', '');
+      await button.tap();
+      await expect(button).toHaveAttribute('data-touch-active', '');
+    });
+  });
+
+  test('chevron morph buttons reset the tap highlight', async ({ page }) => {
+    await page.goto('/chevron-morph/');
+    const value = await demoButton(page).evaluate((element) =>
+      getComputedStyle(element).getPropertyValue('-webkit-tap-highlight-color'));
+    test.skip(value === '', 'This engine does not expose -webkit-tap-highlight-color.');
+    expect(value).toMatch(/^(?:transparent|rgba\(0, 0, 0, 0\))$/);
+  });
+
+  test('holding Space on a focused chevron button shows the press', async ({ page }) => {
+    await page.goto('/chevron-morph/');
+    const button = demoButton(page);
+    const transform = () => button.evaluate((element) => getComputedStyle(element).transform);
+    await button.focus();
+    await page.keyboard.down('Space');
+    await expect.poll(transform).toBe('matrix(0.96, 0, 0, 0.96, 0, 0)');
+    await page.keyboard.up('Space');
+    await expect.poll(transform).toBe('none');
+    await expect(button).not.toHaveAttribute('data-touch-active');
+  });
+
+  test('copied and installed chevron morph code ships the press and tap fixes', async ({ page, request }) => {
+    await page.goto('/chevron-morph/');
+    await page.locator('[data-source-format][value="css"]').check();
+    const css = page.locator('[data-source-variant="css"]');
+    await css.getByRole('tab', { name: 'CSS', exact: true }).click();
+    const cssCode = await css.getByRole('tabpanel', { name: 'CSS', exact: true }).locator('code').textContent();
+    expect(cssCode).toContain('-webkit-tap-highlight-color: transparent');
+    expect(cssCode).toContain('.morph-button:active {');
+    expect(cssCode).not.toContain(':active:not(:focus-visible)');
+
+    await page.locator('[data-source-format][value="tailwind"]').check();
+    const tailwind = page.locator('[data-source-variant="tailwind"]');
+    await tailwind.getByRole('tab', { name: 'HTML', exact: true }).click();
+    const html = await tailwind.getByRole('tabpanel', { name: 'HTML', exact: true }).locator('code').textContent();
+    expect(html).toContain('[-webkit-tap-highlight-color:transparent]');
+    expect(html).toContain('motion-safe:active:transform-[scale(0.96)]');
+    expect(html).not.toContain('not-focus-visible');
+
+    const item = await (await request.get('/r/chevron-morph.json')).json();
+    const port = item.files.map((file: { content: string }) => file.content).join('\n');
+    expect(port).toContain('[-webkit-tap-highlight-color:transparent]');
+    expect(port).toContain('motion-safe:active:transform-[scale(0.96)]');
+    expect(port).not.toMatch(/touch-active|touchActive|not-focus-visible/);
+  });
+});
+
+test.describe('faq panel: opening, repeats and reduced motion', () => {
+  test.use({ reducedMotion: 'no-preference' });
+
+  const MOVE_EASE = 'cubic-bezier(0.64, 0, 0.2, 1)';
+  const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+
+  const component = (page: Page) => page.locator('[data-stage] faq-panel');
+  const offset = (faq: Locator) => faq.evaluate((el) => {
+    const panel = el.querySelector('[data-panel]')!.getBoundingClientRect();
+    const item = el.querySelector('[aria-expanded="true"]')!.closest('[data-item]')!.getBoundingClientRect();
+    return Math.max(Math.abs(panel.top - item.top), Math.abs(panel.height - item.height));
+  });
+  const settled = (faq: Locator) =>
+    expect.poll(() => faq.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+
+  // Clicks a question and reads every timing in the click's own task, before a slow runner can let the move end.
+  const clickAndRead = (faq: Locator, index: number) => faq.evaluate((el: HTMLElement, index) => {
+    el.querySelectorAll<HTMLElement>('[data-trigger]')[index].click();
+    const panel = el.querySelector<HTMLElement>('[data-panel]')!;
+    const [move] = panel.getAnimations();
+    const effect = move.effect as KeyframeEffect;
+    const timing = (animation: Animation) => {
+      const { duration, easing } = animation.effect!.getTiming();
+      return { duration, easing };
+    };
+    const style = getComputedStyle(el);
+    return {
+      duration: effect.getTiming().duration,
+      effectEasing: effect.getTiming().easing,
+      curve: effect.getKeyframes()[0].easing,
+      card: el.getAnimations().map(timing),
+      answers: [...el.querySelectorAll('[data-answer]')].flatMap((answer) => answer.getAnimations().map(timing)),
+      newText: el.querySelectorAll('[data-answer]')[index].firstElementChild!.getAnimations().map((animation) => animation.effect!.getTiming().delay),
+      move: style.getPropertyValue('--fqp-move').trim(),
+      ease: style.getPropertyValue('--fqp-ease').trim(),
+      // The panel's opacity 60ms and 120ms in; the move stays paused afterwards.
+      opacity: [60, 120].map((t) => {
+        move.pause();
+        move.currentTime = t;
+        return Number(getComputedStyle(panel).opacity);
+      }),
+    };
+  }, index);
+
+  const finishAll = (faq: Locator) =>
+    faq.evaluate((el) => el.getAnimations({ subtree: true }).forEach((animation) => animation.finish()));
+
+  test.describe('details', () => {
+    test('holding Enter toggles the question once', async ({ page }) => {
+      await page.goto('/faq-panel/');
+      const faq = component(page);
+      const questions = faq.getByRole('button');
+      await faq.evaluate((el) => {
+        el.dataset.clicks = '0';
+        el.addEventListener('click', () => (el.dataset.clicks = String(Number(el.dataset.clicks) + 1)));
+      });
+      await questions.nth(1).focus();
+      // Every keydown after the first carries repeat: true, as holding the key does.
+      for (let i = 0; i < 5; i++) await page.keyboard.down('Enter');
+      await page.keyboard.up('Enter');
+      await expect(faq).toHaveAttribute('data-clicks', '1');
+      await expect(questions.nth(1)).toHaveAttribute('aria-expanded', 'true');
+      await expect(faq.locator('[aria-expanded="true"]')).toHaveCount(1);
+
+      // The arrows still repeat.
+      await page.keyboard.down('ArrowDown');
+      await page.keyboard.down('ArrowDown');
+      await page.keyboard.up('ArrowDown');
+      await expect(questions.nth(3)).toBeFocused();
+    });
+
+    test('the last close and the first open run 240ms on the ease-out; a move between questions stays 300ms', async ({ page }) => {
+      await page.goto('/faq-panel/');
+      const faq = component(page);
+      await settled(faq);
+
+      // Closing the last open answer.
+      const close = await clickAndRead(faq, 0);
+      expect(close.duration).toBe(240);
+      expect(close.effectEasing).toBe('linear');
+      expect(close.curve).toBe(EASE_OUT);
+      expect(close.card).toEqual([{ duration: 240, easing: EASE_OUT }]);
+      expect(close.answers).toEqual([{ duration: 240, easing: EASE_OUT }]);
+      expect([close.move, close.ease]).toEqual(['240ms', EASE_OUT]);
+      // Opacity follows the time, not the eased progress: half gone a quarter of the way in, gone at the middle,
+      // so the panel is still there while it shrinks.
+      expect(close.opacity[0]).toBeGreaterThan(0.4);
+      expect(close.opacity[0]).toBeLessThan(0.6);
+      expect(close.opacity[1]).toBeLessThan(0.01);
+      await finishAll(faq);
+      await settled(faq);
+      await expect(faq.locator('[data-panel]')).toHaveCSS('opacity', '0');
+
+      // Opening from nothing open: the new text still lands with the panel.
+      const open = await clickAndRead(faq, 2);
+      expect(open.duration).toBe(240);
+      expect(open.effectEasing).toBe('linear');
+      expect(open.curve).toBe(EASE_OUT);
+      expect(open.card).toEqual([{ duration: 240, easing: EASE_OUT }]);
+      expect(open.answers).toEqual([{ duration: 240, easing: EASE_OUT }]);
+      expect(open.newText).toEqual([30]);
+      expect([open.move, open.ease]).toEqual(['240ms', EASE_OUT]);
+      await finishAll(faq);
+      await settled(faq);
+      expect(await offset(faq)).toBeLessThan(0.5);
+
+      // Between questions, the recorded move.
+      const move = await clickAndRead(faq, 4);
+      expect(move.duration).toBe(300);
+      expect(move.curve).toBe(MOVE_EASE);
+      expect(move.card).toEqual([]);
+      expect(move.answers).toEqual([{ duration: 300, easing: MOVE_EASE }, { duration: 300, easing: MOVE_EASE }]);
+      expect(move.newText).toEqual([90]);
+      expect([move.move, move.ease]).toEqual(['300ms', MOVE_EASE]);
+      expect(move.opacity).toEqual([1, 1]);
+      await finishAll(faq);
+      await settled(faq);
+      expect(await offset(faq)).toBeLessThan(0.5);
+    });
+
+    test('a question chosen mid-move turns the chevrons on the panel\'s ease-out', async ({ page }) => {
+      await page.goto('/faq-panel/');
+      const faq = component(page);
+      const turn = await faq.evaluate((el) => {
+        const buttons = el.querySelectorAll<HTMLElement>('[data-trigger]');
+        const panel = el.querySelector('[data-panel]')!;
+        buttons[buttons.length - 1].click();
+        panel.getAnimations()[0].currentTime = 150;
+        buttons[1].click();
+        const effect = panel.getAnimations()[0].effect as KeyframeEffect;
+        const chevron = buttons[1].querySelector('svg')!;
+        return {
+          panel: effect.getKeyframes()[0].easing,
+          ease: getComputedStyle(el).getPropertyValue('--fqp-ease').trim(),
+          chevron: getComputedStyle(chevron).transitionTimingFunction,
+        };
+      });
+      expect(turn.panel).toBe(EASE_OUT);
+      expect(turn.ease).toBe(EASE_OUT);
+      expect(turn.chevron).toBe(EASE_OUT);
+      await settled(faq);
+      expect(await offset(faq)).toBeLessThan(0.5);
+    });
+
+    test('reduced motion lands the panel at once and fades the new answer in', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/faq-panel/');
+      const faq = component(page);
+      const read = await faq.evaluate((el) => {
+        el.querySelectorAll<HTMLElement>('[data-trigger]')[3].click();
+        const panel = el.querySelector('[data-panel]')!;
+        const text = el.querySelectorAll('[data-answer]')[3].firstElementChild!;
+        const panelBox = panel.getBoundingClientRect();
+        const item = el.querySelectorAll('[data-item]')[3].getBoundingClientRect();
+        // Only scripted animations count: WebKit also lists the site reset's 0.001ms CSS transitions.
+        const scripted = (node: Element) => node.getAnimations().filter((animation) => !(animation instanceof CSSTransition));
+        return {
+          panelAnimations: scripted(panel).length,
+          heights: [...el.querySelectorAll('[data-answer]')].flatMap(scripted).length,
+          card: scripted(el).length,
+          landed: Math.max(Math.abs(panelBox.top - item.top), Math.abs(panelBox.height - item.height)),
+          fades: scripted(text).map((animation) => {
+            const effect = animation.effect as KeyframeEffect;
+            const { duration, delay } = effect.getTiming();
+            return {
+              duration,
+              delay,
+              properties: effect.getKeyframes().map(({ opacity, transform, filter }) => ({ opacity, transform, filter })),
+            };
+          }),
+        };
+      });
+      expect(read.panelAnimations).toBe(0);
+      expect(read.heights).toBe(0);
+      expect(read.card).toBe(0);
+      // A frame later: in WebKit the site's reduced-motion reset leaves a 0.001ms transition that hasn't advanced
+      // within the click's own task.
+      await page.evaluate(() => new Promise(requestAnimationFrame));
+      expect(await offset(faq)).toBeLessThan(0.5);
+      expect(read.fades).toEqual([{
+        duration: 150,
+        delay: 0,
+        properties: [
+          { opacity: '0', transform: undefined, filter: undefined },
+          { opacity: '1', transform: undefined, filter: undefined },
+        ],
+      }]);
+      await settled(faq);
+      await expect(faq.getByRole('button').nth(3)).toHaveAttribute('aria-expanded', 'true');
+
+      // The next change cancels the fade in flight.
+      const cancelled = await faq.evaluate((el) => {
+        const buttons = el.querySelectorAll<HTMLElement>('[data-trigger]');
+        buttons[1].click();
+        const fade = el.querySelectorAll('[data-answer]')[1].firstElementChild!.getAnimations()[0];
+        buttons[2].click();
+        return fade.playState;
+      });
+      expect(cancelled).toBe('idle');
+
+      // Find in page still opens its answer without the fade.
+      const found = await faq.evaluate((el) => {
+        const answer = el.querySelectorAll('[data-answer]')[4];
+        answer.dispatchEvent(new Event('beforematch', { bubbles: true }));
+        return answer.firstElementChild!.getAnimations().length;
+      });
+      expect(found).toBe(0);
+    });
+
+    test('the hover fill has no transition in any version', async ({ page }) => {
+      await page.goto('/faq-panel/');
+      const faq = component(page);
+      const durations = await faq.evaluate((el) =>
+        [...el.querySelectorAll('[data-trigger]')].map((trigger) => getComputedStyle(trigger).transitionDuration));
+      for (const duration of durations) expect(duration.split(',').every((value) => parseFloat(value) === 0)).toBe(true);
+
+      for (const format of ['css', 'tailwind']) {
+        await page.locator(`[data-source-format][value="${format}"]`).check();
+        const variant = page.locator(`[data-source-variant="${format}"]`);
+        const language = format === 'css' ? 'CSS' : 'HTML';
+        await variant.getByRole('tab', { name: language, exact: true }).click();
+        const code = (await variant.getByRole('tabpanel', { name: language, exact: true }).locator('code').textContent())!;
+        expect(code).not.toContain('background-color 120ms');
+        expect(code).not.toContain('transition-[background-color]');
+      }
+    });
+  });
+});
+
+test.describe('hold to confirm: drag off, modifiers and touch', () => {
+  type Log = { confirms: string[]; moves: { state: string; pressed: boolean }[] };
+
+  // Freezes page time after load, so the 1200ms timer only runs inside `runFor`.
+  const open = async (page: Page) => {
+    const start = new Date('2026-01-01T00:00:00Z');
+    await page.clock.install({ time: start });
+    await page.goto('/hold-confirm/');
+    await page.clock.pauseAt(new Date(start.getTime() + 60_000));
+    const button = page.locator('.hold-button');
+    // Both read the button in the same task as the event: the state at confirmation, and the
+    // state right after the button's own `pointermove` handler ran.
+    await button.evaluate((button: HTMLButtonElement) => {
+      const log: Log = { confirms: [], moves: [] };
+      (window as unknown as { log: Log }).log = log;
+      button.addEventListener('holdconfirm', () => log.confirms.push(button.dataset.state!));
+      window.addEventListener('pointermove', () => log.moves.push({ state: button.dataset.state!, pressed: 'pressed' in button.dataset }));
+    });
+    const box = (await button.boundingBox())!;
+    return { button, box, center: { x: box.x + box.width / 2, y: box.y + box.height / 2 } };
+  };
+
+  const log = (page: Page) => page.evaluate(() => (window as unknown as { log: Log }).log);
+
+  test.describe('hold confirm: drag off, modifiers, touch', () => {
+    test('dragging off the button cancels the hold', async ({ page }) => {
+      const { button, box, center } = await open(page);
+      await page.mouse.move(center.x, center.y);
+      await page.mouse.down();
+      await expect(button).toHaveAttribute('data-state', 'holding');
+      await page.mouse.move(box.x + box.width + 60, center.y);
+      expect((await log(page)).moves.at(-1)).toEqual({ state: 'idle', pressed: false });
+      await page.clock.runFor(1300);
+      expect(await button.getAttribute('data-state')).toBe('idle');
+      expect((await log(page)).confirms).toEqual([]);
+      await page.mouse.up();
+      await page.clock.runFor(1300);
+      expect((await log(page)).confirms).toEqual([]);
+    });
+
+    test('dragging back on restarts from zero and confirms once', async ({ page }) => {
+      const { button, box, center } = await open(page);
+      await page.mouse.move(center.x, center.y);
+      await page.mouse.down();
+      await page.clock.runFor(800);
+      await page.mouse.move(box.x + box.width + 60, center.y);
+      expect((await log(page)).moves.at(-1)).toEqual({ state: 'idle', pressed: false });
+      await page.mouse.move(center.x, center.y);
+      expect((await log(page)).moves.at(-1)).toEqual({ state: 'holding', pressed: true });
+      // 800ms held before leaving doesn't carry over: the restarted hold needs the full 1200ms.
+      await page.clock.runFor(1100);
+      expect(await button.getAttribute('data-state')).toBe('holding');
+      await page.clock.runFor(200);
+      expect((await log(page)).confirms).toEqual(['confirmed']);
+
+      // Still held after the demo resets to idle: sliding off and back on doesn't re-arm.
+      await page.clock.runFor(1500);
+      expect(await button.getAttribute('data-state')).toBe('idle');
+      await page.mouse.move(box.x + box.width + 60, center.y);
+      await page.mouse.move(center.x, center.y);
+      expect((await log(page)).moves.at(-1)).toEqual({ state: 'idle', pressed: false });
+      await page.clock.runFor(1300);
+      await page.mouse.up();
+      expect((await log(page)).confirms).toEqual(['confirmed']);
+    });
+
+    test('scrolling the page cancels the hold', async ({ page }) => {
+      const { button, center } = await open(page);
+      await page.mouse.move(center.x, center.y);
+      await page.mouse.down();
+      await expect(button).toHaveAttribute('data-state', 'holding');
+      await page.evaluate(() => window.scrollBy({ top: 40, behavior: 'instant' }));
+      await expect(button).toHaveAttribute('data-state', 'idle');
+      await expect(button).not.toHaveAttribute('data-pressed');
+      await page.clock.runFor(1300);
+      await page.mouse.up();
+      expect((await log(page)).confirms).toEqual([]);
+    });
+
+    test('Ctrl+click is left to the browser', async ({ page }) => {
+      const { button, center } = await open(page);
+      await page.mouse.move(center.x, center.y);
+      await page.keyboard.down('Control');
+      await page.mouse.down();
+      expect(await button.getAttribute('data-state')).toBe('idle');
+      expect(await button.getAttribute('data-pressed')).toBeNull();
+      // The context menu that macOS opens for Ctrl+click isn't cancelled.
+      const prevented = await button.evaluate(
+        (button) => !button.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, ctrlKey: true })),
+      );
+      expect(prevented).toBe(false);
+      await page.clock.runFor(1300);
+      await page.mouse.up();
+      await page.keyboard.up('Control');
+      expect(await button.getAttribute('data-state')).toBe('idle');
+      expect((await log(page)).confirms).toEqual([]);
+    });
+
+    test('a vertical swipe on the button can scroll the page', async ({ page }) => {
+      await page.goto('/hold-confirm/');
+      await expect(page.locator('.hold-button')).toHaveCSS('touch-action', 'pan-y');
+    });
+  });
+});
+
+test.describe('plucked underline: intent, touch and keyboard blur', () => {
+  const links = (page: Page) => page.locator('[data-stage] [data-pluck]');
+
+  test.describe('details', () => {
+    test.beforeEach(async ({ page }) => {
+      // A paused clock: the touch's quiet timer can't release the string and the 50ms touch window can't run out
+      // between steps, however slow the runner is. CSS transitions still run on real time.
+      await page.clock.install();
+      await page.goto('/plucked-underline/');
+      await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
+    });
+
+    test('a link scrolled under a still cursor waits for the mouse to move', async ({ page }) => {
+      const link = links(page).first();
+      await link.scrollIntoViewIfNeeded();
+      // What a page scrolled under a still cursor reports: an enter and a move at the position it last saw.
+      const plucked = await link.evaluate((link) => {
+        const box = link.getBoundingClientRect();
+        const at = { pointerType: 'mouse', clientX: box.left + 12, clientY: box.top + box.height / 2 };
+        document.body.dispatchEvent(new PointerEvent('pointermove', { ...at, bubbles: true }));
+        link.dispatchEvent(new PointerEvent('pointerenter', at));
+        link.dispatchEvent(new PointerEvent('pointermove', { ...at, bubbles: true }));
+        return link.hasAttribute('data-plucked');
+      });
+      expect(plucked).toBe(false);
+
+      const box = (await link.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await expect(link).toHaveAttribute('data-plucked', '');
+      // Plucked where the real move crossed the string, not where the scrolled-in enter happened.
+      const x = await link.evaluate((link) => parseFloat(link.style.getPropertyValue('--pluck-x')));
+      expect(Math.abs(x - 50)).toBeLessThan(5);
+    });
+
+    test('a touch that turns into a scroll lets the string go', async ({ page }) => {
+      const link = links(page).first();
+      const state = await link.evaluate((link) => {
+        const box = link.getBoundingClientRect();
+        const touch = {
+          pointerType: 'touch', pointerId: 2, isPrimary: true, bubbles: true,
+          clientX: box.left + box.width / 2, clientY: box.top + box.height / 2,
+        };
+        link.dispatchEvent(new PointerEvent('pointerdown', touch));
+        const plucked = link.hasAttribute('data-plucked');
+        link.dispatchEvent(new PointerEvent('pointercancel', touch));
+        return { plucked, released: !link.hasAttribute('data-plucked') };
+      });
+      expect(state).toEqual({ plucked: true, released: true });
+      await expect(link).not.toHaveAttribute('data-ringing', '');
+    });
+
+    test('a keyboard Tab away closes the underline at once, a pointer leaving still takes 110ms', async ({ page }) => {
+      const first = links(page).first();
+      // transitionrun fires for every transition that starts, however short, so a missed read can't hide one.
+      await first.evaluate((link) => {
+        const string = link.querySelector('svg')!;
+        const runs: string[] = [];
+        (window as unknown as { runs: string[] }).runs = runs;
+        string.addEventListener('transitionrun', (event) => {
+          if (event.target === string) runs.push(getComputedStyle(string).transitionDuration);
+        });
+      });
+      const runs = () => page.evaluate(() => (window as unknown as { runs: string[] }).runs);
+
+      await first.focus();
+      expect(await first.evaluate((link) => link.matches(':focus-visible'))).toBe(true);
+      await page.keyboard.press('Tab');
+      // Wherever Tab lands (WebKit may skip links), focus has left the first link.
+      await expect(first).not.toBeFocused();
+      const state = await first.evaluate((link) => ({
+        closing: link.querySelector('svg')!.getAnimations().length,
+        transform: getComputedStyle(link.querySelector('path')!).transform,
+      }));
+      expect(state).toEqual({ closing: 0, transform: 'none' });
+
+      const box = (await first.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await expect(first).toHaveAttribute('data-plucked', '');
+      await expect.poll(runs).toHaveLength(1);
+      await page.mouse.move(0, 0);
+      // A run left by the Tab would come first.
+      await expect.poll(runs).toEqual(['0.14s', '0.11s']);
+    });
+
+    test('a mouse enter right after a touch does not pluck again', async ({ page }) => {
+      const link = links(page).first();
+      // iOS's emulated mouse events, a few pixels off so only the touch window can hold them back.
+      const emulatedMouse = (offset: number) =>
+        link.evaluate((link, offset) => {
+          const box = link.getBoundingClientRect();
+          const mouse = { pointerType: 'mouse', clientX: box.left + box.width / 2 + offset, clientY: box.top + box.height / 2 };
+          const records = new MutationObserver(() => {});
+          records.observe(link, { attributes: true, attributeFilter: ['data-plucked'] });
+          link.dispatchEvent(new PointerEvent('pointerenter', mouse));
+          link.dispatchEvent(new PointerEvent('pointermove', { ...mouse, bubbles: true }));
+          const changes = records.takeRecords().length;
+          records.disconnect();
+          return changes;
+        }, offset);
+
+      await link.evaluate((link) => {
+        const box = link.getBoundingClientRect();
+        const touch = {
+          pointerType: 'touch', pointerId: 3, isPrimary: true, bubbles: true,
+          clientX: box.left + box.width / 2, clientY: box.top + box.height / 2,
+        };
+        link.dispatchEvent(new PointerEvent('pointerdown', touch));
+        link.dispatchEvent(new PointerEvent('pointerup', touch));
+      });
+      await expect(link).toHaveAttribute('data-plucked', '');
+      await page.clock.runFor(40);
+      expect(await emulatedMouse(4)).toBe(0);
+
+      await page.clock.runFor(20);
+      expect(await emulatedMouse(8)).toBeGreaterThan(0);
+    });
+  });
+});
+
+test.describe('tab indicator: list scroll, hover and hit areas', () => {
+  // Narrow enough that the four tabs overflow the list, so choosing one can scroll it.
+  test.use({ reducedMotion: 'no-preference', viewport: { width: 360, height: 800 } });
+
+  const component = (page: Page) => page.locator('[data-stage] tab-indicator');
+
+  type Sample = { t: number; scroll: number; screenX: number; lineX: number };
+
+  const open = async (page: Page) => {
+    await page.goto('/tab-indicator/');
+    const tabIndicator = component(page);
+    await expect(tabIndicator).toHaveAttribute('data-ready', '');
+    const list = tabIndicator.locator('[data-list]');
+    await list.scrollIntoViewIfNeeded();
+    const overflow = await list.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBeGreaterThan(40);
+    return { tabIndicator, list, tabs: tabIndicator.getByRole('tab') };
+  };
+
+  // The first tab whose right edge runs past the list's visible area, and a point on the part still showing.
+  const cutOff = async (list: Locator, tabs: Locator) => {
+    const listBox = (await list.boundingBox())!;
+    const boxes = await tabs.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as DOMRect));
+    const index = boxes.findIndex((box) => box.right > listBox.x + listBox.width - 1);
+    expect(index).toBeGreaterThan(0);
+    const box = boxes[index];
+    expect(box.left).toBeLessThan(listBox.x + listBox.width - 12);
+    return { index, x: box.left + 6, y: box.top + box.height / 2 };
+  };
+
+  test.describe('details', () => {
+    test('an arrow key scrolls the list in the same task, with nothing left to smooth', async ({ page }) => {
+      const { list, tabs } = await open(page);
+      await tabs.first().focus();
+      const result = await list.evaluate(async (el: HTMLElement) => {
+        const frames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const before = el.scrollLeft;
+        // ArrowLeft on the first tab wraps to the last one, which is cut off at the right edge.
+        document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+        const sameTask = el.scrollLeft;
+        await frames();
+        const later = el.scrollLeft;
+        return { before, sameTask, later, max: el.scrollWidth - el.clientWidth };
+      });
+      await expect(tabs.last()).toHaveAttribute('aria-selected', 'true');
+      await expect(tabs.last()).toBeFocused();
+      expect(result.sameTask).toBeGreaterThan(result.before + 10);
+      expect(Math.abs(result.sameTask - result.max)).toBeLessThan(1);
+      expect(Math.abs(result.later - result.sameTask)).toBeLessThan(0.5);
+
+      const back = await list.evaluate((el: HTMLElement) => {
+        document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+        return el.scrollLeft;
+      });
+      expect(back).toBeLessThan(1);
+    });
+
+    test('with reduced motion a click scrolls the list in the same task', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const { list, tabs } = await open(page);
+      const { index } = await cutOff(list, tabs);
+      const result = await list.evaluate((el: HTMLElement, i) => {
+        const before = el.scrollLeft;
+        el.querySelectorAll<HTMLElement>('[data-tab]')[i].click();
+        return { before, after: el.scrollLeft };
+      }, index);
+      expect(result.after).toBeGreaterThan(result.before + 1);
+    });
+
+    test('a click on a cut-off tab scrolls with the line, and the line never turns back on screen', async ({ page }) => {
+      const { list, tabs } = await open(page);
+      const { index, x, y } = await cutOff(list, tabs);
+
+      // Samples every frame from the click, in the page, so no round trip falls between frames.
+      await list.evaluate((el: HTMLElement) => {
+        const line = el.querySelector<HTMLElement>('[data-line]')!;
+        const read = (t: number): Sample => ({
+          t,
+          scroll: el.scrollLeft,
+          screenX: line.getBoundingClientRect().left,
+          lineX: new DOMMatrix(getComputedStyle(line).transform).m41,
+        });
+        (window as unknown as { tbiSamples: Promise<Sample[]> }).tbiSamples = new Promise((resolve) => {
+          const samples: Sample[] = [];
+          let clicked: number | undefined;
+          el.addEventListener(
+            'click',
+            () => {
+              clicked = performance.now();
+              samples.push(read(0));
+            },
+            { capture: true, once: true },
+          );
+          const begin = performance.now();
+          const frame = () => {
+            const now = performance.now();
+            if (clicked !== undefined) samples.push(read(now - clicked));
+            if ((clicked !== undefined && now - clicked > 700) || now - begin > 8000) resolve(samples);
+            else requestAnimationFrame(frame);
+          };
+          requestAnimationFrame(frame);
+        });
+      });
+      await page.mouse.click(x, y);
+      const samples = await page.evaluate(() => (window as unknown as { tbiSamples: Promise<Sample[]> }).tbiSamples);
+      await expect(tabs.nth(index)).toHaveAttribute('aria-selected', 'true');
+
+      expect(samples.length).toBeGreaterThan(10);
+      const first = samples[0];
+      const last = samples[samples.length - 1];
+      expect(last.scroll).toBeGreaterThan(first.scroll + 10);
+
+      // Not a jump: well after the first frame the list is still on its way...
+      const midway = samples.filter((s) => s.t >= 60 && s.t <= 110);
+      expect(midway.length).toBeGreaterThan(0);
+      for (const s of midway) expect(last.scroll - s.scroll).toBeGreaterThan(Math.max(0.5, 0.02 * (last.scroll - first.scroll)));
+      // ...and it has arrived soon after the line's 250ms.
+      for (const s of samples.filter((s) => s.t >= 450)) expect(Math.abs(s.scroll - last.scroll)).toBeLessThan(1);
+
+      // The list covers the same share of its trip as the line, at most one frame later: the scroll is written in
+      // requestAnimationFrame, after the line's transition has already been sampled for that frame.
+      const travel = last.lineX - first.lineX;
+      const scrolled = last.scroll - first.scroll;
+      expect(travel).toBeGreaterThan(scrolled);
+      const share = samples.map((s) => ({ t: s.t, line: (s.lineX - first.lineX) / travel, scroll: (s.scroll - first.scroll) / scrolled }));
+      for (let i = 1; i < share.length; i++) {
+        expect(Math.abs(share[i].scroll - share[i - 1].line), `at ${Math.round(share[i].t)}ms`).toBeLessThan(0.08);
+      }
+      // On screen the line never runs past where it ends up, then drifts back.
+      for (const s of samples) expect(s.screenX, `at ${Math.round(s.t)}ms`).toBeLessThanOrEqual(last.screenX + 1);
+
+      // On screen the line only heads right, toward the new tab.
+      for (let i = 1; i < samples.length; i++) {
+        expect(samples[i].screenX - samples[i - 1].screenX, `at ${Math.round(samples[i].t)}ms`).toBeGreaterThan(-1);
+      }
+    });
+
+    test('tabs change color and background at once', async ({ page }) => {
+      const { tabs } = await open(page);
+      const durations = await tabs.evaluateAll((els) =>
+        els.flatMap((el) => getComputedStyle(el).transitionDuration.split(',').map((d) => parseFloat(d))),
+      );
+      expect(durations.every((d) => d === 0)).toBe(true);
+    });
+
+    test('neighboring hit areas leave no dead strip between tabs', async ({ page }) => {
+      const { tabs } = await open(page);
+      const result = await tabs.evaluateAll((els) => {
+        const misses: number[] = [];
+        let checked = 0;
+        const list = els[0].closest('[data-list]')!.getBoundingClientRect();
+        for (let i = 0; i < els.length - 1; i++) {
+          const a = els[i].getBoundingClientRect();
+          const b = els[i + 1].getBoundingClientRect();
+          // Only gaps the list shows clear of its edge fade; it cuts the later tabs off.
+          if (b.left + 2 > list.right - 32) continue;
+          checked++;
+          for (const y of [a.top + a.height / 2, a.top - 3, a.bottom + 3]) {
+            for (let x = a.right - 1; x <= b.left + 1; x += 0.25) {
+              const hit = document.elementFromPoint(x, y)?.closest('[data-tab]');
+              if (hit !== els[i] && hit !== els[i + 1]) misses.push(x);
+            }
+          }
+        }
+        return { misses, checked, gap: els[1].getBoundingClientRect().left - els[0].getBoundingClientRect().right };
+      });
+      expect(result.checked).toBeGreaterThan(0);
+      expect(result.gap).toBeGreaterThan(1);
+      expect(result.misses).toEqual([]);
+    });
+
+    test('a scroll under a still cursor lights no tab until the mouse moves', async ({ page }) => {
+      const { tabIndicator, tabs } = await open(page);
+      const box = (await tabs.nth(1).boundingBox())!;
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x - 4, y);
+      await page.mouse.move(x, y);
+      const transparent = 'rgba(0, 0, 0, 0)';
+      await expect(tabs.nth(1)).not.toHaveCSS('background-color', transparent);
+
+      await tabs.first().focus();
+      await page.keyboard.press('End');
+      await expect(tabIndicator).toHaveAttribute('data-scrolling', '');
+      const backgrounds = () => tabs.evaluateAll((els) => els.map((el) => getComputedStyle(el).backgroundColor));
+      expect(await backgrounds()).toEqual(Array(await tabs.count()).fill(transparent));
+
+      await page.mouse.move(x + 3, y);
+      await expect(tabIndicator).not.toHaveAttribute('data-scrolling');
+      const under = await page.evaluate(({ px, py }) => {
+        const tab = document.elementFromPoint(px, py)?.closest('[data-tab]');
+        return tab ? getComputedStyle(tab).backgroundColor : null;
+      }, { px: x + 3, py: y });
+      expect(under).not.toBeNull();
+      expect(under).not.toBe(transparent);
+    });
+  });
+});
+
+test.describe('text swap: timing, taps and press', () => {
+  test.use({ reducedMotion: 'no-preference' });
+
+  const demoButton = (page: Page) => page.locator('[data-stage] .swap').first();
+  const layerTiming = (button: Locator) =>
+    button.locator('.swap-layer').evaluateAll((layers) =>
+      layers.map((layer) => {
+        const style = getComputedStyle(layer);
+        return { duration: style.transitionDuration, easing: style.transitionTimingFunction };
+      }),
+    );
+  const scaleX = (button: Locator) =>
+    button.evaluate((element) => {
+      const transform = getComputedStyle(element).transform;
+      return transform === 'none' ? 1 : new DOMMatrix(transform).a;
+    });
+  const nextOpacity = (button: Locator) =>
+    button.locator('.swap-next').evaluate((label) => Number(getComputedStyle(label).opacity));
+
+  // WebKit reports a tap's click as a mouse event; only the pointerdown says it was touch.
+  const syntheticTap = (button: Locator) =>
+    button.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const at = {
+        bubbles: true, cancelable: true, composed: true,
+        clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2,
+      };
+      const pointer = { ...at, pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 };
+      element.dispatchEvent(new PointerEvent('pointerdown', pointer));
+      element.dispatchEvent(new PointerEvent('pointerup', pointer));
+      element.dispatchEvent(new MouseEvent('click', { ...at, detail: 1, button: 0 }));
+    });
+
+  // A touch that starts a scroll sends pointerdown but no click.
+  const touchOutside = (page: Page) =>
+    page.locator('h1').evaluate((heading) => {
+      heading.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, cancelable: true, pointerId: 8, pointerType: 'touch', isPrimary: true, button: 0,
+      }));
+    });
+
+  const tapOutside = (page: Page) =>
+    page.locator('h1').evaluate((heading) => {
+      heading.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1, button: 0 }));
+    });
+
+  test.describe('text swap', () => {
+    test('the swap runs 220ms in and 160ms back, and focus stays instant', async ({ page }) => {
+      await page.goto('/text-swap/');
+      const button = demoButton(page);
+      await page.mouse.move(0, 0);
+      expect((await layerTiming(button)).map(({ duration }) => duration)).toEqual(['0.16s', '0.16s']);
+
+      await button.hover();
+      await expect.poll(async () => (await layerTiming(button)).map(({ duration }) => duration)).toEqual(['0.22s', '0.22s']);
+      await expect.poll(() => nextOpacity(button)).toBe(1);
+
+      await page.mouse.move(0, 0);
+      await expect.poll(async () => (await layerTiming(button)).map(({ duration }) => duration)).toEqual(['0.16s', '0.16s']);
+
+      await button.focus();
+      expect((await layerTiming(button)).map(({ duration }) => duration)).toEqual(['0s', '0s']);
+    });
+
+    test('a second tap keeps the label, a scroll keeps it, a tap outside clears it', async ({ page }) => {
+      await page.goto('/text-swap/');
+      const button = demoButton(page);
+      await syntheticTap(button);
+      await expect(button).toHaveAttribute('data-touch-active', '');
+      await syntheticTap(button);
+      await expect(button).toHaveAttribute('data-touch-active', '');
+      await expect.poll(() => nextOpacity(button)).toBe(1);
+
+      await touchOutside(page);
+      await expect(button).toHaveAttribute('data-touch-active', '');
+      await tapOutside(page);
+      await expect(button).not.toHaveAttribute('data-touch-active');
+    });
+
+    test('keyboard, programmatic and mouse clicks leave the attribute alone', async ({ page }) => {
+      await page.goto('/text-swap/');
+      const button = demoButton(page);
+      // A touch press first, so a stale pointer type can't excuse the keyboard click.
+      await syntheticTap(button);
+      await tapOutside(page);
+      await expect(button).not.toHaveAttribute('data-touch-active');
+
+      await button.focus();
+      await page.keyboard.press('Enter');
+      await expect(button).not.toHaveAttribute('data-touch-active');
+      await page.keyboard.press('Space');
+      await expect(button).not.toHaveAttribute('data-touch-active');
+      // Assistive technologies click with detail 0.
+      await button.evaluate((element: HTMLButtonElement) => element.click());
+      await expect(button).not.toHaveAttribute('data-touch-active');
+
+      await button.click();
+      await expect(button).not.toHaveAttribute('data-touch-active');
+    });
+
+    test('holding Space on a focused button presses it', async ({ page }) => {
+      await page.goto('/text-swap/');
+      const button = demoButton(page);
+      await button.focus();
+      expect(await button.evaluate((element) => element.matches(':focus-visible'))).toBe(true);
+      await page.keyboard.down('Space');
+      await expect
+        .poll(() => scaleX(button))
+        .toBeCloseTo(0.97, 3);
+      await page.keyboard.up('Space');
+      await expect
+        .poll(() => scaleX(button))
+        .toBe(1);
+    });
+
+    test('reduced motion crossfades on the ease-out curve without the press', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/text-swap/');
+      const button = demoButton(page);
+      await button.hover();
+      for (const { duration, easing } of await layerTiming(button)) {
+        expect(duration).toBe('0.15s');
+        expect(easing).not.toBe('linear');
+        expect(easing).toBe('cubic-bezier(0.23, 1, 0.32, 1)');
+      }
+      await expect.poll(() => nextOpacity(button)).toBe(1);
+
+      await button.focus();
+      await page.keyboard.down('Space');
+      expect(await button.evaluate((element) => getComputedStyle(element).transform)).toBe('none');
+      await page.keyboard.up('Space');
+    });
+  });
+});
+
+test.describe('tick rail: clicks, intent and the current tick', () => {
+  test.describe('details', () => {
+    const component = (page: Page) => page.locator('[data-stage] tick-rail');
+    const lengths = (rail: Locator) =>
+      rail.evaluate((el) => [...el.querySelectorAll('[data-line]')].map((line) => Math.round(line.getBoundingClientRect().width)));
+
+    // Synthetic mouse moves on the rail, timed in the page so a slow runner can't stretch the gaps between them. The chain
+    // of 20ms timers always runs ahead of the card's 80ms one, since timers fire in the order they come due.
+    // Returns how many moves had been sent when the card opened, or -1, and when it opened.
+    const sweep = (rail: Locator, direction: 'across' | 'down') =>
+      rail.evaluate(
+        (el, direction) =>
+          new Promise<{ movesBeforeOpen: number; openedAt: number }>((resolve) => {
+            const card = el.querySelector('[data-card]')!;
+            const nav = el.querySelector('[data-rail]')!;
+            const box = nav.getBoundingClientRect();
+            const first = el.querySelectorAll('[data-tick]')[direction === 'across' ? 3 : 0].getBoundingClientRect();
+            let x = direction === 'across' ? box.left + 2 : first.left + 20;
+            let y = direction === 'across' ? first.top + first.height / 2 : first.top + 2;
+            const total = direction === 'across' ? Math.floor((box.width - 4) / 4) : 12;
+            let moves = 0;
+            let movesBeforeOpen = -1;
+            let openedAt = -1;
+            const start = performance.now();
+            const observer = new MutationObserver(() => {
+              if (movesBeforeOpen >= 0 || !card.hasAttribute('data-showing')) return;
+              movesBeforeOpen = moves;
+              openedAt = performance.now() - start;
+            });
+            observer.observe(card, { attributes: true, attributeFilter: ['data-showing'] });
+            const step = () => {
+              nav.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', clientX: x, clientY: y, bubbles: true }));
+              moves++;
+              if (direction === 'across') x += 4;
+              else y += 6;
+              if (moves < total) return void setTimeout(step, 20);
+              // Crossing ends by leaving the rail, which drops the pending open.
+              if (direction === 'across') nav.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+              setTimeout(() => {
+                observer.disconnect();
+                resolve({ movesBeforeOpen, openedAt });
+              }, 200);
+            };
+            step();
+          }),
+        direction,
+      );
+
+    test('an arrow key changes the lit tick’s color at once', async ({ page }) => {
+      await page.goto('/tick-rail/');
+      const rail = component(page);
+      const ticks = rail.getByRole('link');
+      await ticks.first().focus();
+      await expect(ticks.first()).toHaveAttribute('data-lit', '');
+      await page.keyboard.press('ArrowDown');
+      await expect(ticks.nth(1)).toBeFocused();
+      const state = await rail.evaluate((el) => {
+        const all = [...el.querySelectorAll<HTMLElement>('[data-tick]')];
+        return {
+          running: all.reduce((sum, tick) => sum + tick.getAnimations().length, 0),
+          lit: getComputedStyle(all[1]).color,
+          rest: getComputedStyle(all[2]).color,
+        };
+      });
+      expect(state.running).toBe(0);
+      expect(state.lit).not.toBe(state.rest);
+    });
+
+    test('a mouse click on a tick or on the card closes the card, and the next tick reopens it', async ({ page }) => {
+      await page.goto('/tick-rail/');
+      const rail = component(page);
+      const card = rail.locator('[data-card]');
+      const ticks = rail.getByRole('link');
+
+      const second = (await ticks.nth(2).boundingBox())!;
+      await page.mouse.move(second.x + 20, second.y + second.height / 2);
+      await expect(card).toHaveAttribute('data-showing', '');
+      await page.mouse.down();
+      await page.mouse.up();
+      await expect(ticks.nth(2)).toHaveAttribute('aria-current', 'location');
+      await expect(card).not.toHaveAttribute('data-showing');
+
+      // Moving inside the clicked row keeps it closed; another row brings it back.
+      await page.mouse.move(second.x + 24, second.y + second.height / 2 + 1);
+      await expect(card).not.toHaveAttribute('data-showing');
+      const fifth = (await ticks.nth(5).boundingBox())!;
+      await page.mouse.move(fifth.x + 20, fifth.y + fifth.height / 2);
+      await expect(card).toHaveAttribute('data-showing', '');
+      await expect(rail.locator('[data-card-box] [data-face]:not([data-leaving]) [data-face-title]')).toHaveText('Touch');
+
+      await rail.locator('[data-card-box]').click();
+      await expect(ticks.nth(5)).toHaveAttribute('aria-current', 'location');
+      await expect(card).not.toHaveAttribute('data-showing');
+    });
+
+    test('a pointer crossing the rail sideways opens no card, and one moving down opens it after 80ms', async ({ page }) => {
+      await page.goto('/tick-rail/');
+      const rail = component(page);
+
+      const across = await sweep(rail, 'across');
+      expect(across.movesBeforeOpen).toBe(-1);
+
+      const down = await sweep(rail, 'down');
+      expect(down.openedAt).toBeGreaterThanOrEqual(70);
+      // Vertical moves don't restart the wait, so it opens while they're still coming.
+      expect(down.movesBeforeOpen).toBeGreaterThan(0);
+      expect(down.movesBeforeOpen).toBeLessThan(12);
+    });
+
+    test('the current tick stays at 16px while the pointer is elsewhere on the rail', async ({ page }) => {
+      // Without transitions, each length is read as soon as the pointer moves.
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/tick-rail/');
+      const rail = component(page);
+      const ticks = rail.getByRole('link');
+      await expect(ticks.first()).toHaveAttribute('aria-current', 'location');
+
+      const far = (await ticks.nth(6).boundingBox())!;
+      await page.mouse.move(far.x + 20, far.y + far.height / 2);
+      const seen = await lengths(rail);
+      expect(seen[0]).toBeGreaterThanOrEqual(16);
+      expect(seen[3]).toBe(8);
+      expect(seen[6]).toBeGreaterThan(22);
+    });
+
+    test('Enter on a tick jumps the demo to its section instead of scrolling there', async ({ page }) => {
+      await page.goto('/tick-rail/');
+      const rail = component(page);
+      const ticks = rail.getByRole('link');
+      const scroller = rail.locator('[data-scroll]');
+      await ticks.nth(3).focus();
+      await page.keyboard.press('Enter');
+      await expect(rail.locator('#tkr-theming')).toBeFocused();
+      const right = await scroller.evaluate((el) => el.scrollTop);
+      await page.waitForTimeout(400);
+      expect(right).toBeGreaterThan(0);
+      expect(await scroller.evaluate((el) => el.scrollTop)).toBe(right);
+      const gap = await rail.evaluate(
+        (el) => el.querySelector('#tkr-theming')!.getBoundingClientRect().top - el.querySelector('[data-scroll]')!.getBoundingClientRect().top,
+      );
+      expect(Math.abs(gap)).toBeLessThan(2);
+    });
   });
 });
