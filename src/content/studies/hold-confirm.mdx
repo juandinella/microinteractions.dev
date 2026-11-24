@@ -12,7 +12,11 @@ prompt:
     - "Set the timer and the CSS fill duration from one constant so they cannot drift apart."
     - "When the hold starts, swap the idle label for a waiting label. Stack both in one CSS Grid cell so the button keeps the width of the wider label."
     - "On confirmation, replace the waiting label with a checkmark and a confirmation label. The checkmark shows completion without relying on a color change."
-    - "Call `setPointerCapture()` on press so the button still receives the release outside its bounds. Cancel on `lostpointercapture`, which fires after both `pointerup` and `pointercancel`. Set `touch-action: none` so small finger movements do not turn the hold into a scroll."
+    - "Call `setPointerCapture()` on press so the button still receives the release outside its bounds. Cancel on `lostpointercapture`, which fires after both `pointerup` and `pointercancel`."
+    - "Capture alone would confirm wherever the pointer ends up. On `pointermove`, hit-test the contact area (the button's rect grown by half of `event.width` and `event.height`): leaving it stops the timer, drains the fill, and announces the cancellation while the press stays alive; coming back restarts the hold from zero. After a confirmation, the same press never re-arms, so it can't confirm twice."
+    - "While a pointer hold is active, listen for `scroll` on the document in the capture phase and cancel when an ancestor of the button scrolls."
+    - "Set `touch-action: pan-y`, so a vertical swipe that starts on the button still scrolls the page. The browser fires `pointercancel` when the pan begins, which cancels the hold."
+    - "Ignore presses with Ctrl, Meta, or Alt, matching the keyboard guard. On macOS, Ctrl+click is a right-click and must open the context menu."
     - "Also cancel when the button or the window loses focus, when the tab becomes hidden, and on Escape. Consume Escape only during a hold, so a second press still closes a surrounding dialog."
     - "In the active state, scale only the background layers to 0.98 over 140ms. The labels keep their size, so releasing does not shift the text."
     - "Dispatch one bubbling `holdconfirm` event after a completed hold or an accepted dialog. Plain clicks and cancelled holds never dispatch it. Run the real action from that event, and ignore new presses until it succeeds or fails."
@@ -26,11 +30,12 @@ prompt:
     - "Announce results in one live region: Confirmed, or Cancelled after a hold longer than 300ms. Brief taps stay silent."
     - "Some assistive technologies click without a sustained key or pointer press. Treat a `click` with `event.detail === 0` as that case and open a `<dialog>` with `showModal()`, with focus on Cancel. Accepting reaches the same confirmed state and event."
     - "Prevent the native click from Space and Enter, and always prevent Space on `keyup`, so neither key opens the dialog by accident."
-    - "Keyboard input and `prefers-reduced-motion: reduce` keep the linear fill but skip the active-state scale, the confirmation transition, and the animated release."
+    - "Keyboard input and `prefers-reduced-motion: reduce` keep the linear fill but skip the active-state scale, the confirmation transition, and the animated release. A global reduced-motion reset that forces `transition-duration` must exempt `[data-hold-progress]`, or the fill jumps to full on press."
     - "In forced-colors mode, use system colors for the fill and its label, and outline the button so its boundary stays visible."
   avoid:
     - "Easing the fill."
     - "`window.confirm()` as the alternative. Sandboxed iframes block it without showing anything."
+    - "`touch-action: none` on the button. A scroll that starts on it would be blocked."
 ---
 
 ## The fill measures time
@@ -43,11 +48,13 @@ The fill is a layer with its own copy of the label in a contrasting color, revea
 
 ## Release to cancel
 
-Letting go early cancels the timer and retracts the fill in 180ms. A new press starts from zero, even mid-retraction. The hold also cancels when the button or window loses focus, the tab is hidden, the browser cancels the pointer, or the user presses Escape.
+Letting go early cancels the timer and retracts the fill in 180ms. A new press starts from zero, even mid-retraction. The hold also cancels when the button or window loses focus, the tab is hidden, the page scrolls, the browser cancels the pointer, or the user presses Escape.
 
-Pointer capture keeps the release on the button when the finger or cursor drifts outside it. `touch-action: none` stops small finger movements from turning the hold into a scroll, so scrolling has to start outside the button.
+Dragging off the button is the other way to back out. Pointer capture keeps the release on the button wherever the pointer goes, so each `pointermove` checks whether the contact area still overlaps the button, grown by half the finger's width and height so a fingertip on the edge still counts. Leaving drains the fill and cancels the timer. Coming back restarts the hold from zero, and a press that has already confirmed never re-arms.
 
-Space and Enter hold for the same duration, and key repeat doesn't restart the timer. Keyboard holds and reduced motion keep the linear fill, since it carries the information, and drop the press scale and the animated reset.
+The button sets `touch-action: pan-y`, so a vertical swipe that starts on it still scrolls the page. The browser cancels the pointer as the pan begins, and the hold with it. Presses with Ctrl, Meta, or Alt are left to the browser: on macOS, Ctrl+click opens the context menu.
+
+Space and Enter hold for the same duration, and key repeat doesn't restart the timer. Keyboard holds and reduced motion keep the linear fill, since it carries the information, and drop the press scale and the animated reset. If your site has a reduced-motion reset that forces `transition-duration` on every element, exempt `[data-hold-progress]`, or the fill jumps to full the moment the press starts.
 
 The accessible name stays fixed, and `aria-describedby` explains the hold. A live region announces the confirmation, or a cancellation after more than 300ms of holding. Brief taps stay silent.
 

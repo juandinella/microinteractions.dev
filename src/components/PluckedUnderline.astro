@@ -84,6 +84,10 @@
   const MS_PER_PX = 13;
   const MIN_MS = 400;
   const MAX_MS = 1200;
+  // iOS follows every tap with emulated mouse events, pointerenter included, so mouse input this soon after a
+  // touch is ignored. Shared by every underline: the emulated events can land on any of them.
+  const TOUCH_GRACE_MS = 50;
+  let touchedAt = -Infinity;
 
   class PluckedUnderline extends HTMLElement {
     #controller: AbortController | undefined;
@@ -95,6 +99,13 @@
       const string = link.querySelector('svg')!;
       const path = string.querySelector('path')!;
       let quiet: ReturnType<typeof setTimeout> | undefined;
+      // A mouse that entered the link but hasn't moved over it yet.
+      let armed = false;
+      let keyboardFocus = false;
+      // Where the last pointer event on the page happened. Content scrolled under a still cursor fires pointerenter
+      // and pointermove at the same position; a changed position counts as movement because some engines report
+      // no movementX for synthesized moves.
+      let last: { x: number; y: number } | undefined;
 
       const resize = new ResizeObserver(() => {
         const width = string.getBoundingClientRect().width;
@@ -141,11 +152,32 @@
         }, { signal });
       }
 
+      const touchedRecently = () => performance.now() - touchedAt < TOUCH_GRACE_MS;
+      const moved = (event: PointerEvent) =>
+        event.movementX !== 0 ||
+        event.movementY !== 0 ||
+        !last ||
+        last.x !== event.clientX ||
+        last.y !== event.clientY;
+      const remember = (event: PointerEvent) => (last = { x: event.clientX, y: event.clientY });
+      document.addEventListener('pointermove', remember, { signal, passive: true });
+      document.addEventListener('pointerdown', remember, { signal, passive: true });
+
+      // Entering only arms the pluck; the first move that really moved plucks, at that move's x. A page scrolled
+      // under a still cursor enters links too, and a string shouldn't ring for a hand that never moved.
       link.addEventListener('pointerenter', (event) => {
-        if (event.pointerType === 'mouse') pluck(event.clientX);
+        if (event.pointerType === 'mouse' && !touchedRecently()) armed = true;
       }, { signal });
+      link.addEventListener('pointermove', (event) => {
+        if (!armed || event.pointerType !== 'mouse' || touchedRecently() || !moved(event)) return;
+        armed = false;
+        pluck(event.clientX);
+      }, { signal });
+      // Releasing a string that was never plucked does nothing.
       link.addEventListener('pointerleave', (event) => {
-        if (event.pointerType === 'mouse') release();
+        if (event.pointerType !== 'mouse') return;
+        armed = false;
+        release();
       }, { signal });
       // Touch has no hover: a tap plucks, and the underline closes after the string rings out.
       link.addEventListener('pointerdown', (event) => {
@@ -154,6 +186,33 @@
         clearTimeout(quiet);
         const ms = parseFloat(link.style.getPropertyValue('--pluck-duration')) || MAX_MS;
         quiet = setTimeout(release, ms + 400);
+      }, { signal });
+      link.addEventListener('pointerup', (event) => {
+        if (event.pointerType !== 'mouse') touchedAt = performance.now();
+      }, { signal });
+      // A touch that turns into a scroll cancels the pointer: let the string go, as a mouse leaving would.
+      link.addEventListener('pointercancel', (event) => {
+        if (event.pointerType === 'mouse') return;
+        touchedAt = performance.now();
+        clearTimeout(quiet);
+        release();
+      }, { signal });
+
+      // Keyboard focus shows the flat line at once, so leaving it closes at once too. A 110ms close would retract
+      // toward wherever the last pluck happened, which has nothing to do with the key that moved focus.
+      link.addEventListener('focus', () => {
+        keyboardFocus = link.matches(':focus-visible');
+      }, { signal });
+      link.addEventListener('blur', () => {
+        const fromKeyboard = keyboardFocus;
+        keyboardFocus = false;
+        if (!fromKeyboard || link.hasAttribute('data-plucked')) return;
+        string.style.transition = path.style.transition = 'none';
+        // Focus may have cut a ring short, which leaves data-ringing behind; settle() clears it while nothing moves.
+        settle();
+        void getComputedStyle(string).clipPath;
+        void getComputedStyle(path).transform;
+        string.style.transition = path.style.transition = '';
       }, { signal });
 
       signal.addEventListener('abort', () => {
@@ -253,8 +312,6 @@
     vector-effect: non-scaling-stroke;
     transform-box: view-box;
     transform-origin: 50% 50%;
-    /* Restore the bend only once the underline has closed, such as after keyboard focus leaves. */
-    transition: transform 0s var(--pluck-close);
   }
 
   /* The -1px sides keep the round caps. */
@@ -266,7 +323,7 @@
   /* Flattening the bend with scaleY keeps the path data fixed; scaleY(0) would leave nothing to stroke. */
   .pluck-link:is([data-ringing], [data-inspect]) .pluck-string path {
     transform: scaleY(0.001);
-    transition: transform var(--pluck-duration) var(--pluck-ease) 0s;
+    transition: transform var(--pluck-duration) var(--pluck-ease);
   }
 
   .pluck-link:focus-visible .pluck-string {

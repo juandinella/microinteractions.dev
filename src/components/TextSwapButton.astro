@@ -7,15 +7,22 @@
 
 <script>
   document.querySelectorAll<HTMLButtonElement>('.swap').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (!matchMedia('(hover: hover) and (pointer: fine)').matches) {
-        button.toggleAttribute('data-touch-active');
+    // WebKit reports a tap's click as pointerType "mouse", so the device comes from pointerdown.
+    let pointerType = 'mouse';
+    button.addEventListener('pointerdown', (event) => {
+      pointerType = event.pointerType;
+    });
+    button.addEventListener('click', (event) => {
+      // detail is 0 for Enter, Space and key repeat, which focus already reveals.
+      if (event.detail > 0 && pointerType !== 'mouse') {
+        button.setAttribute('data-touch-active', '');
       }
     });
     button.addEventListener('blur', () =>
       button.removeAttribute('data-touch-active'),
     );
-    document.addEventListener('pointerdown', (event) => {
+    // A click, unlike pointerdown, doesn't fire when a touch starts a scroll.
+    document.addEventListener('click', (event) => {
       if (!button.contains(event.target as Node))
         button.removeAttribute('data-touch-active');
     });
@@ -69,7 +76,8 @@
     grid-area: 1 / 1;
     text-align: center;
     transition-property: opacity, transform, filter;
-    transition-duration: 220ms;
+    /* 220ms toward the next label, 160ms back. */
+    transition-duration: calc(160ms + var(--swap-state) * 60ms);
     transition-timing-function: var(--swap-ease);
   }
 
@@ -96,7 +104,7 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .swap:active:not(:focus-visible) {
+    .swap:active {
       transform: scale(0.97);
     }
   }
@@ -105,7 +113,7 @@
     .swap-layer {
       transform: none;
       filter: none;
-      transition: opacity 150ms linear;
+      transition: opacity 150ms var(--swap-ease);
     }
   }
 </style>

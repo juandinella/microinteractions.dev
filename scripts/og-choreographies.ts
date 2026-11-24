@@ -252,8 +252,11 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
       await d.wait(350);
       await d.move(tick(3), 700);
       await d.wait(300);
+      // A click closes the card over the section it scrolled to; moving to another tick brings it back.
       await d.click(tick(3));
-      await d.wait(800);
+      await d.wait(500);
+      await d.move(tick(5), 450);
+      await d.wait(500);
       // Back to the top, so the clip ends where it started.
       await d.click(tick(0));
       await d.wait(700);

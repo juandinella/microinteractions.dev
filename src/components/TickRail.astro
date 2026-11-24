@@ -104,10 +104,17 @@
   const SHIFT = 4;
   const BLUR = 3;
   // Crossing the rail on the way somewhere else shouldn't flash a card, and leaving it for a moment shouldn't close it.
+  // The open waits for the pointer to stop moving sideways: one crossing the rail keeps moving across it, while
+  // one reading it moves down. Sideways means at least this many pixels between two moves.
   const OPEN_DELAY = 80;
+  const SIDEWAYS = 2;
   const CLOSE_DELAY = 120;
-  // A card closed this recently reopens without the delay.
+  // A card closed this recently reopens without the delay. Within its fade-out, which matches the CSS, it turns back
+  // and travels to the new tick; after that, it appears at once.
   const WARM = 400;
+  const FADE_OUT = 120;
+  // iOS follows a tap with mouse events at the same spot; mouse events this soon after a touch ends are those.
+  const TOUCH_ECHO = 50;
   // The section that counts as current is the last one whose top has passed this fraction of the view.
   const READ_LINE = 0.3;
   // A scroll the script started counts as finished once no scroll event has come for this long.
@@ -154,8 +161,8 @@
       }));
 
       // What lights a tick, in order of priority: the mouse over the rail, the mouse over the card (which keeps the
-      // card's tick lit, so the card can be hovered), a tap on touch, and keyboard focus. Escape sets `dismissed`,
-      // which hides the card until another tick is lit.
+      // card's tick lit, so the card can be hovered), a tap on touch, and keyboard focus. Escape and a plain click set
+      // `dismissed`, which hides the card until another tick is lit.
       let hovered: number | null = null;
       // Pointer position from the first tick's top, in the component's own pixels.
       let pointer: number | null = null;
@@ -165,10 +172,18 @@
       let pressedWith: string | null = null;
       let dismissed = false;
       let shown: number | null = null;
+      // The tick the card showed last, and whether it closed without its fade, for a reopen soon after.
+      let lastShown: number | null = null;
+      let closedInstantly = false;
       let current = Math.max(0, ticks.findIndex((tick) => tick.hasAttribute('aria-current')));
       let closedAt = -Infinity;
       let openTimer = 0;
       let closeTimer = 0;
+      // The pointer's last horizontal position over the rail, in screen pixels.
+      let lastX: number | null = null;
+      let touchEndedAt = -Infinity;
+      // Set while the card hands its click to a tick: that click has no pointer type, but it came from a pointer.
+      let viaCard = false;
 
       // Sections get focused after a click; only the ones without a tabindex get one, and lose it on disconnect.
       const tabindexAdded = targets.filter((section) => !section.hasAttribute('tabindex'));
@@ -204,10 +219,9 @@
         // The pointer's row center, as a fractional index; any other lit tick is its own center.
         const center = hovered !== null && pointer !== null ? pointer / size - 0.5 : anchor();
         ticks.forEach((tick, i) => {
-          const scale =
-            center === null
-              ? i === current ? currentScale : restScale
-              : restScale + (1 - restScale) * weight(Math.abs(i - center));
+          const falloff = center === null ? restScale : restScale + (1 - restScale) * weight(Math.abs(i - center));
+          // The current tick never gets shorter than its own length, so it isn't marked by color alone.
+          const scale = i === current ? Math.max(falloff, currentScale) : falloff;
           bars[i].style.transform = `scaleX(${scale})`;
           tick.toggleAttribute('data-lit', i === lit());
         });
@@ -286,14 +300,16 @@
       };
 
       // Keyboard changes and reduced motion land at once. A card the pointer opens appears on its tick and fades in;
-      // from there it travels between ticks.
+      // from there it travels between ticks. A card still fading out counts as open: it turns back from where its fade
+      // has reached and travels on. One that has just gone reappears without a fade, which would only lag the pointer.
       const show = (index: number, instant: boolean) => {
-        const opening = shown === null;
-        if (!opening && index === shown) return;
-        const still = instant || reduceMotion.matches;
-        const direction = shown === null || index > shown ? 1 : -1;
-        const height = swap(index, direction, !opening && !still);
-        without(still ? 'data-instant' : opening ? 'data-jump' : null, () => {
+        if (index === shown) return;
+        const since = performance.now() - closedAt;
+        const from = shown ?? (since < FADE_OUT && !closedInstantly ? lastShown : null);
+        const still = instant || reduceMotion.matches || (from === null && since < WARM);
+        const direction = from === null || index > from ? 1 : -1;
+        const height = swap(index, direction, from !== null && from !== index && !still);
+        without(still ? 'data-instant' : from === null ? 'data-jump' : null, () => {
           place(index, height);
           card.setAttribute('data-showing', '');
         });
@@ -302,10 +318,22 @@
 
       const hide = (instant: boolean) => {
         if (shown === null) return;
+        lastShown = shown;
         shown = null;
         overCard = false;
         closedAt = performance.now();
-        without(instant || reduceMotion.matches ? 'data-instant' : null, () => card.removeAttribute('data-showing'));
+        closedInstantly = instant || reduceMotion.matches;
+        without(closedInstantly ? 'data-instant' : null, () => card.removeAttribute('data-showing'));
+      };
+
+      // A pending open reads the latest tick when it fires.
+      const arm = () => {
+        clearTimeout(openTimer);
+        openTimer = window.setTimeout(() => {
+          openTimer = 0;
+          const latest = lit();
+          if (latest !== null) show(latest, false);
+        }, OPEN_DELAY);
       };
 
       // Keyboard changes are instant: the card opens and closes without delays and moves without travel.
@@ -323,15 +351,11 @@
           return;
         }
         if (shown !== null) return show(next, instant);
-        // A pending open reads the latest tick when it fires, so moving along the rail doesn't restart it.
+        // Moving down the rail doesn't restart a pending open; only moving across it does, in the pointer handler.
         if (openTimer) return;
         const warm = performance.now() - closedAt < WARM;
         if (instant || warm || pinned !== null) return show(next, instant);
-        openTimer = window.setTimeout(() => {
-          openTimer = 0;
-          const latest = lit();
-          if (latest !== null) show(latest, false);
-        }, OPEN_DELAY);
+        arm();
       };
 
       const dismiss = () => {
@@ -345,7 +369,11 @@
       rail.addEventListener(
         'pointermove',
         (event) => {
-          if (event.pointerType !== 'mouse') return;
+          if (event.pointerType !== 'mouse' || performance.now() - touchEndedAt < TOUCH_ECHO) return;
+          // From clientX, since WebKit can report movementX as 0.
+          const sideways = lastX !== null && Math.abs(event.clientX - lastX) >= SIDEWAYS;
+          lastX = event.clientX;
+          if (sideways && openTimer) arm();
           const y = (event.clientY - ticks[0].getBoundingClientRect().top) / scaleY();
           // Rows are laid out back to back at one height, so the pointer's row is its distance from the first tick in rows.
           const row = Math.floor(y / ticks[0].offsetHeight);
@@ -365,6 +393,7 @@
           if (event.pointerType !== 'mouse') return;
           hovered = null;
           pointer = null;
+          lastX = null;
           update(false);
         },
         { signal },
@@ -374,7 +403,7 @@
       card.addEventListener(
         'pointerenter',
         (event) => {
-          if (event.pointerType !== 'mouse' || shown === null) return;
+          if (event.pointerType !== 'mouse' || shown === null || performance.now() - touchEndedAt < TOUCH_ECHO) return;
           overCard = true;
           update(false);
         },
@@ -392,7 +421,16 @@
       );
 
       // The card is a bigger target than its 24px row: a click or tap on it goes to its section, like the tick.
-      card.addEventListener('click', () => shown !== null && ticks[shown].click(), { signal });
+      card.addEventListener(
+        'click',
+        () => {
+          if (shown === null) return;
+          viaCard = true;
+          ticks[shown].click();
+          viaCard = false;
+        },
+        { signal },
+      );
 
       // The card sits beside the scrolling area, not in it, so the wheel over it scrolls that area by hand.
       card.addEventListener(
@@ -436,8 +474,10 @@
         (event) => {
           const index = ticks.indexOf(event.target as HTMLAnchorElement);
           if (index < 0) return;
-          // A press that never became a click mustn't make a keyboard activation look like a tap.
-          pressedWith = null;
+          // The key press is the witness for a click that follows it: Enter on a link clicks it, and not every browser
+          // gives that click an empty pointer type. It also keeps a press that never became a click from making it look
+          // like a tap.
+          pressedWith = '';
           let next: number | undefined;
           if (event.key === 'ArrowDown') next = Math.min(index + 1, ticks.length - 1);
           else if (event.key === 'ArrowUp') next = Math.max(index - 1, 0);
@@ -493,7 +533,10 @@
               update(false);
               return;
             }
+            // The click took the reader to the section, so the card closes like on Escape rather than covering it.
+            // It comes back, warm, on the next tick the pointer moves to.
             pinned = null;
+            dismissed = true;
             setCurrent(i);
             update(true);
             locked = true;
@@ -506,22 +549,46 @@
             // The distance comes back in screen pixels; the scroller's own scale turns it into its scroll units.
             const view = scroller.getBoundingClientRect();
             const y = (targets[i].getBoundingClientRect().top - view.top) / (view.height / scroller.offsetHeight || 1);
-            scroller.scrollTo({ top: scroller.scrollTop + y - scroller.clientTop, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+            // The keyboard and assistive technology click without a pointer type, and their moves land at once.
+            const keyed = !type && !viaCard;
+            scroller.scrollTo({ top: scroller.scrollTop + y - scroller.clientTop, behavior: reduceMotion.matches || keyed ? 'auto' : 'smooth' });
             targets[i].focus({ preventScroll: true });
           },
           { signal },
         );
       });
 
-      // The next tap outside the rail and the card stands in for the pointer leaving it.
+      // The next press outside the rail and the card stands in for the pointer leaving it. A mouse closes the card on
+      // the press. Touch waits for the release, with no pointercancel in between: a scroll that starts outside cancels
+      // the pointer, so it keeps a card pinned. A tap also clears any hover that iOS's mouse echo got past the guard.
+      const outside = (target: EventTarget | null) => !rail.contains(target as Node) && !card.contains(target as Node);
+      let tapOutside = false;
       document.addEventListener(
         'pointerdown',
         (event) => {
-          if (pinned === null || rail.contains(event.target as Node) || card.contains(event.target as Node)) return;
+          if (event.pointerType !== 'mouse') {
+            tapOutside = outside(event.target);
+            return;
+          }
+          if (pinned === null || !outside(event.target)) return;
           pinned = null;
           update(false);
         },
-        { signal },
+        { capture: true, signal },
+      );
+      document.addEventListener('pointercancel', () => (tapOutside = false), { capture: true, signal });
+      document.addEventListener(
+        'pointerup',
+        (event) => {
+          if (event.pointerType === 'mouse') return;
+          touchEndedAt = performance.now();
+          if (!tapOutside || !outside(event.target)) return;
+          tapOutside = false;
+          pinned = hovered = pointer = lastX = null;
+          overCard = false;
+          update(false);
+        },
+        { capture: true, signal },
       );
 
       // Current section
@@ -565,7 +632,7 @@
         clearTimeout(closeTimer);
         clearTimeout(settleTimer);
         cancelAnimationFrame(frame);
-        hovered = pointer = focused = pinned = shown = null;
+        hovered = pointer = focused = pinned = shown = lastShown = lastX = null;
         overCard = false;
         card.removeAttribute('data-showing');
         box.querySelectorAll('[data-face]').forEach((old) => old.remove());
@@ -597,7 +664,7 @@
     /* Rows are the hit areas; the line inside each one is drawn at full length and scaled down. */
     --tkr-size: 24px;
     --tkr-length: 24px;
-    /* 8px at rest, and 16px for the current section while nothing is lit. */
+    /* 8px at rest, and never less than 16px for the current section. */
     --tkr-rest: 0.3333;
     --tkr-current: 0.6667;
     --tkr-rail: 48px;
@@ -637,7 +704,6 @@
     align-items: center;
     padding-left: 12px;
     color: var(--tkr-tick-color);
-    transition: color 120ms ease;
     -webkit-tap-highlight-color: transparent;
   }
 

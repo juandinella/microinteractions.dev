@@ -21,23 +21,24 @@ prompt:
     - "On a change, use FLIP. First, read the panel's box, its computed opacity, every answer's rendered height, and each answer text's computed opacity, transform, and filter. These are the values on screen, mid-move included. Then cancel every running animation, update `aria-expanded` and `hidden`, and keep the answers that were showing visible with an inline `height: 0`. Mark the closing answers `inert` while they animate, since their questions already read as collapsed. Last, measure the open item and its answer at their final size. Write the final values inline and play each animation from the first values with `element.animate()`."
     - "Animate the panel's `transform` and `height` together, and each answer's `height` from its first value to its final one, with `overflow: hidden` on the answer. Let each answer keep its own height. While one is open, give the component a `min-height` equal to its height with the longest answer open, measured by rearranging the answers for one synchronous read. The answer that closes and the one that opens never add up to more than that, so the card keeps its height and the space a shorter answer leaves sits below the last question. Animate the `min-height` on the same clock only when the first answer opens or the last one closes. Measure again when the component or an answer's text resizes, in the next animation frame, since the fit resizes what the `ResizeObserver` watches."
     - "Move both texts the way the panel travels. The old one fades out with `translateY(<6px in the direction of travel>)` and `blur(3px)`, kept with `fill: 'forwards'` until the answer closes. The new one starts 6px behind, also blurred and transparent, and arrives with `fill: 'backwards'`. Start it before the old one is gone, so the panel never travels empty."
-    - "Choosing the open question closes it: the panel shrinks to that question's row as it fades out. From nothing open, the panel starts as the chosen question's row at opacity 0. Opacity reaches its end value halfway through the move, through a keyframe at `offset: 0.5`."
+    - "Choosing the open question closes it: the panel shrinks to that question's row as it fades out. From nothing open, the panel starts as the chosen question's row at opacity 0. Opacity reaches its end value halfway through the move's time, through a keyframe at `offset: 0.5`. Put the curve on the first `transform` and `height` keyframe, give opacity its own linear keyframe at `offset: 0`, and leave the effect's easing linear: on an ease-out, eased progress passes the middle early, and the panel would fade out before it finished shrinking."
     - "Settle when the panel's animation finishes or is cancelled from outside: cancel the leftover text animations, clear the inline heights, and apply `hidden=\"until-found\"` to the closed answers. Number each change and ignore the events of animations a newer change cancelled."
     - "Rotate each question's chevron 180° on `aria-expanded=\"true\"` with a CSS transition on `rotate` that uses the panel's duration and curve."
     - "Until the script runs, hide the panel and give the open item its own background, so the first paint already shows it. Set `data-ready` once the panel is placed."
     - "Place the panel at once after a resize. Observe the component and every answer's text. If the panel is moving, flag the measurements as stale when the component's width or a text changes, and measure again as the move settles, since the observer may not report another resize. Ignore the component's height mid-move: its own `min-height` animation changes it every frame. Add every listener with the `signal` of an `AbortController` created in `connectedCallback()`. In `disconnectedCallback()`, abort it, disconnect the observer, and cancel any move so the element is settled when it connects again."
-    - "Keep the panel's duration and curve in the script, and write them to `--fqp-move` and `--fqp-ease` on the component, so the chevron's CSS transition reads the same values and can't drift from the panel."
+    - "Keep the panel's durations and curves in the script. On every change, pick this move's duration and curve first, and write them to `--fqp-move` and `--fqp-ease` on the component before updating `aria-expanded`, so the chevron's CSS transition turns on the same clock and curve as the panel, a change mid-move included."
   timing:
-    - "Panel and answer heights: 300ms on `cubic-bezier(0.64, 0, 0.2, 1)`, which speeds up over the first third and brakes over the rest. A change made while the panel moves uses `cubic-bezier(0.23, 1, 0.32, 1)`, so it starts at speed."
+    - "Between questions, panel and answer heights: 300ms on `cubic-bezier(0.64, 0, 0.2, 1)`, which speeds up over the first third and brakes over the rest. A change made while the panel moves uses `cubic-bezier(0.23, 1, 0.32, 1)`, so it starts at speed."
+    - "Opening the first answer from nothing open, or closing the last one: 240ms on `cubic-bezier(0.23, 1, 0.32, 1)` for the panel, the answer heights, and the card's `min-height` together. The panel appears or leaves rather than travels, so it starts at speed instead of easing in."
     - "Old text: 140ms on `cubic-bezier(0.215, 0.61, 0.355, 1)`, from the moment of the click."
-    - "New text: 210ms on `cubic-bezier(0.23, 1, 0.32, 1)` after a 90ms delay, so it overlaps the old text by 50ms and lands with the panel. Text that was leaving and is chosen again returns from where it is, without the delay."
-    - "Chevron: 300ms on the panel's curve. Hover: 120ms `ease` on `background-color`."
+    - "New text: 210ms on `cubic-bezier(0.23, 1, 0.32, 1)`, delayed by the move's duration minus 210ms, so it lands with the panel: 90ms on a move between questions, overlapping the old text by 50ms, and 30ms when the first answer opens. Text that was leaving and is chosen again returns from where it is, without the delay."
+    - "Chevron: the panel's duration and curve on every change. Hover: no transition, the fill appears and leaves with the pointer."
   accessibility:
-    - "Each question is a native button, so Tab, Enter, and Space work, and the keyboard opens the same move a click does. ArrowDown and ArrowUp move focus between questions and wrap at the ends; Home and End jump to the first and last."
-    - "With `prefers-reduced-motion: reduce`, skip every animation: the panel lands on the question, the answers open and close, and the chevron turns at once. Listen for the media query's `change`, and finish a move in progress when reduced motion turns on."
+    - "Each question is a native button, so Tab, Enter, and Space work, and the keyboard opens the same move a click does. ArrowDown and ArrowUp move focus between questions and wrap at the ends; Home and End jump to the first and last. Ignore a repeated Enter keydown (`event.repeat`) and prevent its default, so holding Enter opens the question once instead of toggling it on every repeat; the arrows keep repeating."
+    - "With `prefers-reduced-motion: reduce`, drop the movement: the panel lands on the question, the answers open and close, and the chevron turns at once. On a click, fade the new answer's text from opacity 0 over 150ms on `cubic-bezier(0.23, 1, 0.32, 1)`, with no shift or blur, and cancel the fade on the next change. A find-in-page match still opens at once. Listen for the media query's `change`, and finish a move in progress when reduced motion turns on."
     - "Show focus with a 2px outline inset 2px into the question row."
     - "`role=\"region\"` makes each answer a landmark. Keep it for about six questions or fewer; with more, drop the role so the landmark list stays usable."
-    - "Under `@media (hover: hover) and (pointer: fine)`, give a closed question a hover fill lighter than the panel, so a hovered question never reads as an open one."
+    - "Under `@media (hover: hover) and (pointer: fine)`, give a closed question a hover fill lighter than the panel, so a hovered question never reads as an open one. Leave it without a transition, so the fill stays under the pointer as it crosses the questions."
     - "The open question has its answer below it and a turned chevron, so the state doesn't rely on the panel's color."
   avoid:
     - "Letting the card follow the open answer's height. It grows and shrinks on every change, and everything below it moves."
@@ -54,11 +55,15 @@ An accordion usually gives each answer its own background, so one collapses as t
 
 The answers still expand and collapse, on the panel's clock, so the questions between them move with it. While any answer is open, the card reserves the height it has with the longest one open, and a shorter answer leaves that space at the bottom. Nothing below the card shifts. It only grows when the first answer opens and shrinks when the last one closes. Giving every answer the longest one's height would also hold the card still, but the panel would stop fitting its answer.
 
+Hovering a closed question fills it at once, lighter than the panel, so a hovered question never reads as an open one.
+
 ## Measured before and after
 
 The panel's position and height depend on the answer's text and the container's width, so the script measures them. It uses FLIP: it reads where everything is, swaps the answers, measures again, and animates from the first values to the last with `element.animate()`.
 
 The first reading comes from the screen, partway through a move included. Choose another question before the panel lands and it turns from where it is, on an ease-out so it doesn't pause at the turn.
+
+Opening the first answer and closing the last one aren't trips between questions: the panel appears or leaves. Those take 240ms on the same ease-out, with the answer and the card on that clock, because the slow start that lets a move settle into a question would make an entrance feel late. The panel's fade follows the clock, not the curve, so it doesn't vanish before it has finished shrinking.
 
 ## Text that travels with the panel
 
@@ -72,6 +77,6 @@ To recolor the CSS version, set `--fqp-fg` on the component or any ancestor. It 
 
 ## Keyboard, find in page, and reduced motion
 
-Each question is a native button. Tab moves between them, and Enter or Space opens one with the same move as a click. The arrow keys move focus between questions, and Home and End jump to the ends. Closed answers stay in the DOM with `hidden="until-found"`, so find in page can match them; in browsers that support it, a match opens its answer at once.
+Each question is a native button. Tab moves between them, and Enter or Space opens one with the same move as a click. Holding Enter opens it once instead of toggling it on every repeat. The arrow keys move focus between questions, and Home and End jump to the ends. Closed answers stay in the DOM with `hidden="until-found"`, so find in page can match them; in browsers that support it, a match opens its answer at once.
 
-With reduced motion, the panel and the answers jump to their new state. The open question also shows its answer and a turned chevron, so the state isn't color-only.
+With reduced motion, the panel and the answers jump to their new state, and the new answer's text fades in over 150ms, so you still see what changed. The open question also shows its answer and a turned chevron, so the state isn't color-only.

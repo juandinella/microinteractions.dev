@@ -148,7 +148,8 @@ export const specimens: Specimen[] = [
     hint: 'Hover or focus the button',
     duration: 220,
     durationNote:
-      'Keeps the swap quick, while leaving time to follow the label change.',
+      'The swap takes 220ms, which leaves time to follow the label change. The return takes 160ms, because leaving needs no waiting. Keyboard focus swaps instantly, and reduced motion crossfades in 150ms.',
+    release: 160,
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:
@@ -344,7 +345,7 @@ export const specimens: Specimen[] = [
     hint: 'Pick another tab',
     duration: 250,
     durationNote:
-      'The line reaches the chosen tab in 250ms, and the label turns bold at the click. A tab chosen mid-move takes over from wherever the line is. Hover fills a tab in 120ms, and the arrow keys move the line without animating.',
+      'The line reaches the chosen tab in 250ms, and the label turns bold and dark at the click. A tab chosen mid-move takes over from wherever the line is. When the tab is cut off, the list scrolls on the line\u2019s clock, so both arrive together. Hover is instant, and the arrow keys move the line and scroll the list without animating.',
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:
@@ -429,11 +430,11 @@ export const specimens: Specimen[] = [
     duration: 300,
     minDuration: 140,
     durationNote:
-      'The panel reaches the new question in 300ms, and the answers resize on the same clock. The old text fades out in 140ms; the new one fades in over the last 210ms. A question chosen mid-move takes over from where the panel is.',
+      'The panel reaches the new question in 300ms, and the answers resize on the same clock. Opening the first answer or closing the last one takes 240ms, card included. The old text fades out in 140ms; the new one fades in over the last 210ms. A question chosen mid-move takes over from where the panel is. The hover fill is instant; with reduced motion the panel lands at once and the new answer fades in over 150ms.',
     easing: [0.64, 0, 0.2, 1],
     easingName: 'custom ease-in-out',
     easingNote:
-      'Accelerates over the first third of the move and decelerates over the rest, with no overshoot. A question chosen mid-move switches to an ease-out, cubic-bezier(0.23, 1, 0.32, 1), so the panel turns without pausing.',
+      'Accelerates over the first third of the move and decelerates over the rest, with no overshoot. Opening the first answer, closing the last one, and a question chosen mid-move switch to an ease-out, cubic-bezier(0.23, 1, 0.32, 1), at 240ms for the first two, so the panel appears, leaves, or turns without pausing.',
     props: ['transform', 'height', 'opacity', 'filter'],
     positioningNote:
       'translateY moves the panel and height fits it to the answer, both measured before and after the change (FLIP). While an answer is open, min-height holds the card at its height with the longest answer open.',
@@ -467,7 +468,7 @@ export const specimens: Specimen[] = [
       'Starts at full speed, so the ticks and the card answer the pointer at once, then settle.',
     props: ['transform', 'height', 'opacity', 'filter'],
     positioningNote:
-      'Each tick is a 24px line scaled with scaleX, 8px at rest and 16px for the current section. translateY centers the card on its tick, kept inside the component.',
+      'Each tick is a 24px line scaled with scaleX, 8px at rest and never under 16px for the current section. translateY centers the card on its tick, kept inside the component.',
     detail: {
       label: 'Falloff',
       value: 'Cosine over 3 rows',
