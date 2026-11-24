@@ -67,6 +67,10 @@
       }
 
       let activeInput: number | string | null = null;
+      // Set by a confirmation, cleared by the next press: a pointer still down after the reset
+      // can't slide off and back on to confirm a second time.
+      let spent = false;
+      let pointerHold: AbortController | undefined;
       let holdStart = 0;
       let holdTimer: ReturnType<typeof setTimeout> | undefined;
       let resetTimer: ReturnType<typeof setTimeout> | undefined;
@@ -105,8 +109,8 @@
         holdTimer = setTimeout(confirmHold, HOLD_DURATION);
       };
 
-      const cancelHold = () => {
-        activeInput = null;
+      // Stops the hold but keeps the press: a pointer dragged off the button can come back.
+      const disarm = () => {
         delete button.dataset.pressed;
         clearTimeout(holdTimer);
         if (button.dataset.state !== 'holding') return;
@@ -116,7 +120,28 @@
           status.textContent = 'Cancelled';
       };
 
+      const cancelHold = () => {
+        activeInput = null;
+        pointerHold?.abort();
+        pointerHold = undefined;
+        disarm();
+      };
+
+      // Judge by the contact area, not its center, so a fingertip on the edge still counts as on.
+      const isOver = (event: PointerEvent) => {
+        const rect = button.getBoundingClientRect();
+        const x = event.width / 2;
+        const y = event.height / 2;
+        return (
+          event.clientX + x >= rect.left &&
+          event.clientX - x <= rect.right &&
+          event.clientY + y >= rect.top &&
+          event.clientY - y <= rect.bottom
+        );
+      };
+
       const confirmHold = () => {
+        spent = true;
         button.dataset.state = 'confirmed';
         button.setAttribute('aria-disabled', 'true');
         status.textContent = 'Confirmed';
@@ -129,7 +154,16 @@
         (event) => {
           // Pointer events still reach a disabled button; only clicks are blocked. `:disabled`
           // also covers a disabled fieldset, which the `disabled` property doesn't reflect.
-          if (event.button !== 0 || !event.isPrimary || button.matches(':disabled')) return;
+          // Ctrl+click is a right-click on macOS; modified clicks stay with the browser.
+          if (
+            event.button !== 0 ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            !event.isPrimary ||
+            button.matches(':disabled')
+          )
+            return;
           // Keep Escape available without WebKit's mouse default blurring the button.
           event.preventDefault();
           button.dataset.pointerFocus = '';
@@ -137,9 +171,37 @@
           if (activeInput !== null || button.dataset.state === 'confirmed')
             return;
 
+          spent = false;
+          // Capture delivers the release even outside the button; `pointermove` decides whether
+          // the pointer is still on it.
           button.setPointerCapture(event.pointerId);
           button.dataset.pressed = '';
           startHold(event.pointerId, 'pointer');
+          pointerHold = new AbortController();
+          // Any ancestor scrolling moves the button out from under the pointer, so it cancels.
+          document.addEventListener(
+            'scroll',
+            (scroll) => {
+              if ((scroll.target as Node).contains(button)) cancelHold();
+            },
+            { capture: true, signal: pointerHold.signal },
+          );
+        },
+        { signal },
+      );
+
+      // Sliding off cancels the hold and drains the fill; sliding back on starts over from zero.
+      button.addEventListener(
+        'pointermove',
+        (event) => {
+          if (activeInput !== event.pointerId) return;
+          const armed = 'pressed' in button.dataset;
+          const over = isOver(event);
+          if (armed && !over) disarm();
+          else if (!armed && over && !spent && button.dataset.state === 'idle') {
+            button.dataset.pressed = '';
+            startHold(event.pointerId, 'pointer');
+          }
         },
         { signal },
       );
@@ -320,7 +382,8 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
-    touch-action: none;
+    /* A vertical swipe scrolls the page; the browser cancels the pointer, which cancels the hold. */
+    touch-action: pan-y;
   }
 
   .hold-button::before,
@@ -426,6 +489,8 @@
       transform var(--hold-state-duration) var(--hold-ease);
   }
 
+  /* If your reduced-motion reset forces `transition-duration`, exempt `[data-hold-progress]`:
+     this fill shows the wait, and at 0ms it would jump to full on press. */
   .hold-button:is([data-state='holding'], [data-inspect]) .hold-layer-progress {
     clip-path: inset(0);
     transition: clip-path var(--hold-duration) linear;
