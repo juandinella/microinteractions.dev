@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// The prerendered build checks server rendering and hydration; the dev server runs Strict Mode effects twice.
+// The prerendered build checks server rendering and hydration; the dev server runs Strict Mode effects twice
+// and serves worst-case.html, which only exists in development.
 // Uncommon ports, so a dev server left running elsewhere doesn't block the check.
 const built = 'http://localhost:4791';
 const dev = 'http://localhost:4792';
@@ -15,10 +16,12 @@ export default defineConfig({
   expect: { timeout: 5_000 },
   use: { trace: 'retain-on-failure' },
   projects: [
-    { name: 'chromium', testIgnore: /strict-mode/, use: { ...devices['Desktop Chrome'], baseURL: built } },
-    { name: 'webkit', testIgnore: /strict-mode/, use: { ...devices['Desktop Safari'], baseURL: built } },
+    { name: 'chromium', testIgnore: /strict-mode|worst-case/, use: { ...devices['Desktop Chrome'], baseURL: built } },
+    { name: 'webkit', testIgnore: /strict-mode|worst-case/, use: { ...devices['Desktop Safari'], baseURL: built } },
     { name: 'strict-chromium', testMatch: /strict-mode/, use: { ...devices['Desktop Chrome'], baseURL: dev } },
     { name: 'strict-webkit', testMatch: /strict-mode/, use: { ...devices['Desktop Safari'], baseURL: dev } },
+    { name: 'worst-chromium', testMatch: /worst-case/, use: { ...devices['Desktop Chrome'], baseURL: dev } },
+    { name: 'worst-webkit', testMatch: /worst-case/, use: { ...devices['Desktop Safari'], baseURL: dev } },
   ],
   webServer: [
     { command: 'npm run preview -- --port 4791 --strictPort', url: built, reuseExistingServer: false },
