@@ -114,12 +114,45 @@
         panels.forEach((panel, i) => (panel.hidden = i !== selected));
       };
 
+      let frame = 0;
+      const stopScroll = () => {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      };
+
       // Scrolls the list only, never the page, and keeps the tab clear of the edge fade.
-      const reveal = (tab: HTMLElement) => {
+      // The scroll runs on the line's clock: the same duration, read from the line's CSS so the stylesheet stays the
+      // only source, and an ease-out that tracks its curve within about 2%. scrollTo({ behavior: 'smooth' }) runs on
+      // the browser's own timing, so the line would pass its tab while the list was still catching up, then come back.
+      const reveal = (tab: HTMLElement, animate: boolean) => {
+        stopScroll();
         const { x, width } = measure(tab);
-        const left = Math.min(Math.max(list.scrollLeft, x + width + FADE - list.clientWidth), x - FADE);
-        if (Math.abs(left - list.scrollLeft) < 1) return;
-        list.scrollTo({ left, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+        const from = list.scrollLeft;
+        const wanted = Math.min(Math.max(from, x + width + FADE - list.clientWidth), x - FADE);
+        // Clamped, so the scroll doesn't stop at the end of the list while the line is still moving.
+        const to = Math.min(Math.max(wanted, 0), list.scrollWidth - list.clientWidth);
+        if (Math.abs(to - from) < 1) return;
+        // The tabs are about to slide under a cursor that may not move; hover waits for it to (see pointermove).
+        this.toggleAttribute('data-scrolling', true);
+        const duration = animate ? parseFloat(getComputedStyle(line).transitionDuration) * 1000 || 0 : 0;
+        if (!duration) {
+          list.scrollLeft = to;
+          return;
+        }
+        // Timed from the moment the line's transition starts, which can be a frame after the click: a scroll a frame
+        // ahead would carry the line backwards on screen before it sets off. Both clocks count in frame time.
+        let start: number | undefined;
+        const step = (now: number) => {
+          if (start === undefined) {
+            const transition = line.getAnimations()[0];
+            if (!transition) start = now;
+            else if (typeof transition.startTime === 'number') start = transition.startTime;
+          }
+          const t = start === undefined ? 0 : Math.min(Math.max((now - start) / duration, 0), 1);
+          list.scrollLeft = from + (to - from) * (1 - (1 - t) ** 5);
+          frame = t < 1 ? requestAnimationFrame(step) : 0;
+        };
+        frame = requestAnimationFrame(step);
       };
 
       const select = (index: number, animate: boolean) => {
@@ -127,8 +160,29 @@
         selected = index;
         sync();
         place(!animate || reduceMotion.matches);
-        reveal(tabs[index]);
+        // Keyboard moves and reduced motion scroll at once, like the line.
+        reveal(tabs[index], animate && !reduceMotion.matches);
       };
+
+      // A hand on the list takes the scroll over from the tween.
+      list.addEventListener('pointerdown', stopScroll, { signal });
+      list.addEventListener('wheel', stopScroll, { passive: true, signal });
+      signal.addEventListener('abort', stopScroll);
+
+      // Content scrolled under a still cursor fires pointer events too, and would light up whichever tab arrived under
+      // it. Hover comes back with the first move of the mouse itself. Some engines report no movementX for
+      // synthesized moves, so a changed position counts as well.
+      let last: { x: number; y: number } | undefined;
+      const remember = (event: PointerEvent) => {
+        const moved =
+          event.movementX !== 0 ||
+          event.movementY !== 0 ||
+          (last !== undefined && (last.x !== event.clientX || last.y !== event.clientY));
+        if (moved) this.removeAttribute('data-scrolling');
+        last = { x: event.clientX, y: event.clientY };
+      };
+      list.addEventListener('pointermove', remember, { passive: true, signal });
+      list.addEventListener('pointerdown', remember, { passive: true, signal });
 
       tabs.forEach((tab, i) => tab.addEventListener('click', () => select(i, true), { signal }));
 
@@ -275,30 +329,30 @@
     font: inherit;
     font-size: 14px;
     cursor: pointer;
-    transition:
-      background-color 120ms ease,
-      color 120ms ease;
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Hover and the label color change at once; only the line moves. A background that eased in would trail the
+     cursor one tab behind. While the list scrolls itself, hover waits for the mouse to move (see the script). */
   @media (hover: hover) and (pointer: fine) {
     /* Lighter than the count badge, so the badge keeps its shape on the hovered tab. */
-    .tbi-tab:hover {
+    .tbi:not([data-scrolling]) .tbi-tab:hover {
       background: color-mix(in oklch, var(--surface) 50%, var(--surface-strong));
       color: var(--tbi-color);
     }
   }
 
-  /* Reaches into the list's padding: 40px tall for a mouse, 44px for touch. Tabs sit side by side, so it only grows vertically. */
+  /* Reaches into the list's padding: 40px tall for a mouse, 44px for touch. Sideways it takes 1px of the 2px gap on
+     each side, so neighboring hit areas touch without overlapping and a sweep across the row never falls between tabs. */
   .tbi-tab::before {
     position: absolute;
-    inset: -4px 0;
+    inset: -4px -1px;
     content: '';
   }
 
   @media (pointer: coarse) {
     .tbi-tab::before {
-      inset: -6px 0;
+      inset: -6px -1px;
     }
   }
 

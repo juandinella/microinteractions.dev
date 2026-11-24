@@ -23,26 +23,30 @@ prompt:
     - "Observe the list and each tab with a `ResizeObserver`. When fonts load or the container resizes, place the line instantly, unless `getAnimations()` shows it moving; then write the new transform and let the transition retarget."
     - "Make each label `display: inline-grid` with two items in one cell (`grid-area: 1 / 1`): a span with the text, and an `::after` with `content: attr(data-text)` at the selected weight, 600, with `visibility: hidden`, `height: 0`, `overflow: hidden`, and `user-select: none`. Write `data-text` in the markup, so the width is reserved before any script runs. The cell is always as wide as the bold text, so switching the label from 400 to 600 changes no width and moves neither the other tabs nor the line. Keep the label left-aligned in the cell, so the start of the word stays put and the bold grows into the spare space on the right."
     - "Switch the weight at once, with no transition. Interpolating `font-weight` on a variable font changes every glyph's width on every frame, so the letters slide while the word thickens."
-    - "Under `@media (hover: hover) and (pointer: fine)`, give the hovered tab a background lighter than its count badge, so the badge keeps its shape, and the selected text color."
-    - "Let the list scroll sideways with a hidden scrollbar. When it overflows, fade the edge that has more tabs with a 32px `mask-image` gradient, updated from a passive `scroll` listener and the `ResizeObserver`. Draw the border under the tabs as the panel's `border-top`, so the fade doesn't erase it. Bring a newly chosen tab into view with `list.scrollTo()`, far enough to clear the fade. `scrollIntoView()` would also scroll the page and any other scrolling ancestor."
+    - "Under `@media (hover: hover) and (pointer: fine)`, give the hovered tab a background lighter than its count badge, so the badge keeps its shape, and the selected text color. Change both at once, with no transition: a background that eases in trails the cursor one tab behind."
+    - "When the script scrolls the list, set `data-scrolling` on the component and drop the hover style while it's there (`.tbi:not([data-scrolling]) .tbi-tab:hover`), so a tab sliding under a still cursor doesn't light up. Remove it on the list's first `pointermove` from a mouse that moved: `movementX` or `movementY` isn't 0, or `clientX` or `clientY` differs from the last pointer event on the list. Some engines report no movement for synthesized moves, so the position counts too."
+    - "Let the list scroll sideways with a hidden scrollbar. When it overflows, fade the edge that has more tabs with a 32px `mask-image` gradient, updated from a passive `scroll` listener and the `ResizeObserver`. Draw the border under the tabs as the panel's `border-top`, so the fade doesn't erase it. Bring a newly chosen tab into view by setting the list's `scrollLeft`, far enough to clear the fade and clamped to the list's scroll range. `scrollIntoView()` would also scroll the page and any other scrolling ancestor."
+    - "Run that scroll on the line's clock, with a `requestAnimationFrame` tween: `scrollLeft = from + (to - from) * (1 - (1 - t) ** 5)`, which tracks the line's curve within about 2%, timed from its first frame. Read the duration from the line, `parseFloat(getComputedStyle(line).transitionDuration) * 1000`, so the CSS stays the only source and reduced motion, which removes the transition, makes it 0. Cancel the tween when another tab is chosen, and on `pointerdown` or `wheel` in the list, so a hand on the list takes over."
     - "Add every listener with the `signal` of an `AbortController` created in `connectedCallback()`, use one `ResizeObserver` for the list and all tabs, and abort and disconnect both in `disconnectedCallback()`. Moving the element in the DOM then starts it over instead of doubling its listeners."
     - "Build it left to right. The arrow keys, the edge fade, and the line's position are physical, so use physical properties throughout rather than mixing in logical ones."
   timing:
     - "Line: 250ms on `cubic-bezier(0.23, 1, 0.32, 1)`, from wherever it is when the tab changes."
-    - "Selected label: the weight switches at the click, and the color follows in 120ms `ease`."
-    - "Hover: 120ms `ease` on `background-color` and `color`."
+    - "List scroll: the line's duration and an ease-out quint, `1 - (1 - t) ** 5`, so the list and the line arrive together."
+    - "Selected label: the weight and the color switch together at the click."
+    - "Hover: instant, with no transition. Only the line moves."
   accessibility:
     - "Make the list one Tab stop with a roving tabindex: the selected tab has `tabindex=\"0\"`, the others `-1`. ArrowLeft and ArrowRight, wrapping at the ends, plus Home and End, move focus and selection together. Focus with `focus({ preventScroll: true })`, so the browser's own scroll doesn't jump the list, or the page, before the list scrolls the tab clear of the fade."
-    - "Move the line without a transition on keyboard changes. A held arrow key repeats faster than the line travels."
+    - "Move the line without a transition on keyboard changes, and scroll the list at once. A held arrow key repeats faster than the line travels."
     - "Give each panel `tabindex=\"0\"` and a focus outline inset 2px, since its content has nothing focusable. Tab then goes from the selected tab into its panel."
     - "Follow each count with visually hidden text, such as `<span class=\"tbi-vh\"> studies</span>`, so the tab's name reads \"Actions 5 studies\" instead of \"Actions 5\"."
-    - "Extend each tab's hit area with a `::before` at `inset: -4px 0` (40px tall), and `-6px 0` under `(pointer: coarse)` (44px). Grow it only vertically, so neighboring tabs never overlap."
+    - "Extend each tab's hit area with a `::before` at `inset: -4px -1px` (40px tall), and `-6px -1px` under `(pointer: coarse)` (44px). Sideways it takes 1px of the 2px gap on each side, so neighboring hit areas touch without overlapping and the pointer never falls between two tabs. The painted hover background keeps its 2px gap."
     - "Show focus with a 2px outline at a 2px offset, in the selected text color."
-    - "With `prefers-reduced-motion: reduce`, remove the line's transition and scroll the list without smoothing."
+    - "With `prefers-reduced-motion: reduce`, remove the line's transition and scroll the list at once."
     - "The selected tab differs in weight and has the line under it, so the state doesn't rely on color."
   avoid:
     - "A `view-transition-name` on the selected tab's underline with `document.startViewTransition()`. The document runs one view transition at a time, so a click mid-move cancels the running one, and the line jumps to where it was headed before it moves again."
     - "Animating `left` and `width`, which lays out the list on every frame."
+    - "`list.scrollTo({ behavior: 'smooth' })`. The browser picks its own duration and curve, so the line, which moves inside the scrolling list, passes its tab on screen and comes back once the scroll catches up."
     - "Changing the label's weight without reserving the bold width, which shifts every tab after it."
     - "Transitioning `font-weight`, or crossfading a bold copy over the regular label, which doubles the letters mid-fade."
 ---
@@ -57,11 +61,17 @@ A transition can be interrupted. Choose another tab before the line arrives and 
 
 Haz built these tabs with view transitions. Each tab has its own underline, only the selected one carries a `view-transition-name`, and the browser morphs the old box into the new one without measuring anything. A tab chosen mid-move breaks it, though. The document runs one view transition at a time, so the new one cancels the old: the line jumps to where it was headed and only then leaves for the new tab. Waiting for the running one to finish avoids the jump, but then the line reaches the new tab late. Any other view transition on the page, such as a route change, would cancel it the same way.
 
+## The list scrolls on the line's clock
+
+When the chosen tab is cut off at the edge, the list scrolls it into view while the line moves. The line lives inside the list, so what you see is the two added together. A smooth `scrollTo()` runs on the browser's own timing, and against the line's curve the sum overshot: the line passed its tab, then drifted back as the scroll caught up.
+
+So the script scrolls the list itself, one frame at a time, for as long as the line's transition lasts, on an ease-out that stays within 2% of the line's curve. It reads the duration from the line's computed style, so the stylesheet is still the only place it's written. A tap or a wheel on the list stops the scroll and leaves it where it is.
+
 ## Bold without layout shift
 
 Each label shares a grid cell with a hidden copy of itself in bold, an `::after` that takes its text from `data-text`. The cell is always as wide as the bold version, so turning a label bold moves nothing: the other tabs, the counts, and the line stay where they were.
 
-The weight switches at the click. Interpolating it on the variable font looked like a jump followed by a drift: the curve made it almost bold in the first frame, and the letters kept sliding as their widths changed. Crossfading a bold copy doubled the letters halfway. The label answers the click, and the line shows the way there.
+The weight and the color switch at the click. Interpolating the weight on the variable font looked like a jump followed by a drift: the curve made it almost bold in the first frame, and the letters kept sliding as their widths changed. Crossfading a bold copy doubled the letters halfway. The label answers the click, and the line shows the way there.
 
 <Implementation specimen={props.specimenId} />
 
@@ -69,6 +79,6 @@ To recolor the CSS version, set `--tbi-fg` on the component or any ancestor. It 
 
 ## Keyboard, touch, and reduced motion
 
-The list is one Tab stop, and the next Tab goes into the panel. The arrow keys, Home, and End move focus and the selection together, and the line moves without animating, since a held arrow key repeats faster than the line travels. A screen reader hears each count as "5 studies". Before the script runs, the selected tab draws its own underline, so the page never shows the line in the wrong place.
+The list is one Tab stop, and the next Tab goes into the panel. The arrow keys, Home, and End move focus and the selection together. The line moves without animating and the list scrolls at once, since a held arrow key repeats faster than the line travels. A screen reader hears each count as "5 studies". Before the script runs, the selected tab draws its own underline, so the page never shows the line in the wrong place.
 
-Each tab's hit area is 40px tall for a mouse and 44px for touch. When the tabs don't fit, the list scrolls sideways and fades the edge with more tabs. With reduced motion, the line moves to the new tab without animating. The selected tab is also bold, so the state doesn't depend on color.
+Each tab's hit area is 40px tall for a mouse and 44px for touch, and reaches 1px into the gap on each side, so the hit areas of neighboring tabs touch. Hover changes the tab at once. When the tabs don't fit, the list scrolls sideways and fades the edge with more tabs. While it scrolls itself, a cursor left resting on it doesn't light up the tabs sliding past; hover comes back when the mouse moves. With reduced motion, the line moves to the new tab without animating and the list jumps with it. The selected tab is also bold, so the state doesn't depend on color.

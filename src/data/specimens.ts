@@ -344,7 +344,7 @@ export const specimens: Specimen[] = [
     hint: 'Pick another tab',
     duration: 250,
     durationNote:
-      'The line reaches the chosen tab in 250ms, and the label turns bold at the click. A tab chosen mid-move takes over from wherever the line is. Hover fills a tab in 120ms, and the arrow keys move the line without animating.',
+      'The line reaches the chosen tab in 250ms, and the label turns bold and dark at the click. A tab chosen mid-move takes over from wherever the line is. When the tab is cut off, the list scrolls on the line\u2019s clock, so both arrive together. Hover is instant, and the arrow keys move the line and scroll the list without animating.',
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:
