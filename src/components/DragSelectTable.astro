@@ -32,7 +32,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Copy to clipboard</th>
+          <th scope="row"><span class="dst-name">Copy to clipboard</span></th>
           <td class="dst-category">Actions</td>
         </tr>
         <tr>
@@ -44,7 +44,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Tab indicator</th>
+          <th scope="row"><span class="dst-name">Tab indicator</span></th>
           <td class="dst-category">Navigation</td>
         </tr>
         <tr>
@@ -56,7 +56,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Switch</th>
+          <th scope="row"><span class="dst-name">Switch</span></th>
           <td class="dst-category">Toggles &amp; choices</td>
         </tr>
         <tr>
@@ -68,7 +68,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Segmented control</th>
+          <th scope="row"><span class="dst-name">Segmented control</span></th>
           <td class="dst-category">Toggles &amp; choices</td>
         </tr>
         <tr>
@@ -80,7 +80,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Number scrub</th>
+          <th scope="row"><span class="dst-name">Number scrub</span></th>
           <td class="dst-category">Values</td>
         </tr>
         <tr>
@@ -92,7 +92,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">One-time code</th>
+          <th scope="row"><span class="dst-name">One-time code</span></th>
           <td class="dst-category">Input</td>
         </tr>
         <tr>
@@ -104,7 +104,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Popover</th>
+          <th scope="row"><span class="dst-name">Popover</span></th>
           <td class="dst-category">Disclosure</td>
         </tr>
         <tr>
@@ -116,7 +116,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Toast</th>
+          <th scope="row"><span class="dst-name">Toast</span></th>
           <td class="dst-category">Feedback</td>
         </tr>
         <tr>
@@ -128,7 +128,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Undo</th>
+          <th scope="row"><span class="dst-name">Undo</span></th>
           <td class="dst-category">Feedback</td>
         </tr>
         <tr>
@@ -140,7 +140,7 @@
               </svg>
             </span>
           </td>
-          <th scope="row">Drag to reorder</th>
+          <th scope="row"><span class="dst-name">Drag to reorder</span></th>
           <td class="dst-category">Direct manipulation</td>
         </tr>
       </tbody>
@@ -206,6 +206,8 @@
       const all = this.querySelector<HTMLInputElement>('[data-all]');
       const count = this.querySelector<HTMLElement>('[data-count]');
       const status = this.querySelector<HTMLElement>('[role="status"]');
+      // In the page's language, so 1284 rows read as 1,284 (or 1.284).
+      const number = new Intl.NumberFormat(this.closest('[lang]')?.getAttribute('lang') || undefined);
       const instructions = this.querySelector<HTMLElement>('[data-instructions]');
       const tableElement = this.querySelector('table');
       const band = this.querySelector<HTMLElement>('[data-band]');
@@ -274,7 +276,7 @@
         all.checked = total > 0 && selected === total;
         all.indeterminate = selected > 0 && selected < total;
         all.disabled = total === 0;
-        count.textContent = `${selected} of ${total}`;
+        count.textContent = `${number.format(selected)} of ${number.format(total)}`;
       };
 
       // Screen readers hear the settled count once, not every row a drag crosses.
@@ -282,7 +284,7 @@
         clearTimeout(announceTimer);
         announceTimer = setTimeout(() => {
           const selected = boxes.filter((box) => box.checked).length;
-          status.textContent = selected ? `${selected} selected` : 'None selected';
+          status.textContent = selected ? `${number.format(selected)} selected` : 'None selected';
         }, 250);
       };
 
@@ -701,13 +703,16 @@
   }
 
   .dst-title {
+    min-width: 0;
     margin: 0;
     font-size: 15px;
     font-weight: 500;
   }
 
   .dst-count {
+    flex: none;
     margin: 0;
+    white-space: nowrap;
     color: var(--muted);
     font-family: var(--font-mono);
     font-size: 12px;
@@ -780,6 +785,7 @@
   /* The whole cell is the grab zone, and it belongs to the drag: the other columns still scroll on touch. */
   .dst-table .dst-box-cell {
     width: 44px;
+    min-width: 44px;
     padding-block: 0;
     padding-inline: 0;
     cursor: pointer;
@@ -789,9 +795,13 @@
     -webkit-touch-callout: none;
   }
 
-  /* On a narrow table the category wraps, not the name: two lines of it still fit the row. */
-  .dst-table tbody th {
-    white-space: nowrap;
+  /* On a narrow table the category wraps, not the name. A name longer than 10rem wraps inside that
+     width instead of pushing the table past its card, and a long address breaks anywhere. */
+  .dst-name {
+    display: block;
+    width: max-content;
+    max-width: 10rem;
+    overflow-wrap: break-word;
   }
 
   /* Secondary column: metadata, not something to read row by row. */
@@ -800,6 +810,7 @@
     font-family: var(--font-mono);
     font-size: 11px;
     line-height: 1.3;
+    overflow-wrap: anywhere;
   }
 
   .dst tbody tr {
