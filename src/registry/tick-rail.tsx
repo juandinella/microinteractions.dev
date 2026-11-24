@@ -32,7 +32,7 @@ type TickRailProps = {
 };
 
 // The element reads the ticks once, so a different set of items remounts it. It marks the current
-// section and moves the card itself after it upgrades.
+// section and moves the card itself after it upgrades. With no items it renders nothing.
 export function TickRail({ items, label = 'On this page', children, className }: TickRailProps) {
   const id = React.useId();
   const key = JSON.stringify(items.map((item) => item.id));
@@ -41,6 +41,8 @@ export function TickRail({ items, label = 'On this page', children, className }:
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./tick-rail-element');
   }, []);
+
+  if (items.length === 0) return null;
 
   return (
     <tick-rail
@@ -51,11 +53,11 @@ export function TickRail({ items, label = 'On this page', children, className }:
         className,
       )}
     >
-      <nav className="grid auto-rows-(--tkr-size) content-center py-4" aria-label={label} data-rail>
+      <nav className="grid min-h-0 auto-rows-(--tkr-size) content-center-safe overflow-y-auto py-4 scrollbar-none" aria-label={label} data-rail>
         {items.map((item, index) => (
           <a
             key={item.id}
-            className="group/tick flex items-center pl-3 text-muted-foreground [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-primary focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-lit:text-foreground"
+            className="group/tick flex items-center ps-3 text-muted-foreground [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-primary focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-lit:text-foreground"
             href={`#${item.id}`}
             aria-describedby={item.description ? `${id}-${index}` : undefined}
             aria-current={index === 0 ? 'location' : undefined}
@@ -63,7 +65,7 @@ export function TickRail({ items, label = 'On this page', children, className }:
           >
             <span className="sr-only">{item.label}</span>
             <span
-              className="block h-0.5 w-6 origin-left rounded-[1px] bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-[cubic-bezier(0.23,1,0.32,1)] group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none"
+              className="block h-0.5 w-6 origin-left rounded-[1px] rtl:origin-right bg-current transform-[scaleX(var(--tkr-rest))] transition-transform duration-160 ease-[cubic-bezier(0.23,1,0.32,1)] group-aria-[current=location]/tick:transform-[scaleX(var(--tkr-current))] group-data-instant/tkr:transition-none motion-reduce:transition-none"
               aria-hidden="true"
               data-line
             />
@@ -89,14 +91,14 @@ export function TickRail({ items, label = 'On this page', children, className }:
 
       <div
         className={cn(
-          'group/card pointer-events-none absolute top-0 left-(--tkr-rail) z-1 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-instant:transition-none data-jump:transition-none data-showing:pointer-events-auto data-showing:cursor-pointer motion-reduce:transition-none',
+          'group/card pointer-events-none absolute top-0 inset-s-(--tkr-rail) z-1 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-instant:transition-none data-jump:transition-none data-showing:pointer-events-auto data-showing:cursor-pointer motion-reduce:transition-none',
           children ? 'w-[min(260px,calc(100%-var(--tkr-rail)-16px))]' : 'w-65',
         )}
         aria-hidden="true"
         data-card
       >
         <div
-          className="grid origin-left overflow-hidden rounded-md border border-border bg-popover px-3 py-2.5 opacity-0 shadow-md transform-[translateX(-4px)_scale(0.98)] transition-[opacity,transform,height] duration-[120ms,120ms,200ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-data-showing/card:transform-none group-data-showing/card:opacity-100 group-data-showing/card:duration-[180ms,180ms,200ms] group-data-jump/card:transition-[opacity,transform] group-data-instant/card:transition-none motion-reduce:transform-none motion-reduce:transition-none"
+          className="grid origin-left overflow-hidden rtl:origin-right rounded-md border border-border bg-popover px-3 py-2.5 opacity-0 shadow-md [--tkr-from:-4px] rtl:[--tkr-from:4px] transform-[translateX(var(--tkr-from))_scale(0.98)] transition-[opacity,transform,height] duration-[120ms,120ms,200ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-data-showing/card:transform-none group-data-showing/card:opacity-100 group-data-showing/card:duration-[180ms,180ms,200ms] group-data-jump/card:transition-[opacity,transform] group-data-instant/card:transition-none motion-reduce:transform-none motion-reduce:transition-none"
           data-card-box
         />
       </div>

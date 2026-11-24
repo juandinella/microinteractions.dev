@@ -227,13 +227,23 @@
         });
       };
 
+      // A rail taller than the component scrolls; the current tick stays in view, 8px from its edge.
+      const reveal = (tick: HTMLElement) => {
+        if (rail.scrollHeight <= rail.clientHeight) return;
+        const offset = top(tick) - top(rail) - rail.clientTop;
+        if (offset < 8) rail.scrollTop += offset - 8;
+        else if (offset + tick.offsetHeight > rail.clientHeight - 8) rail.scrollTop += offset + tick.offsetHeight - rail.clientHeight + 8;
+      };
+
       const setCurrent = (index: number) => {
         current = index;
         ticks.forEach((tick, i) => {
           if (i === index) tick.setAttribute('aria-current', 'location');
           else tick.removeAttribute('aria-current');
         });
+        reveal(ticks[index]);
       };
+
 
       // Card
 
@@ -668,6 +678,9 @@
     --tkr-rest: 0.3333;
     --tkr-current: 0.6667;
     --tkr-rail: 48px;
+    /* The rail's side: where the ticks grow from and the card slides out of. */
+    --tkr-side: left;
+    --tkr-from: -4px;
     --tkr-tick-color: var(--quiet);
     --tkr-lit-color: var(--text);
     --tkr-current-color: var(--brand);
@@ -683,12 +696,21 @@
     background: var(--bg);
   }
 
-  /* The rail sets the component's height: its rows plus 16px above and below. */
+  .tkr:dir(rtl) {
+    --tkr-side: right;
+    --tkr-from: 4px;
+  }
+
+  /* The rail sets the component's height: its rows plus 16px above and below. In a shorter component it
+     scrolls, and `safe` keeps the first ticks reachable instead of centering them out of the top. */
   .tkr-rail {
     display: grid;
     grid-auto-rows: var(--tkr-size);
-    align-content: center;
+    align-content: safe center;
+    min-height: 0;
+    overflow-y: auto;
     padding-block: 16px;
+    scrollbar-width: none;
   }
 
   /* A finger needs more than 24px. */
@@ -702,7 +724,7 @@
   .tkr-tick {
     display: flex;
     align-items: center;
-    padding-left: 12px;
+    padding-inline-start: 12px;
     color: var(--tkr-tick-color);
     -webkit-tap-highlight-color: transparent;
   }
@@ -738,7 +760,7 @@
     border-radius: 1px;
     background: currentColor;
     transform: scaleX(var(--tkr-rest));
-    transform-origin: left center;
+    transform-origin: var(--tkr-side) center;
     transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
@@ -797,7 +819,7 @@
   .tkr-card {
     position: absolute;
     top: 0;
-    left: var(--tkr-rail);
+    inset-inline-start: var(--tkr-rail);
     z-index: 1;
     width: min(260px, calc(100% - var(--tkr-rail) - 16px));
     pointer-events: none;
@@ -819,8 +841,8 @@
     background: var(--bg);
     box-shadow: 0 8px 20px oklch(0.2 0.006 260 / 0.08);
     opacity: 0;
-    transform: translateX(-4px) scale(0.98);
-    transform-origin: left center;
+    transform: translateX(var(--tkr-from)) scale(0.98);
+    transform-origin: var(--tkr-side) center;
     transition:
       opacity 120ms cubic-bezier(0.23, 1, 0.32, 1),
       transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
