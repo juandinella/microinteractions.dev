@@ -5,8 +5,12 @@
       <span class="thumb-anchor"></span>
     </div>
 
-    <span class="value-tooltip" aria-hidden="true"
-      >Volume <span data-volume>50</span>%</span
+    <span class="value-tooltip" aria-hidden="true" data-tip
+      ><span class="value-label">Volume</span>
+      <span class="value-number"
+        ><span><span data-volume>50</span>%</span
+        ><span class="value-widest">100%</span></span
+      ></span
     >
     <span class="tooltip-tip" aria-hidden="true"></span>
 
@@ -49,6 +53,15 @@
 
       const { signal } = this.#controller;
       input.addEventListener('input', update, { signal });
+
+      // The fallback without anchor positioning keeps the tooltip inside the slider from its width,
+      // which follows the label and the font, so it's measured rather than written into the CSS.
+      const tip = this.querySelector<HTMLElement>('[data-tip]');
+      if (tip) {
+        const observer = new ResizeObserver(() => this.style.setProperty('--tip-w', `${tip.offsetWidth}px`));
+        observer.observe(tip);
+        signal.addEventListener('abort', () => observer.disconnect());
+      }
       // A form reset restores the default value without an input event, once the reset event is over.
       let resetTimer: ReturnType<typeof setTimeout> | undefined;
       this.closest('form')?.addEventListener(
@@ -90,10 +103,16 @@
   }
 
   .slider-field {
+    /* The thumb's distance from the left edge, which in right-to-left is the far end of the range. */
+    --x: var(--value);
     position: relative;
     display: block;
     height: 44px;
     anchor-scope: --volume-thumb;
+  }
+
+  .slider-field:dir(rtl) {
+    --x: calc(1 - var(--value));
   }
 
   /* Keep input tracking direct, including when global styles set a transition duration. */
@@ -118,14 +137,18 @@
     inset: 0;
     border-radius: inherit;
     background: var(--text);
-    clip-path: inset(0 calc((1 - var(--value)) * 100%) 0 0 round 2px);
+    clip-path: inset(0 calc((1 - var(--x)) * 100%) 0 0 round 2px);
+  }
+
+  .slider-field:dir(rtl) .rail-fill {
+    clip-path: inset(0 0 0 calc(var(--x) * 100%) round 2px);
   }
 
   /* Mirrors the native thumb so the same anchor works in every range implementation. */
   .thumb-anchor {
     position: absolute;
     top: -10px;
-    left: calc(var(--value) * 100% - 12px);
+    left: calc(var(--x) * 100% - 12px);
     width: 24px;
     height: 24px;
     anchor-name: --volume-thumb;
@@ -136,10 +159,16 @@
     bottom: 46px;
     left: clamp(
       0px,
-      calc(12px + (100% - 24px) * var(--value) - 64px),
-      calc(100% - 128px)
+      calc(12px + (100% - 24px) * var(--x) - var(--tip-w, 128px) / 2),
+      calc(100% - var(--tip-w, 128px))
     );
-    width: 128px;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    /* As wide as the label and the widest value, so it never changes width while the value moves. */
+    width: max-content;
+    min-width: 128px;
+    max-width: 100%;
     padding: 9px 12px;
     border-radius: 8px;
     background: var(--edge-tooltip-bg);
@@ -153,10 +182,32 @@
     pointer-events: none;
   }
 
+  /* Only a label wider than the slider itself is cut, and the value stays whole. */
+  .value-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* The current value sits over a hidden copy of the widest one, which holds the space. */
+  .value-number {
+    display: inline-grid;
+    flex: none;
+    justify-items: start;
+  }
+
+  .value-number > * {
+    grid-area: 1 / 1;
+  }
+
+  .value-widest {
+    visibility: hidden;
+  }
+
   .tooltip-tip {
     position: absolute;
     bottom: 42px;
-    left: calc(12px + (100% - 24px) * var(--value) - 4px);
+    left: calc(12px + (100% - 24px) * var(--x) - 4px);
     width: 8px;
     height: 8px;
     background: var(--edge-tooltip-bg);

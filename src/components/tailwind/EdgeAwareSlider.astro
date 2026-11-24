@@ -2,7 +2,7 @@
   class="w-full max-w-90 rounded-[14px] border border-edge-line bg-edge-bg px-5 pt-16 pb-4 font-sans"
 >
   <edge-aware-tooltip
-    class="block relative h-11 [anchor-scope:--volume-thumb] transition-none **:transition-none"
+    class="block relative h-11 [--x:var(--value)] rtl:[--x:calc(1-var(--value))] [anchor-scope:--volume-thumb] transition-none **:transition-none"
     style="--value: 0.5"
   >
     <div
@@ -10,21 +10,26 @@
       aria-hidden="true"
     >
       <span
-        class="absolute inset-0 bg-edge-ink [clip-path:inset(0_calc((1-var(--value))*100%)_0_0_round_2px)]"
+        class="absolute inset-0 bg-edge-ink [clip-path:inset(0_calc((1-var(--x))*100%)_0_0_round_2px)] rtl:[clip-path:inset(0_0_0_calc(var(--x)*100%)_round_2px)]"
       ></span>
       <span
-        class="absolute -top-2.5 left-[calc(var(--value)*100%-12px)] size-6 [anchor-name:--volume-thumb]"
+        class="absolute -top-2.5 left-[calc(var(--x)*100%-12px)] size-6 [anchor-name:--volume-thumb]"
       ></span>
     </div>
 
     <span
       aria-hidden="true"
-      class="pointer-events-none absolute bottom-11.5 left-[clamp(0px,calc(12px+(100%-24px)*var(--value)-64px),calc(100%-128px))] w-32 rounded-lg bg-edge-tooltip px-3 py-2.25 text-center text-sm/5 font-medium text-edge-tooltip-fg tabular-nums whitespace-nowrap anchor-ready:[position-anchor:--volume-thumb] anchor-ready:bottom-[calc(anchor(top)+12px)] anchor-ready:left-auto anchor-ready:[justify-self:anchor-center]"
-      >Volume <span data-volume>50</span>%</span
+      class="pointer-events-none absolute bottom-11.5 left-[clamp(0px,calc(12px+(100%-24px)*var(--x)-var(--tip-w,128px)/2),calc(100%-var(--tip-w,128px)))] flex w-max max-w-full min-w-32 justify-center gap-1 rounded-lg bg-edge-tooltip px-3 py-2.25 text-center text-sm/5 font-medium text-edge-tooltip-fg tabular-nums whitespace-nowrap anchor-ready:[position-anchor:--volume-thumb] anchor-ready:bottom-[calc(anchor(top)+12px)] anchor-ready:left-auto anchor-ready:[justify-self:anchor-center]"
+      data-tip
+      ><span class="min-w-0 truncate">Volume</span>
+      <span class="grid flex-none justify-items-start *:col-start-1 *:row-start-1"
+        ><span><span data-volume>50</span>%</span
+        ><span class="invisible">100%</span></span
+      ></span
     >
     <span
       aria-hidden="true"
-      class="pointer-events-none absolute bottom-10.5 left-[calc(12px+(100%-24px)*var(--value)-4px)] size-2 rotate-45 bg-edge-tooltip anchor-ready:[position-anchor:--volume-thumb] anchor-ready:bottom-[calc(anchor(top)+8px)] anchor-ready:left-[calc(anchor(center)-4px)]"
+      class="pointer-events-none absolute bottom-10.5 left-[calc(12px+(100%-24px)*var(--x)-4px)] size-2 rotate-45 bg-edge-tooltip anchor-ready:[position-anchor:--volume-thumb] anchor-ready:bottom-[calc(anchor(top)+8px)] anchor-ready:left-[calc(anchor(center)-4px)]"
     ></span>
 
     <input
