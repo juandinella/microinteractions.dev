@@ -55,7 +55,7 @@ export function TickRail({ items, label = 'On this page', children, className }:
         {items.map((item, index) => (
           <a
             key={item.id}
-            className="group/tick flex items-center pl-3 text-muted-foreground transition-[color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-primary focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-lit:text-foreground"
+            className="group/tick flex items-center pl-3 text-muted-foreground [-webkit-tap-highlight-color:transparent] not-data-lit:aria-[current=location]:text-primary focus-visible:rounded focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-lit:text-foreground"
             href={`#${item.id}`}
             aria-describedby={item.description ? `${id}-${index}` : undefined}
             aria-current={index === 0 ? 'location' : undefined}

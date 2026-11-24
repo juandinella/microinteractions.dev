@@ -467,7 +467,7 @@ export const specimens: Specimen[] = [
       'Starts at full speed, so the ticks and the card answer the pointer at once, then settle.',
     props: ['transform', 'height', 'opacity', 'filter'],
     positioningNote:
-      'Each tick is a 24px line scaled with scaleX, 8px at rest and 16px for the current section. translateY centers the card on its tick, kept inside the component.',
+      'Each tick is a 24px line scaled with scaleX, 8px at rest and never under 16px for the current section. translateY centers the card on its tick, kept inside the component.',
     detail: {
       label: 'Falloff',
       value: 'Cosine over 3 rows',
