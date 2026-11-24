@@ -248,7 +248,7 @@ export const specimens: Specimen[] = [
     easing: [0.65, 0, 0.35, 1],
     easingName: 'ease-in-out-cubic',
     easingNote:
-      'Head and tail share the curve, offset by 40ms; the gap between them is the drop. The slow start lets it pull away from the old ring before it travels. A choice made mid-pour switches to cubic-bezier(0.23, 1, 0.32, 1), which starts at speed, so the drop never stalls.',
+      'Head and tail share the curve, offset by 40ms; the gap between them is the drop. The slow start lets it pull away from the old ring before it travels. A choice made mid-pour switches to cubic-bezier(0.23, 1, 0.32, 1), which starts at speed, so the drop never stalls; a redirected drop also loses the tail\'s lag and lands at 300ms.',
     props: ['transform'],
   },
   {
@@ -287,7 +287,7 @@ export const specimens: Specimen[] = [
     duration: 160,
     minDuration: 90,
     durationNote:
-      'The band follows the pointer from row to row in 90ms; each check draws in 160ms. Unchecking, and the rows a drag backs off, clear at once.',
+      'The band follows the pointer from row to row in 90ms, fading in over 150ms and out over 100ms; each check draws in 160ms. Unchecking, the rows a drag backs off, and every change from the keyboard appear at once.',
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:
@@ -315,12 +315,14 @@ export const specimens: Specimen[] = [
     duration: 240,
     minDuration: 100,
     durationNote:
-      'After a 60ms hover delay the grip appears in 120ms; it leaves in 100ms and widens in 100ms on press. Collapsing and reopening settle in 240ms, and the width follows the pointer 1:1.',
-    easing: [0.23, 1, 0.32, 1],
-    easingName: 'ease-out-quint',
-    props: ['translate', 'scale', 'grid-template-columns'],
+      'After a 60ms hover delay the grip appears in 120ms; it leaves in 100ms and widens in 100ms on press, and keyboard focus shows it at once. Collapsing, reopening, a cancelled drag and the give below the minimum settle in 240ms; otherwise the width follows the pointer 1:1, from 2px of travel with a mouse or 10px on touch.',
+    easing: [0.32, 0.72, 0, 1],
+    easingName: 'custom ease-out',
+    easingNote:
+      'The 240ms snaps (collapse, reopen, cancel, the give returning to the minimum and the double-click reset) run from JavaScript on this drawer curve. The grip\'s scale and its press use cubic-bezier(0.23, 1, 0.32, 1); its fade and darkening use ease-out.',
+    props: ['translate', 'scale', 'opacity', 'width', 'grid-template-columns'],
     positioningNote:
-      'The grip and the handle move with translate, and the grip grows in with scale. Only the sidebar width, on grid-template-columns, changes layout.',
+      'The grip and the handle move with translate, the grip grows in with scale and fades with opacity, and the 4px grip widens to 6px on width when pressed. Besides the grip\'s own width, only the sidebar width, on grid-template-columns, changes layout.',
     detail: {
       label: 'Grip',
       value: 'Follows the pointer',
@@ -364,10 +366,10 @@ export const specimens: Specimen[] = [
     triggerLabel: 'Drag, swipe, tap, arrow keys',
     hint: 'Drag along the dots',
     touchHint: 'Drag along the dots or swipe the slides',
-    duration: 440,
+    duration: 360,
     minDuration: 80,
     durationNote:
-      'The worm has no duration of its own: it follows the scroll. A release snaps to the nearest dot in 180ms, a tap travels in 280ms plus 40ms for each extra dot it crosses, and the hover ring glides in 80ms. The arrow keys jump without animating.',
+      'The worm has no duration of its own: it follows the scroll. A release snaps to the nearest dot in 180ms, a tap travels in 280ms plus 20ms for each extra dot it crosses, 360ms from end to end, and the hover ring glides in 80ms on the same curve. A scrub catches up with the pointer, then follows it 1:1. The arrow keys jump without animating.',
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:

@@ -152,7 +152,7 @@ Elevation is mostly structural, not atmospheric. Default surfaces use thin borde
 ## 5. Components
 
 ### Buttons
-- **Shape:** Study-specific: `12px` corners on the text swap, `48px`-high pills for hold-to-confirm, and circular chevron controls. All have at least a `44px` target.
+- **Shape:** Study-specific: `12px` corners on the text swap, `48px`-high pills for hold-to-confirm, and circular chevron controls. All have at least a `44px` target. Two studies are deliberate exceptions at WCAG 2.2's `24px` minimum: worm dots, whose six 44px dots wouldn't fit the 280px pager, and the resize handle, whose wider strip would cover the panes it separates.
 - **Primary:** Instrument Ink on Bench Porcelain, used for demo controls and decisive actions.
 - **Hover / Focus:** Preserve each demo's documented behavior. Shell navigation uses immediate surface feedback and visible focus; it does not inherit demo motion. Exceptions: the brand mark, and the arrows on the index's "Open study" and the study previous/next links, which reuse the chevron morph study (`MorphArrow.astro`).
 - **Text Actions:** Underlined mono labels for Copy and reference links. Navigation uses real anchors. Previous/next links live only at the end of each study.

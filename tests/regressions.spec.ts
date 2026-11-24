@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const slugs = ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'tab-indicator'];
 const scripted = ['hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'tab-indicator'];
@@ -641,7 +641,9 @@ test.describe('resize handle', () => {
     const point = await start(page);
     await expect(handle(page)).toHaveAttribute('data-state', 'hover');
     await page.mouse.down();
-    await page.mouse.move(point.x + 40, point.y + 30, { steps: 4 });
+    // The first 2px cross the drag threshold; the width follows from there.
+    await page.mouse.move(point.x + 2, point.y);
+    await page.mouse.move(point.x + 42, point.y + 30, { steps: 4 });
     await expect(handle(page)).toHaveAttribute('aria-valuenow', '200');
     const grip = (await page.locator('[data-grip]').boundingBox())!;
     expect(Math.abs(grip.y + grip.height / 2 - (point.y + 30))).toBeLessThanOrEqual(1);
@@ -654,10 +656,11 @@ test.describe('resize handle', () => {
     await page.goto('/resize-handle/');
     const point = await start(page);
     await page.mouse.down();
-    await page.mouse.move(point.x - 120, point.y, { steps: 6 });
+    await page.mouse.move(point.x - 2, point.y);
+    await page.mouse.move(point.x - 122, point.y, { steps: 6 });
     await expect(handle(page)).toHaveAttribute('aria-valuetext', 'Collapsed');
     await expect(page.locator('[data-side]')).toHaveJSProperty('inert', true);
-    await page.mouse.move(point.x - 20, point.y, { steps: 6 });
+    await page.mouse.move(point.x - 22, point.y, { steps: 6 });
     await expect(handle(page)).toHaveAttribute('aria-valuenow', '140');
     await page.mouse.up();
     await expect(page.locator('[data-side]')).toHaveJSProperty('inert', false);
@@ -690,7 +693,8 @@ test.describe('resize handle', () => {
     await page.goto('/resize-handle/');
     const point = await start(page);
     await page.mouse.down();
-    await page.mouse.move(point.x + 20.4, point.y, { steps: 3 });
+    await page.mouse.move(point.x + 2, point.y);
+    await page.mouse.move(point.x + 22.4, point.y, { steps: 3 });
     await expect(handle(page)).toHaveAttribute('aria-valuenow', '180');
     await page.mouse.up();
   });
@@ -821,7 +825,8 @@ test.describe('resize handle', () => {
     await standalone.addScriptTag({ content: code.css.JavaScript });
     const point = await start(standalone);
     await standalone.mouse.down();
-    await standalone.mouse.move(point.x + 40, point.y, { steps: 4 });
+    await standalone.mouse.move(point.x + 2, point.y);
+    await standalone.mouse.move(point.x + 42, point.y, { steps: 4 });
     await standalone.mouse.up();
     await expect(handle(standalone)).toHaveAttribute('aria-valuenow', '200');
     expect(errors).toEqual([]);
@@ -1629,5 +1634,626 @@ test.describe('tick rail on touch', () => {
     await expect(card).toHaveAttribute('data-showing', '');
     await page.locator('h1').tap();
     await expect(card).not.toHaveAttribute('data-showing');
+  });
+});
+
+test.describe('drag select: edges, keys and the header target', () => {
+  type Scope = import('@playwright/test').Page;
+  const boxes = (page: Scope) => page.locator('drag-select-table tbody input');
+  const checked = (page: Scope) => boxes(page).evaluateAll((inputs: HTMLInputElement[]) => inputs.map((input) => input.checked));
+  const center = async (page: Scope, index: number) => {
+    const box = (await boxes(page).nth(index).locator('xpath=..').boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const press = async (page: Scope, from: number, to: number[]) => {
+    const start = await center(page, from);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    for (const index of to) {
+      const point = await center(page, index);
+      await page.mouse.move(point.x, point.y, { steps: 4 });
+    }
+  };
+  const scrollTop = (page: Scope) => page.locator('drag-select-table [data-scroll]').evaluate((scroller) => scroller.scrollTop);
+
+  test.use({ reducedMotion: 'no-preference' });
+
+  test('a still press near the bottom edge checks only its row and does not scroll', async ({ page }) => {
+    await page.goto('/drag-select/');
+    await page.locator('drag-select-table [data-scroll]').scrollIntoViewIfNeeded();
+    // The lowest box cell that is fully visible, pressed 4px above its bottom: deep in the 48px zone.
+    const target = await page.locator('drag-select-table').evaluate((table) => {
+      const frame = table.querySelector('[data-scroll]')!.getBoundingClientRect();
+      const cells = [...table.querySelectorAll('tbody [data-box-cell]')];
+      let index = -1;
+      cells.forEach((cell, i) => {
+        if (cell.getBoundingClientRect().bottom <= frame.bottom) index = i;
+      });
+      const cell = cells[index].getBoundingClientRect();
+      const y = cell.bottom - 4;
+      return { index, x: cell.left + cell.width / 2, y, fromEdge: frame.bottom - y };
+    });
+    expect(target.index).toBeGreaterThan(0);
+    expect(target.fromEdge).toBeLessThan(48);
+
+    await page.mouse.move(target.x, target.y);
+    await page.mouse.down();
+    await page.waitForTimeout(300);
+    expect(await scrollTop(page)).toBe(0);
+    const expected = Array(10).fill(false);
+    expected[target.index] = true;
+    expect(await checked(page)).toEqual(expected);
+
+    // Moving toward the edge past the 2px mouse slop starts the autoscroll.
+    await page.mouse.move(target.x, target.y + 6);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(0);
+    await page.mouse.up();
+  });
+
+  test('keyboard changes appear without animating, and a pointer press animates again', async ({ page }) => {
+    await page.goto('/drag-select/');
+    const table = page.locator('drag-select-table');
+    // Counted while the `input` event dispatches, in the same task as the change, so a short
+    // transition can't finish before it is read.
+    await table.evaluate((element) => {
+      const log: number[] = [];
+      (window as unknown as { animationLog: number[] }).animationLog = log;
+      element.addEventListener('input', (event) => {
+        const box = (event.target as HTMLElement).parentElement!;
+        log.push(box.getAnimations({ subtree: true }).length);
+      });
+    });
+    const animations = () => page.evaluate(() => [...(window as unknown as { animationLog: number[] }).animationLog]);
+
+    await boxes(page).nth(1).focus();
+    await page.keyboard.press('Space');
+    await expect(table).toHaveAttribute('data-keyboard', '');
+    await page.keyboard.press('Shift+ArrowDown');
+    expect((await checked(page)).slice(0, 3)).toEqual([false, true, true]);
+    expect(await animations()).toEqual([0, 0]);
+
+    // Row 4 is fully visible; row 6 sits under the scroller's bottom edge.
+    const point = await center(page, 3);
+    await page.mouse.click(point.x, point.y);
+    await expect(table).not.toHaveAttribute('data-keyboard', '');
+    const log = await animations();
+    expect(log).toHaveLength(3);
+    expect(log[2]).toBeGreaterThan(0);
+  });
+
+  test('Escape during a drag cancels it without reaching listeners on document', async ({ page }) => {
+    await page.goto('/drag-select/');
+    await page.evaluate(() => {
+      const log: string[] = [];
+      (window as unknown as { escapeLog: string[] }).escapeLog = log;
+      document.addEventListener('keydown', (event) => log.push(`capture:${event.key}`), { capture: true });
+      document.addEventListener('keydown', (event) => log.push(`bubble:${event.key}`));
+    });
+    const escapes = () => page.evaluate(() => [...(window as unknown as { escapeLog: string[] }).escapeLog]);
+
+    await press(page, 0, [3]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    expect(await escapes()).toEqual([]);
+    expect(await checked(page)).toEqual(Array(10).fill(false));
+
+    // With no drag in progress, Escape belongs to the page again.
+    await page.keyboard.press('Escape');
+    expect(await escapes()).toEqual(['capture:Escape', 'bubble:Escape']);
+  });
+
+  test('Select all fills its header cell, and a click near its edge toggles every row', async ({ page }) => {
+    await page.goto('/drag-select/');
+    const label = page.locator('drag-select-table thead label');
+    const box = (await label.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(34);
+
+    await page.mouse.click(box.x + 4, box.y + box.height / 2);
+    await expect(page.getByRole('checkbox', { name: 'Select all' })).toBeChecked();
+    await expect(page.locator('[data-count]')).toHaveText('10 of 10');
+    await expect(page.locator('[data-band]')).not.toHaveAttribute('data-shown', '');
+
+    await page.mouse.click(box.x + box.width - 4, box.y + 4);
+    await expect(page.locator('[data-count]')).toHaveText('0 of 10');
+  });
+});
+
+test.describe('gooey radio group timing and ring color', () => {
+  test('a redirect lights the new ring after 130ms and its tail starts without the lag', async ({ page }) => {
+    await page.goto('/gooey-radio-group/');
+    const stage = page.locator('[data-stage]');
+    // Start a pour, move it 150ms in and change course in one task, so the first pour is still running.
+    const result = await stage.locator('gooey-radio-group').evaluate((group) => {
+      const choose = (value: string) => {
+        const input = group.querySelector<HTMLInputElement>(`input[value="${value}"]`)!;
+        input.checked = true;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      const blobs = [...group.querySelectorAll<HTMLElement>('[data-goo-blob]')];
+      choose('pickup');
+      blobs.forEach((blob) => blob.getAnimations().forEach((pour) => (pour.currentTime = 150)));
+      choose('standard');
+      const label = group.querySelector('input[value="standard"]')!.closest('label')!;
+      const ring = label.querySelector('.goo-ring')!;
+      const tail = blobs[0].getAnimations()[0];
+      const y = (frame: Keyframe) => Number(/translateY\((-?[\d.]+)px\)/.exec(frame.transform as string)![1]);
+      const frames = (tail.effect as KeyframeEffect).getKeyframes();
+      return {
+        arrive: group.style.getPropertyValue('--goo-arrive'),
+        ring: getComputedStyle(ring).transitionDelay,
+        label: getComputedStyle(label).transitionDelay,
+        overlay: getComputedStyle(ring, '::after').transitionDelay,
+        duration: tail.effect!.getTiming().duration,
+        // Keyframes are 5ms apart; with a 40ms lag the tail's first eight would be equal.
+        tailMoves: Math.abs(y(frames[2]) - y(frames[0])),
+      };
+    });
+    expect(result.arrive).toBe('130ms');
+    expect(result.ring).toBe('0.13s');
+    expect(result.label).toBe('0.13s');
+    expect(result.overlay).toBe('0.13s');
+    expect(result.duration).toBe(300);
+    expect(result.tailMoves).toBeGreaterThan(0.5);
+  });
+
+  test('a pour from rest lights the new ring after 225ms, even after a redirect', async ({ page }) => {
+    await page.goto('/gooey-radio-group/');
+    const stage = page.locator('[data-stage]');
+    const [arrive, ring, label, duration] = await stage.locator('gooey-radio-group').evaluate((group) => {
+      const choose = (value: string) => {
+        const input = group.querySelector<HTMLInputElement>(`input[value="${value}"]`)!;
+        input.checked = true;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      const blobs = [...group.querySelectorAll<HTMLElement>('[data-goo-blob]')];
+      // A redirect first, then let it land, so the next change pours from rest.
+      choose('pickup');
+      blobs.forEach((blob) => blob.getAnimations().forEach((pour) => (pour.currentTime = 150)));
+      choose('next-day');
+      blobs.forEach((blob) => blob.getAnimations().forEach((pour) => pour.finish()));
+      choose('express');
+      const option = group.querySelector('input[value="express"]')!.closest('label')!;
+      return [
+        group.style.getPropertyValue('--goo-arrive'),
+        getComputedStyle(option.querySelector('.goo-ring')!).transitionDelay,
+        getComputedStyle(option).transitionDelay,
+        blobs.at(-1)!.getAnimations()[0].effect!.getTiming().duration,
+      ];
+    });
+    expect(arrive).toBe('225ms');
+    expect(ring).toBe('0.225s');
+    expect(label).toBe('0.225s');
+    expect(duration).toBe(340);
+  });
+
+  test.describe('with reduced motion', () => {
+    test.use({ reducedMotion: 'reduce' });
+
+    test('the dot jumps, and ring and label still change color over 140ms without waiting', async ({ page }) => {
+      await page.goto('/gooey-radio-group/');
+      const stage = page.locator('[data-stage]');
+      const timing = await stage.locator('gooey-radio-group').evaluate((group) => {
+        const read = (value: string) => {
+          const label = group.querySelector(`input[value="${value}"]`)!.closest('label')!;
+          const ring = label.querySelector('.goo-ring')!;
+          const [labelStyle, ringStyle] = [getComputedStyle(label), getComputedStyle(ring)];
+          return {
+            label: [labelStyle.transitionProperty, labelStyle.transitionDuration, labelStyle.transitionDelay],
+            ring: [ringStyle.transitionProperty, ringStyle.transitionDuration, ringStyle.transitionDelay],
+            overlay: getComputedStyle(ring, '::after').transitionDelay,
+          };
+        };
+        const input = group.querySelector<HTMLInputElement>('input[value="pickup"]')!;
+        input.checked = true;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        // Only the scripted drop counts: WebKit also lists the site reset's 0.001ms CSS transitions.
+        const animations = [...group.querySelectorAll('[data-goo-blob]')]
+          .flatMap((blob) => blob.getAnimations())
+          .filter((animation) => !(animation instanceof CSSTransition)).length;
+        return { checked: read('pickup'), unchecked: read('standard'), animations };
+      });
+      expect(timing.animations).toBe(0);
+      expect(timing.checked.label).toEqual(['color', '0.14s', '0s']);
+      expect(timing.checked.ring).toEqual(['border-color', '0.14s', '0s']);
+      expect(timing.checked.overlay).toBe('0s');
+      expect(timing.unchecked.label).toEqual(['color', '0.14s', '0s']);
+      expect(timing.unchecked.ring).toEqual(['border-color', '0.14s', '0s']);
+      await expect.poll(() =>
+        stage.locator('[data-goo-blob]').last().evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m42),
+      ).toBe(132);
+    });
+  });
+
+  for (const [scheme, color] of [['light', 'oklch(0.62 0.01 258.74)'], ['dark', 'oklch(0.54 0.014 258.74)']] as const) {
+    test.describe(`in ${scheme} mode`, () => {
+      test.use({ colorScheme: scheme });
+
+      test('the unchecked ring keeps 3:1, apart from the hover ring and the ink', async ({ page }) => {
+        await page.goto('/gooey-radio-group/');
+        const stage = page.locator('[data-stage]');
+        const colors = await stage.locator('gooey-radio-group').evaluate((group, expected) => {
+          // Each browser serializes oklch its own way, so compare against a probe it resolved itself.
+          const probe = document.createElement('span');
+          probe.style.border = `2px solid ${expected}`;
+          group.append(probe);
+          const want = getComputedStyle(probe).borderTopColor;
+          probe.remove();
+          const ring = (value: string) => group.querySelector(`input[value="${value}"]`)!.closest('label')!.querySelector('.goo-ring')!;
+          return {
+            want,
+            unchecked: getComputedStyle(ring('express')).borderTopColor,
+            hover: getComputedStyle(ring('express'), '::after').borderTopColor,
+            checked: getComputedStyle(ring('standard')).borderTopColor,
+          };
+        }, color);
+        expect(colors.unchecked).toBe(colors.want);
+        expect(new Set([colors.unchecked, colors.hover, colors.checked]).size).toBe(3);
+      });
+    });
+  }
+});
+
+test.describe('resize handle: threshold, give and hover', () => {
+  type Scope = import('@playwright/test').Page;
+  const handle = (page: Scope) => page.getByRole('separator', { name: 'Resize sidebar' });
+  const sidebar = (page: Scope) => page.locator('resizable-sidebar');
+  // The width on screen, which the script writes on every frame; aria-valuenow is the width the drag asks for.
+  const shown = (page: Scope) => sidebar(page).evaluate((element: HTMLElement) => element.style.getPropertyValue('--rsb-width'));
+  // Whole pixels, so WebKit, which rounds clientX, measures the same travel as Chromium.
+  const start = async (page: Scope, y = 60) => {
+    const box = (await handle(page).boundingBox())!;
+    const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + y) };
+    await page.mouse.move(point.x, point.y);
+    return point;
+  };
+  // Presses and passes the 2px mouse slop, which anchors the drag at point.x - 2.
+  const grab = async (page: Scope, point: { x: number; y: number }) => {
+    await page.mouse.down();
+    await page.mouse.move(point.x - 2, point.y);
+  };
+  // Records the width on screen from the pointerup handler on, one sample a frame, for 400ms.
+  const sampleRelease = (page: Scope) =>
+    page.evaluate(() => {
+      const element = document.querySelector<HTMLElement>('resizable-sidebar')!;
+      const read = () => parseFloat(element.style.getPropertyValue('--rsb-width'));
+      const samples: { t: number; width: number }[] = [];
+      (window as any).__release = samples;
+      // The window listener runs after the handle's, in the same task as the release.
+      window.addEventListener(
+        'pointerup',
+        () => {
+          const t0 = performance.now();
+          samples.push({ t: 0, width: read() });
+          const tick = () => {
+            const t = performance.now() - t0;
+            samples.push({ t, width: read() });
+            if (t < 400) requestAnimationFrame(tick);
+            else (window as any).__releaseDone = true;
+          };
+          requestAnimationFrame(tick);
+        },
+        { once: true },
+      );
+    });
+
+  test('a vertical swipe on the divider is left to the page', async ({ page }) => {
+    await page.goto('/resize-handle/');
+    await expect(handle(page)).toHaveCSS('touch-action', 'pan-y');
+  });
+
+  test('a mouse press resizes only past 2px of travel, from where it crossed', async ({ page }) => {
+    await page.goto('/resize-handle/');
+    const point = await start(page);
+    await page.mouse.down();
+    await expect(handle(page)).toHaveAttribute('data-state', 'drag');
+    await page.mouse.move(point.x + 1, point.y);
+    expect(await handle(page).getAttribute('aria-valuenow')).toBe('160');
+    expect(await shown(page)).toBe('160px');
+    // Through +2, where the drag starts and is anchored, to +3: one pixel of resize.
+    await page.mouse.move(point.x + 3, point.y, { steps: 2 });
+    await expect(handle(page)).toHaveAttribute('aria-valuenow', '161');
+    await page.mouse.up();
+  });
+
+  test.describe('with motion', () => {
+    test.use({ reducedMotion: 'no-preference' });
+
+    test('below the minimum the edge gives while the width stays, and snaps back on release', async ({ page }) => {
+      await page.goto('/resize-handle/');
+      const point = await start(page);
+      await grab(page, point);
+      // 60px left of the anchor: a proposed width of 100, inside the 60 to 120 zone.
+      await page.mouse.move(point.x - 62, point.y, { steps: 10 });
+      await expect(handle(page)).toHaveAttribute('aria-valuenow', '120');
+      await expect(handle(page)).toHaveAttribute('aria-valuetext', '120 pixels');
+      expect(await shown(page)).toBe('110px');
+      expect((await page.locator('[data-side]').boundingBox())!.width).toBeCloseTo(110, 0);
+
+      await sampleRelease(page);
+      await page.mouse.up();
+      await page.waitForFunction(() => (window as any).__releaseDone === true);
+      const raw: { t: number; width: number }[] = await page.evaluate(() => (window as any).__release);
+      // Measured boxes carry sub-pixel noise (110.0000006); a tenth of a pixel is far below anything visible.
+      const samples = raw.map(({ t, width }) => ({ t, width: Math.round(width * 10) / 10 }));
+      expect(samples[0].width).toBe(110);
+      // The return runs on the 240ms snap: it passes through the widths between, never back, and lands on 120.
+      for (let i = 1; i < samples.length; i++) expect(samples[i].width).toBeGreaterThanOrEqual(samples[i - 1].width);
+      expect(samples.some(({ width }) => width > 110 && width < 120)).toBe(true);
+      // Not instant: the drawer curve is still more than half a pixel short of 120 after 100ms.
+      const near = samples.find(({ width }) => width >= 119.5)!;
+      expect(near.t).toBeGreaterThanOrEqual(100);
+      expect(samples.at(-1)!.width).toBe(120);
+
+      // The release committed the minimum, not the edge on screen.
+      await expect(handle(page)).toHaveAttribute('aria-valuenow', '120');
+      await handle(page).focus();
+      await page.keyboard.press('ArrowRight');
+      await expect(handle(page)).toHaveAttribute('aria-valuenow', '132');
+    });
+
+    test('the give grows toward the collapse and the collapse starts from it', async ({ page }) => {
+      await page.goto('/resize-handle/');
+      const point = await start(page);
+      await grab(page, point);
+      // Proposed 61: the deepest give before the collapse.
+      await page.mouse.move(point.x - 101, point.y, { steps: 10 });
+      await expect(handle(page)).toHaveAttribute('aria-valuenow', '120');
+      expect(await shown(page)).toBe('94px');
+      await page.mouse.move(point.x - 104, point.y);
+      await expect(handle(page)).toHaveAttribute('aria-valuetext', 'Collapsed');
+      await page.mouse.up();
+    });
+  });
+
+  test.describe('with reduced motion', () => {
+    test.use({ reducedMotion: 'reduce' });
+
+    test('the give still follows the pointer and returns at once', async ({ page }) => {
+      await page.goto('/resize-handle/');
+      const point = await start(page);
+      await grab(page, point);
+      await page.mouse.move(point.x - 62, point.y, { steps: 10 });
+      expect(await shown(page)).toBe('110px');
+      await sampleRelease(page);
+      await page.mouse.up();
+      await page.waitForFunction(() => (window as any).__releaseDone === true);
+      const samples: { t: number; width: number }[] = await page.evaluate(() => (window as any).__release);
+      expect(samples.every(({ width }) => Math.abs(width - 120) < 0.1)).toBe(true);
+    });
+  });
+
+  test('the maximum keeps a hard stop', async ({ page }) => {
+    await page.goto('/resize-handle/');
+    const point = await start(page);
+    await grab(page, point);
+    await page.mouse.move(point.x + 260, point.y, { steps: 10 });
+    await expect(handle(page)).toHaveAttribute('aria-valuenow', '320');
+    expect(await shown(page)).toBe('320px');
+    await page.mouse.up();
+  });
+
+  test('holding Enter toggles once, and a held arrow keeps moving', async ({ page }) => {
+    await page.goto('/resize-handle/');
+    await handle(page).focus();
+    // Playwright sends every keydown after the first with repeat: true.
+    for (let i = 0; i < 4; i++) await page.keyboard.down('Enter');
+    await expect(handle(page)).toHaveAttribute('aria-valuetext', 'Collapsed');
+    await page.keyboard.up('Enter');
+    await page.keyboard.press('Enter');
+    await expect(handle(page)).toHaveAttribute('aria-valuenow', '160');
+
+    for (let i = 0; i < 3; i++) await page.keyboard.down('ArrowRight');
+    await page.keyboard.up('ArrowRight');
+    await expect(handle(page)).toHaveAttribute('aria-valuenow', '196');
+  });
+
+  test('a pointer that enters without moving leaves the grip hidden', async ({ page }) => {
+    await page.goto('/resize-handle/');
+    const box = (await handle(page).boundingBox())!;
+    const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + 60) };
+    await page.evaluate(({ x, y }) => {
+      const separator = document.querySelector('[data-handle]')!;
+      const init = { pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: x, clientY: y };
+      // The page last saw the pointer here, then content scrolled under it: an enter and a move with no movement.
+      document.body.dispatchEvent(new PointerEvent('pointermove', { ...init, bubbles: true }));
+      separator.dispatchEvent(new PointerEvent('pointerenter', init));
+      separator.dispatchEvent(new PointerEvent('pointermove', { ...init, bubbles: true }));
+      // A tap on a touch laptop enters too.
+      separator.dispatchEvent(new PointerEvent('pointerenter', { ...init, pointerId: 2, pointerType: 'touch' }));
+      separator.dispatchEvent(new PointerEvent('pointermove', { ...init, pointerId: 2, pointerType: 'touch', bubbles: true }));
+    }, point);
+    await expect(handle(page)).toHaveAttribute('data-state', 'idle');
+    await expect(page.locator('[data-grip]')).toHaveCSS('opacity', '0');
+
+    // A mouse that moves shows it.
+    await page.mouse.move(point.x, point.y + 20);
+    await expect(handle(page)).toHaveAttribute('data-state', 'hover');
+    await expect(page.locator('[data-grip]')).toHaveCSS('opacity', '1');
+  });
+
+  test('keyboard focus shows the grip without a transition', async ({ page }) => {
+    await page.goto('/resize-handle/');
+    await handle(page).focus();
+    expect(await handle(page).evaluate((element) => element.matches(':focus-visible'))).toBe(true);
+    await expect(page.locator('[data-grip]')).toHaveCSS('transition-duration', '0s');
+    await expect(page.locator('[data-grip]')).toHaveCSS('opacity', '1');
+  });
+
+  test('forced colors draws the line at rest', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Forced colors emulation is Chromium only.');
+    await page.emulateMedia({ forcedColors: 'active' });
+    await page.goto('/resize-handle/');
+    const colors = await sidebar(page).evaluate((element) => {
+      const probe = document.createElement('span');
+      element.append(probe);
+      probe.style.color = 'CanvasText';
+      const canvasText = getComputedStyle(probe).color;
+      probe.remove();
+      return { line: getComputedStyle(element.querySelector('[data-handle]')!, '::before').backgroundColor, canvasText };
+    });
+    expect(colors.line).toBe(colors.canvasText);
+  });
+});
+
+test.describe('worm dots: taps, scrub and Escape', () => {
+  const component = (page: Page) => page.locator('[data-stage] worm-dots');
+  const dot = (wormDots: Locator, n: number) => wormDots.getByRole('button', { name: `Slide ${n} of 6` });
+  const middle = async (locator: Locator) => {
+    const box = (await locator.boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const wormOffset = (wormDots: Locator, index: number) => wormDots.evaluate((el, index) => {
+    const worm = el.querySelector('[data-worm]')!.getBoundingClientRect();
+    const target = el.querySelectorAll('[data-dot]')[index].getBoundingClientRect();
+    return Math.abs((worm.left + worm.right) / 2 - (target.left + target.width / 2));
+  }, index);
+
+  // The strip turns snapping off when a travel starts and back on when it ends, so the two style
+  // mutations bracket one travel. Timed inside the page, so a slow runner can't stretch it.
+  const watchTravel = (wormDots: Locator) => wormDots.locator('[data-track]').evaluate((track: HTMLElement) => {
+    const times: { start?: number; end?: number } = {};
+    (window as unknown as { wdTravel: typeof times }).wdTravel = times;
+    new MutationObserver(() => {
+      const now = performance.now();
+      if (track.style.scrollSnapType === 'none') times.start ??= now;
+      else if (times.start !== undefined) times.end ??= now;
+    }).observe(track, { attributes: true, attributeFilter: ['style'] });
+  });
+
+  for (const { to, duration } of [{ to: 2, duration: 280 }, { to: 6, duration: 360 }]) {
+    test(`a tap from the first dot to dot ${to} travels in ${duration}ms`, async ({ page }) => {
+      await page.goto('/worm-dots/');
+      const wormDots = component(page);
+      await watchTravel(wormDots);
+      const target = await middle(dot(wormDots, to));
+      await page.mouse.click(target.x, target.y);
+      await page.waitForFunction(() => (window as unknown as { wdTravel: { end?: number } }).wdTravel.end !== undefined);
+      const { start, end } = await page.evaluate(() => (window as unknown as { wdTravel: { start: number; end: number } }).wdTravel);
+      // Plus at most a few frames; a flat 280ms or 40ms per extra dot would put the long tap at 280 or 440ms.
+      expect(end - start).toBeGreaterThanOrEqual(duration - 10);
+      expect(end - start).toBeLessThan(duration + 80);
+      await expect(wormDots.locator('[data-counter]')).toHaveText(`${to} / 6`);
+      expect(await wormOffset(wormDots, to - 1)).toBeLessThan(0.5);
+    });
+  }
+
+  test('a mouse press on a slide or a vertical wheel does not stop a tap partway', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    const track = wormDots.locator('[data-track]');
+    await track.evaluate((track: HTMLElement) => {
+      const result: { during?: string; after?: string } = {};
+      (window as unknown as { wdInterrupt: typeof result }).wdInterrupt = result;
+      const slide = track.querySelectorAll<HTMLElement>('[data-slide]')[1];
+      const observer = new MutationObserver(() => {
+        if (track.style.scrollSnapType !== 'none') return;
+        observer.disconnect();
+        // Two frames into the travel, so the press lands while it is still running.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          result.during = track.style.scrollSnapType;
+          const box = slide.getBoundingClientRect();
+          const at = { bubbles: true, cancelable: true, clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
+          slide.dispatchEvent(new PointerEvent('pointerdown', { ...at, pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0 }));
+          slide.dispatchEvent(new PointerEvent('pointerup', { ...at, pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0 }));
+          slide.dispatchEvent(new WheelEvent('wheel', { ...at, deltaY: 40 }));
+          result.after = track.style.scrollSnapType;
+        }));
+      });
+      observer.observe(track, { attributes: true, attributeFilter: ['style'] });
+    });
+    const last = await middle(dot(wormDots, 6));
+    await page.mouse.click(last.x, last.y);
+    await page.waitForFunction(() => (window as unknown as { wdInterrupt: { after?: string } }).wdInterrupt.after !== undefined);
+    // Still driven by the strip after the press and the wheel: the browser would otherwise snap to a slide on the way.
+    expect(await page.evaluate(() => (window as unknown as { wdInterrupt: object }).wdInterrupt)).toEqual({ during: 'none', after: 'none' });
+    await expect(wormDots.locator('[data-counter]')).toHaveText('6 / 6');
+    await expect(dot(wormDots, 6)).toHaveAttribute('aria-current', 'true');
+    await expect.poll(() => wormOffset(wormDots, 5)).toBeLessThan(0.5);
+    await expect(track).toHaveCSS('scroll-snap-type', 'x mandatory');
+  });
+
+  test('Escape during a scrub returns to the dot it started from', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    const counter = wormDots.locator('[data-counter]');
+    const first = await middle(dot(wormDots, 1));
+    const fourth = await middle(dot(wormDots, 4));
+    await page.mouse.move(first.x, first.y);
+    await page.mouse.down();
+    await page.mouse.move(fourth.x, first.y, { steps: 8 });
+    await expect(wormDots).toHaveAttribute('data-scrubbing', '');
+    await expect(counter).toHaveText('4 / 6');
+    await page.keyboard.press('Escape');
+    await expect(wormDots).not.toHaveAttribute('data-scrubbing', '');
+    // The release over dot 4 that follows commits nothing.
+    await page.mouse.up();
+    await expect(counter).toHaveText('1 / 6');
+    await expect(dot(wormDots, 1)).toHaveAttribute('aria-current', 'true');
+    await expect.poll(() => wormOffset(wormDots, 0)).toBeLessThan(0.5);
+    await expect(wormDots.locator('[data-track]')).toHaveCSS('scroll-snap-type', 'x mandatory');
+    await expect(wormDots.locator('[data-pressed]')).toHaveCount(0);
+  });
+
+  test('a touch press that rolls 6px is still a tap on the dot it went down on', async ({ page }) => {
+    // Taps and snaps jump under reduced motion, so the end state can be read at once.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+
+    // Synthetic pointers, since Playwright can't move a finger in WebKit. They aren't active pointers,
+    // so capturing one would throw; the stub only skips the capture.
+    const press = (pointerType: 'touch' | 'mouse') => wormDots.evaluate((el, pointerType) => {
+      const strip = el.querySelector<HTMLElement>('[data-strip]')!;
+      strip.setPointerCapture = () => {};
+      const third = el.querySelectorAll<HTMLElement>('[data-dot]')[2];
+      const box = third.getBoundingClientRect();
+      // 8px right of dot 3's center, then 6px further: past the halfway point to dot 4 on release.
+      const x = box.left + box.width / 2 + 8;
+      const y = box.top + box.height / 2;
+      const fire = (type: string, clientX: number) => third.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: 7, pointerType, isPrimary: true, button: 0, clientX, clientY: y,
+      }));
+      const observer = new MutationObserver(() => {});
+      observer.observe(el, { attributes: true, attributeFilter: ['data-scrubbing'] });
+      fire('pointerdown', x);
+      fire('pointermove', x + 3);
+      fire('pointermove', x + 6);
+      fire('pointerup', x + 6);
+      const scrubbed = observer.takeRecords().length > 0;
+      observer.disconnect();
+      return scrubbed;
+    }, pointerType);
+
+    expect(await press('touch')).toBe(false);
+    await expect(dot(wormDots, 3)).toHaveAttribute('aria-current', 'true');
+    await expect(wormDots.locator('[data-counter]')).toHaveText('3 / 6');
+
+    // The same 6px with a mouse clears its 4px slop, so it scrubs and snaps to where it let go.
+    expect(await press('mouse')).toBe(true);
+    await expect(dot(wormDots, 4)).toHaveAttribute('aria-current', 'true');
+  });
+
+  test('on touch, a dot shows pressed after 100ms, not on contact', async ({ page }) => {
+    await page.goto('/worm-dots/');
+    const wormDots = component(page);
+    const state = await wormDots.evaluate(async (el) => {
+      const strip = el.querySelector<HTMLElement>('[data-strip]')!;
+      strip.setPointerCapture = () => {};
+      const second = el.querySelectorAll<HTMLElement>('[data-dot]')[1];
+      const box = second.getBoundingClientRect();
+      const fire = (type: string) => second.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0,
+        clientX: box.left + box.width / 2, clientY: box.top + box.height / 2,
+      }));
+      fire('pointerdown');
+      const atOnce = second.hasAttribute('data-pressed');
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const later = second.hasAttribute('data-pressed');
+      // A cancel, such as the page taking over a vertical swipe, drops it.
+      fire('pointercancel');
+      return { atOnce, later, cancelled: second.hasAttribute('data-pressed') };
+    });
+    expect(state).toEqual({ atOnce: false, later: true, cancelled: false });
   });
 });
