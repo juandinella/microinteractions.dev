@@ -96,6 +96,11 @@
     stroke-linejoin: round;
   }
 
+  /* Previous points toward the start of the line: left here, right in right-to-left. */
+  .morph-icon:dir(rtl) {
+    scale: -1 1;
+  }
+
   .morph-chevron {
     transition: transform var(--morph-duration) var(--morph-ease);
   }

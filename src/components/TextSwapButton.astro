@@ -53,7 +53,6 @@
     line-height: 1.2;
     text-decoration: none;
     overflow: hidden;
-    white-space: nowrap;
     transition: transform 160ms var(--ease-smooth);
   }
 
@@ -72,9 +71,11 @@
     display: inline-grid;
   }
 
+  /* A label wider than the room left wraps, balanced, and the button grows taller instead of clipping it. */
   .swap-layer {
     grid-area: 1 / 1;
     text-align: center;
+    text-wrap: balance;
     transition-property: opacity, transform, filter;
     /* 220ms toward the next label, 160ms back. */
     transition-duration: calc(160ms + var(--swap-state) * 60ms);

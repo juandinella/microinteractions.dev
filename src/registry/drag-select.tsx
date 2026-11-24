@@ -96,8 +96,8 @@ export function DragSelectTable({
   return (
     <drag-select-table key={key} ref={root} className={cn('block [--dst-ease:cubic-bezier(0.23,1,0.32,1)] w-[min(100%,480px)] rounded-2xl border border-border bg-background text-foreground [--dst-draw:0ms] [--dst-follow:0ms] [--dst-head:36px] [--dst-row:40px] pointer-coarse:[--dst-head:44px] pointer-coarse:[--dst-row:44px] motion-safe:[--dst-draw:160ms] motion-safe:[--dst-follow:90ms] data-keyboard:[--dst-draw:0ms] data-dragging:select-none', className)}>
       <div className="flex items-baseline justify-between gap-4 px-5 pt-4.5 pb-2.5">
-        <p className="m-0 text-[15px] font-medium">{title}</p>
-        <p className="m-0 font-mono text-xs text-muted-foreground tabular-nums" data-count>
+        <p className="m-0 min-w-0 text-[15px] font-medium">{title}</p>
+        <p className="m-0 flex-none font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums" data-count>
           {`0 of ${rows.length}`}
         </p>
       </div>
@@ -105,7 +105,7 @@ export function DragSelectTable({
         <table className="w-full border-separate border-spacing-0 text-sm" aria-label={title}>
           <thead>
             <tr>
-              <th className="sticky top-0 z-2 h-(--dst-head) border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] text-start font-mono text-[11px] font-normal text-muted-foreground w-11" scope="col">
+              <th className="sticky top-0 z-2 h-(--dst-head) border-b border-border bg-background shadow-[0_-8px_0_var(--color-background)] text-start font-mono text-[11px] font-normal text-muted-foreground w-11 min-w-11" scope="col">
                 <label className="absolute inset-0 grid cursor-pointer place-items-center">
                   <input type="checkbox" aria-label="Select all" data-all className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-[calc(var(--dst-head)+12px)] scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] in-data-keyboard:transition-none checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight]" />
                   {check}
@@ -125,16 +125,17 @@ export function DragSelectTable({
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="cursor-pointer *:h-(--dst-row) *:align-middle [&[data-selected]]:*:bg-foreground/8 data-[edge~=top]:*:first:rounded-ss-lg data-[edge~=top]:*:last:rounded-se-lg data-[edge~=bottom]:*:first:rounded-es-lg data-[edge~=bottom]:*:last:rounded-ee-lg pointer-fine:not-[&[data-selected]]:hover:*:bg-muted pointer-fine:not-[&[data-selected]]:hover:*:first:rounded-s-lg pointer-fine:not-[&[data-selected]]:hover:*:last:rounded-e-lg forced-colors:[&[data-selected]]:*:bg-[SelectedItem] forced-colors:[&[data-selected]]:*:text-[SelectedItemText] forced-colors:[&[data-selected]]:*:forced-color-adjust-none">
-                <td className="group/cell w-11 cursor-pointer touch-none p-0 select-none [-webkit-touch-callout:none]" data-box-cell>
+                <td className="group/cell w-11 min-w-11 cursor-pointer touch-none p-0 select-none [-webkit-touch-callout:none]" data-box-cell>
                   <span className="relative mx-auto grid size-4.5 place-items-center">
                     <input type="checkbox" aria-label={row.label} defaultChecked={checked.has(row.id)} className="peer m-0 size-4.5 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-input bg-background scroll-mt-[calc(var(--dst-head)+12px)] scroll-mb-3 transition-[background-color,border-color] duration-100 ease-[ease] in-data-keyboard:transition-none checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring not-forced-colors:data-pointer-focus:outline-none forced-colors:checked:border-[Highlight] forced-colors:checked:bg-[Highlight] forced-colors:indeterminate:border-[Highlight] forced-colors:indeterminate:bg-[Highlight] forced-colors:forced-color-adjust-none forced-colors:focus-visible:outline-[Highlight] pointer-fine:group-hover/cell:not-checked:not-indeterminate:border-muted-foreground" />
                     {check}
                   </span>
                 </td>
-                <th className="pe-3 text-start font-normal whitespace-nowrap" scope="row">
-                  {row.label}
+                <th className="pe-3 text-start font-normal" scope="row">
+                  {/* The category wraps first; a name only wraps past 10rem, so the table fits its card. */}
+                  <span className="block w-max max-w-40 wrap-break-word">{row.label}</span>
                 </th>
-                <td className="pe-3 font-mono text-[11px]/[1.3] text-muted-foreground">{row.detail}</td>
+                <td className="pe-3 font-mono text-[11px]/[1.3] wrap-anywhere text-muted-foreground">{row.detail}</td>
               </tr>
             ))}
           </tbody>

@@ -7,7 +7,7 @@
   >
     <span
       aria-hidden="true"
-      class="inline-grid opacity-[calc(1-var(--hold-confirmed))] transition-opacity duration-(--hold-state) ease-hold *:col-start-1 *:row-start-1"
+      class="inline-grid justify-items-center opacity-[calc(1-var(--hold-confirmed))] transition-opacity duration-(--hold-state) ease-hold *:col-start-1 *:row-start-1"
     >
       <span
         class="group-data-[state=holding]/hold:invisible group-data-[state=confirmed]/hold:invisible"
@@ -17,6 +17,8 @@
         class="invisible group-data-[state=holding]/hold:visible group-data-[state=confirmed]/hold:visible"
         >Keep holding…</span
       >
+      <!-- Sizes the button for the confirmed label and its check, which sit in an absolute layer. -->
+      <span class="invisible ps-6.5">Confirmed</span>
     </span>
     <!-- If your reduced-motion reset forces `transition-duration`, exempt `[data-hold-progress]`:
          this fill shows the wait, and at 0ms it would jump to full on press. -->
@@ -26,7 +28,7 @@
       class="absolute inset-0 flex items-center justify-center rounded-[inherit] text-hold-paper pointer-events-none [clip-path:inset(0_100%_0_0)] transition-[clip-path] duration-(--hold-release) ease-hold group-data-[state=confirmed]/hold:[clip-path:inset(0)] group-data-[state=holding]/hold:[clip-path:inset(0)] group-data-[state=holding]/hold:duration-(--hold-duration) group-data-[state=holding]/hold:ease-linear before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:bg-hold-ink before:transition-transform before:duration-140 before:ease-hold motion-safe:group-data-pressed/hold:before:transform-[scale(0.98)] forced-colors:text-[HighlightText] forced-colors:forced-color-adjust-none forced-colors:before:bg-[Highlight] forced-colors:before:forced-color-adjust-none"
     >
       <span
-        class="inline-grid opacity-[calc(1-var(--hold-confirmed))] transition-opacity duration-(--hold-state) ease-hold *:col-start-1 *:row-start-1"
+        class="inline-grid justify-items-center opacity-[calc(1-var(--hold-confirmed))] transition-opacity duration-(--hold-state) ease-hold *:col-start-1 *:row-start-1"
       >
         <span
           class="group-data-[state=holding]/hold:invisible group-data-[state=confirmed]/hold:invisible"
@@ -36,6 +38,7 @@
           class="invisible group-data-[state=holding]/hold:visible group-data-[state=confirmed]/hold:visible"
           >Keep holding…</span
         >
+        <span class="invisible ps-6.5">Confirmed</span>
       </span>
     </span>
     <span
@@ -59,7 +62,7 @@
   >
     <p class="mb-5 text-sm/normal">Confirm this action?</p>
     <div
-      class="flex justify-end gap-2 *:min-h-11 *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:cursor-pointer *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-hold-paper"
+      class="flex flex-wrap justify-end gap-2 *:min-h-11 *:whitespace-nowrap *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:cursor-pointer *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-hold-paper"
     >
       <button type="button" value="cancel" class="pointer-fine:hover:bg-hold-paper/12"
         >Cancel</button

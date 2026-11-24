@@ -41,11 +41,11 @@ export function ResizableSidebar({
       )}
       style={{ '--rsb-width': `${defaultWidth}px`, '--rsb-main-min': `${mainMinWidth}px` } as React.CSSProperties}
     >
-      <div className="min-w-0 overflow-hidden bg-sidebar text-sidebar-foreground" data-side>
+      <div className="min-w-0 overflow-x-hidden overflow-y-auto bg-sidebar text-sidebar-foreground" data-side>
         {sidebar}
       </div>
       <div
-        className="group/handle absolute inset-y-0 left-[calc(var(--rsb-hit)/-2)] z-1 w-(--rsb-hit) translate-x-[max(var(--rsb-width),var(--rsb-hit)/2)] cursor-col-resize touch-pan-y outline-none select-none [-webkit-tap-highlight-color:transparent] group-not-[&:defined]/rsb:hidden before:pointer-events-none before:absolute before:inset-y-0 before:left-[calc(50%-1px)] before:w-px before:bg-border before:content-[''] group-data-collapsed/rsb:before:opacity-0 focus-visible:before:bg-ring forced-colors:before:bg-[CanvasText] forced-colors:focus-visible:before:bg-[Highlight]"
+        className="group/handle absolute inset-y-0 inset-s-[calc(var(--rsb-hit)/-2)] z-1 w-(--rsb-hit) translate-x-[max(var(--rsb-width),var(--rsb-hit)/2)] rtl:-translate-x-[max(var(--rsb-width),var(--rsb-hit)/2)] cursor-col-resize touch-pan-y outline-none select-none [-webkit-tap-highlight-color:transparent] group-not-[&:defined]/rsb:hidden before:pointer-events-none before:absolute before:inset-y-0 before:left-[calc(50%-1px)] before:w-px before:bg-border before:content-[''] group-data-collapsed/rsb:before:opacity-0 focus-visible:before:bg-ring forced-colors:before:bg-[CanvasText] forced-colors:focus-visible:before:bg-[Highlight]"
         role="separator"
         tabIndex={0}
         aria-orientation="vertical"
@@ -58,7 +58,7 @@ export function ResizableSidebar({
           data-grip
         />
       </div>
-      <div className="min-w-0 overflow-hidden">{children}</div>
+      <div className="min-w-0 overflow-x-hidden overflow-y-auto">{children}</div>
     </resizable-sidebar>
   );
 }

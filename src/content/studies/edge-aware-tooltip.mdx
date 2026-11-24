@@ -16,8 +16,8 @@ prompt:
     - "Add an empty 24px-square element that mirrors the native thumb. Place it at `left: calc(var(--value) * 100% - 12px)` inside the track and give it an `anchor-name`. This element provides an anchor independent of browser-specific thumb pseudo-elements."
     - "Where CSS anchor positioning is supported, center the label on that anchor with `justify-self: anchor-center`. It shifts inward instead of overflowing the container. Position the arrow separately at `calc(anchor(center) - 4px)`, so it stays aligned with the thumb after the label stops."
     - "Scope the anchor name with `anchor-scope` so each slider on the page finds its own thumb. Apply the anchor rules only when `@supports` passes for `position-anchor`, `justify-self: anchor-center`, and `anchor-scope` together."
-    - "In the fallback, position a 128px label with `left: clamp(0px, calc(12px + (100% - 24px) * var(--value) - 64px), calc(100% - 128px))`. Place the arrow at the thumb's center without clamping it."
-    - "Give the label a fixed width that fits its longest text. Use `font-variant-numeric: tabular-nums` so every digit has the same width."
+    - "In the fallback, position the label with `left: clamp(0px, calc(12px + (100% - 24px) * var(--value) - var(--tip-w) / 2), calc(100% - var(--tip-w)))`, where `--tip-w` is the label's width, measured with a `ResizeObserver`. Place the arrow at the thumb's center without clamping it."
+    - "Size the label to its text and the widest value: stack the current value over a hidden copy of the widest one, such as `100%`, so the label keeps one width while the value changes. Give it a 128px minimum and cap it at the slider's width; past that cap, truncate the text, never the value. Use `font-variant-numeric: tabular-nums` so every digit has the same width."
   timing:
     - "0ms. The arrow and fill follow the input directly; the label stops at the container's edge. Set `transition-property: none` on the slider and its descendants to keep updates immediate when global styles set a transition duration."
   accessibility:
@@ -53,4 +53,4 @@ The native range input handles the keyboard, including Home and End. `aria-value
 
 ## Different values and units
 
-The 128px label fits "Volume 100%". For longer text, change its width and the fallback's `128px` and `64px` terms together, and update `aria-valuetext` along with the visible unit. Test the longest label at both ends, with and without anchor positioning.
+The label is as wide as its text and the widest value, at least 128px, so "Volume 100%" and "Notification volume 100%" each keep one width while the value moves. For another range or unit, change the hidden widest value, the visible unit, and `aria-valuetext` together. Only a label wider than the slider itself is cut, and the value stays whole. Test the longest label at both ends, with and without anchor positioning.

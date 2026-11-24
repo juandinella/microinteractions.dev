@@ -53,7 +53,7 @@ export function HoldConfirmButton({
   const labels = (
     <span
       aria-hidden="true"
-      className="inline-grid opacity-[calc(1-var(--hold-confirmed))] transition-opacity duration-(--hold-state) ease-(--hold-ease) *:col-start-1 *:row-start-1"
+      className="inline-grid justify-items-center opacity-[calc(1-var(--hold-confirmed))] transition-opacity duration-(--hold-state) ease-(--hold-ease) *:col-start-1 *:row-start-1"
     >
       <span className="group-data-[state=confirmed]/hold:invisible group-data-[state=holding]/hold:invisible">
         {label}
@@ -61,6 +61,8 @@ export function HoldConfirmButton({
       <span className="invisible group-data-[state=confirmed]/hold:visible group-data-[state=holding]/hold:visible">
         {holdingLabel}
       </span>
+      {/* Sizes the button for the confirmed label and its check, which sit in an absolute layer. */}
+      <span className="invisible ps-6.5">{confirmedLabel}</span>
     </span>
   );
 
@@ -106,7 +108,7 @@ export function HoldConfirmButton({
         className="m-auto w-[min(320px,calc(100vw-32px))] rounded-2xl border border-border bg-popover p-5 text-popover-foreground backdrop:bg-black/24"
       >
         <p className="mb-5 text-sm/normal">{dialog.question ?? 'Confirm this action?'}</p>
-        <div className="flex justify-end gap-2 *:min-h-11 *:cursor-pointer *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-ring">
+        <div className="flex flex-wrap justify-end gap-2 *:min-h-11 *:whitespace-nowrap *:cursor-pointer *:rounded-full *:border *:border-transparent *:px-4.5 *:text-sm *:font-medium *:focus-visible:outline-2 *:focus-visible:outline-offset-2 *:focus-visible:outline-ring">
           <button type="button" value="cancel" className="pointer-fine:hover:bg-accent">
             {dialog.cancel ?? 'Cancel'}
           </button>

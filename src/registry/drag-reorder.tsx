@@ -69,7 +69,7 @@ export function DragReorder({ items, 'aria-label': ariaLabel, onReorder, classNa
     <drag-reorder
       key={key}
       ref={ref}
-      className={cn('group/dr grid w-[min(100%,320px)] gap-3', className)}
+      className={cn('group/dr grid w-[min(100%,320px)] grid-cols-[minmax(0,1fr)] gap-3', className)}
     >
       <div className="relative">
         <span
@@ -77,7 +77,7 @@ export function DragReorder({ items, 'aria-label': ariaLabel, onReorder, classNa
           aria-hidden="true"
           data-line
         />
-        <ul className="group/list isolate m-0 grid list-none gap-1 p-0" aria-label={ariaLabel} data-list>
+        <ul className="group/list isolate m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-1 p-0" aria-label={ariaLabel} data-list>
           {rows.map((item, index) => (
             <li
               key={item.id}

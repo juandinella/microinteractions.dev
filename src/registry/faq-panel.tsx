@@ -30,7 +30,9 @@ type FaqPanelProps = {
 // Uncontrolled: `defaultValue` is read once. The element manages which answer is open and moves
 // the panel after it upgrades. It reads the questions once, so a different set of questions
 // remounts it. The open question survives while it's still there; otherwise `defaultValue`
-// takes over.
+// takes over. With no questions it renders nothing.
+// While an answer is open, the card keeps the height it has with the longest answer open, so
+// nothing below it moves. Keep answers to similar lengths: a much longer one leaves a gap under the rest.
 export function FaqPanel({ items, defaultValue, onValueChange, className }: FaqPanelProps) {
   const root = React.useRef<HTMLElement>(null);
   const change = React.useRef(onValueChange);
@@ -48,7 +50,9 @@ export function FaqPanel({ items, defaultValue, onValueChange, className }: FaqP
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./faq-panel-element');
-    const element = root.current!;
+    const element = root.current;
+    // Nothing is rendered when the list is empty.
+    if (!element) return;
     const values: string[] = JSON.parse(key);
     // The element updates aria-expanded on the question before the click reaches the root.
     const report = () => {
@@ -71,6 +75,8 @@ export function FaqPanel({ items, defaultValue, onValueChange, className }: FaqP
       element.removeEventListener('beforematch', report);
     };
   }, [key]);
+
+  if (items.length === 0) return null;
 
   return (
     <faq-panel
@@ -99,7 +105,7 @@ export function FaqPanel({ items, defaultValue, onValueChange, className }: FaqP
               aria-expanded={item.value === open}
               data-trigger
             >
-              <span>{item.question}</span>
+              <span className="min-w-0 wrap-anywhere">{item.question}</span>
               <svg
                 className="size-4 flex-none fill-none stroke-muted-foreground stroke-[1.5] [stroke-linecap:round] [stroke-linejoin:round] group-aria-expanded/q:rotate-180 motion-safe:group-data-ready/fqp:transition-[rotate] motion-safe:group-data-ready/fqp:duration-(--fqp-move) motion-safe:group-data-ready/fqp:ease-(--fqp-ease)"
                 viewBox="0 0 16 16"

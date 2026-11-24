@@ -30,7 +30,7 @@ type TabIndicatorProps = {
 // Uncontrolled: `defaultValue` is read once. The element manages selection, focus, and the line
 // after it upgrades. It reads the tabs once, so a different set of tabs remounts it. The selected
 // tab survives while it's still there; otherwise `defaultValue`, or the first tab, takes over and
-// `onValueChange` reports it.
+// `onValueChange` reports it. With no tabs it renders nothing.
 export function TabIndicator({
   tabs,
   defaultValue,
@@ -54,7 +54,9 @@ export function TabIndicator({
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./tab-indicator-element');
-    const element = root.current!;
+    const element = root.current;
+    // Nothing is rendered when the list is empty.
+    if (!element) return;
     const values: string[] = JSON.parse(key);
     // The element updates aria-selected on the tab before the event reaches the list.
     const report = () => {
@@ -76,6 +78,8 @@ export function TabIndicator({
       element.removeEventListener('keydown', report);
     };
   }, [key]);
+
+  if (tabs.length === 0) return null;
 
   return (
     <tab-indicator

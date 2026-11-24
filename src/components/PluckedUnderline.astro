@@ -1,7 +1,7 @@
 <nav class="pluck-nav" aria-label="Sections">
   <plucked-underline>
     <a class="pluck-link" href="#bio" data-pluck>
-      Bio
+      <span class="pluck-text">Bio</span>
       <svg
         class="pluck-string"
         viewBox="0 0 100 12"
@@ -14,7 +14,7 @@
   </plucked-underline>
   <plucked-underline>
     <a class="pluck-link" href="#work" data-pluck>
-      Work
+      <span class="pluck-text">Work</span>
       <svg
         class="pluck-string"
         viewBox="0 0 100 12"
@@ -27,7 +27,7 @@
   </plucked-underline>
   <plucked-underline>
     <a class="pluck-link" href="#notes" data-pluck>
-      Notes
+      <span class="pluck-text">Notes</span>
       <svg
         class="pluck-string"
         viewBox="0 0 100 12"
@@ -40,7 +40,7 @@
   </plucked-underline>
   <plucked-underline>
     <a class="pluck-link" href="#archive" data-pluck>
-      Archive
+      <span class="pluck-text">Archive</span>
       <svg
         class="pluck-string"
         viewBox="0 0 100 12"
@@ -53,7 +53,7 @@
   </plucked-underline>
   <plucked-underline>
     <a class="pluck-link" href="#projects" data-pluck>
-      Projects
+      <span class="pluck-text">Projects</span>
       <svg
         class="pluck-string"
         viewBox="0 0 100 12"
@@ -66,7 +66,7 @@
   </plucked-underline>
   <plucked-underline>
     <a class="pluck-link" href="#contact" data-pluck>
-      Get in touch
+      <span class="pluck-text">Get in touch</span>
       <svg
         class="pluck-string"
         viewBox="0 0 100 12"
@@ -282,8 +282,17 @@
     color: var(--pluck-color);
     font-size: 14px;
     font-weight: 500;
+    /* One line, one string: wrapped, the underline would cross the second line like a strikethrough.
+       A link wider than its container ends in an ellipsis instead, with the string under what shows. */
+    max-width: 100%;
+    white-space: nowrap;
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .pluck-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .pluck-link:focus-visible {
