@@ -8,6 +8,8 @@
     <span class="hold-labels" aria-hidden="true">
       <span class="hold-idle">Hold to confirm</span>
       <span class="hold-waiting">Keep holding…</span>
+      <!-- Sizes the button for the confirmed label and its check, which sit in an absolute layer. -->
+      <span class="hold-sizer">Confirmed</span>
     </span>
     <span
       class="hold-layer hold-layer-progress"
@@ -17,6 +19,7 @@
       <span class="hold-labels">
         <span class="hold-idle">Hold to confirm</span>
         <span class="hold-waiting">Keep holding…</span>
+        <span class="hold-sizer">Confirmed</span>
       </span>
     </span>
     <span class="hold-layer hold-layer-done" aria-hidden="true">
@@ -433,13 +436,21 @@
 
   .hold-labels {
     display: inline-grid;
+    justify-items: center;
     opacity: calc(1 - var(--hold-confirmed));
     transition: opacity var(--hold-state-duration) var(--hold-ease);
   }
 
   .hold-idle,
-  .hold-waiting {
+  .hold-waiting,
+  .hold-sizer {
     grid-area: 1 / 1;
+  }
+
+  .hold-sizer {
+    visibility: hidden;
+    /* The check (18px) and its gap (8px). */
+    padding-inline-start: 26px;
   }
 
   .hold-waiting {
@@ -543,6 +554,7 @@
 
   .hold-dialog-actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
   }
@@ -557,6 +569,7 @@
     font-family: inherit;
     font-size: 14px;
     font-weight: 500;
+    white-space: nowrap;
     cursor: pointer;
   }
 
