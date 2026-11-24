@@ -545,7 +545,10 @@
     cursor: grab;
     /* On touch the row scrolls the page and the grip lifts it, so a long list stays scrollable. */
     touch-action: pan-y;
+    /* iOS Safari still needs the prefix, or holding the grip selects the labels and opens the copy menu. */
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
 

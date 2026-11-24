@@ -86,7 +86,7 @@ export function DragReorder({ items, 'aria-label': ariaLabel, onReorder, classNa
               data-id={item.id}
             >
               <button
-                className="flex size-full cursor-grab touch-pan-y items-center gap-2.5 rounded-[inherit] px-3 text-left text-sm text-card-foreground select-none [-webkit-tap-highlight-color:transparent] group-data-dragging/dr:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="flex size-full cursor-grab touch-pan-y items-center gap-2.5 rounded-[inherit] px-3 text-left text-sm text-card-foreground select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] group-data-dragging/dr:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 type="button"
                 aria-pressed="false"
                 data-handle
