@@ -98,6 +98,8 @@
       handle.setAttribute('aria-valuemin', '0');
 
       const page = document.documentElement;
+      // 1 when the sidebar sits on the left, -1 in right-to-left, where dragging left widens it.
+      const flow = () => (getComputedStyle(this).direction === 'rtl' ? -1 : 1);
       const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
       // The width the sidebar starts at, and returns to on double-click: --rsb-width in the CSS, in px.
@@ -326,7 +328,7 @@
               drag.x = event.clientX;
               press();
             }
-            resize(drag.width + event.clientX - drag.x);
+            resize(drag.width + (event.clientX - drag.x) * flow());
             return;
           }
           if (drag || event.pointerType !== 'mouse') return;
@@ -363,9 +365,11 @@
           if (event.altKey || event.metaKey || event.ctrlKey) return;
           const { min, max } = limits();
           const step = event.shiftKey ? LARGE_STEP : STEP;
-          if (event.key === 'ArrowLeft') {
+          // The arrow that points away from the sidebar widens it: Right here, Left in right-to-left.
+          const [narrow, widen] = flow() > 0 ? ['ArrowLeft', 'ArrowRight'] : ['ArrowRight', 'ArrowLeft'];
+          if (event.key === narrow) {
             if (!collapsed) choose(Math.max(min, width - step));
-          } else if (event.key === 'ArrowRight') choose(collapsed ? min : Math.min(max, width + step));
+          } else if (event.key === widen) choose(collapsed ? min : Math.min(max, width + step));
           // Home collapses, matching aria-valuemin="0".
           else if (event.key === 'Home') setCollapsed(true, false);
           else if (event.key === 'End') choose(max);
@@ -473,9 +477,10 @@
     }
   }
 
+  /* Each pane scrolls its own overflow: content taller than the container stays reachable. */
   .rsb-side {
     min-width: 0;
-    overflow: hidden;
+    overflow: hidden auto;
     padding: 10px 0;
     background: var(--surface);
   }
@@ -518,7 +523,7 @@
 
   .rsb-main {
     min-width: 0;
-    overflow: hidden;
+    overflow: hidden auto;
     padding: 18px 20px;
   }
 
@@ -535,15 +540,15 @@
     text-wrap: pretty;
   }
 
-  /* The handle straddles the divider: its center is the sidebar's right edge. */
+  /* The handle straddles the divider: its center is the sidebar's inline-end edge. */
   .rsb-handle {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: calc(var(--rsb-hit) / -2);
+    inset-inline-start: calc(var(--rsb-hit) / -2);
     z-index: 1;
     width: var(--rsb-hit);
-    /* Never past the left edge, so a collapsed sidebar keeps the whole hit area inside the container. */
+    /* Never past the sidebar's outer edge, so a collapsed sidebar keeps the whole hit area inside the container. */
     translate: max(var(--rsb-width), var(--rsb-hit) / 2) 0;
     cursor: col-resize;
     outline: none;
@@ -552,6 +557,10 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .rsb-handle:dir(rtl) {
+    translate: calc(-1 * max(var(--rsb-width), var(--rsb-hit) / 2)) 0;
   }
 
   /* Without the script there is nothing to drag. */
