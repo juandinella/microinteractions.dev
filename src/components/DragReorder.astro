@@ -446,6 +446,8 @@
     --dr-gap: 4px;
 
     display: grid;
+    /* A column that can shrink, so a long label truncates instead of widening the list. */
+    grid-template-columns: minmax(0, 1fr);
     width: min(100%, 320px);
     gap: 12px;
   }
@@ -476,6 +478,7 @@
   .dr-list {
     isolation: isolate;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--dr-gap);
     margin: 0;
     padding: 0;
