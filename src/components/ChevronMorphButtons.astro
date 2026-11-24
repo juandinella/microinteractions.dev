@@ -26,10 +26,14 @@
   document
     .querySelectorAll<HTMLButtonElement>('.morph-button')
     .forEach((button) => {
-      button.addEventListener('click', () => {
-        if (!matchMedia('(hover: hover) and (pointer: fine)').matches) {
-          button.toggleAttribute('data-touch-active');
-        }
+      // WebKit sends a tap's click as a mouse event, so the pointer type is read on the press.
+      let lastPointerType = '';
+      button.addEventListener('pointerdown', (event) => {
+        lastPointerType = event.pointerType;
+      });
+      button.addEventListener('click', (event) => {
+        if (event.detail === 0 || lastPointerType === 'mouse') return;
+        button.setAttribute('data-touch-active', '');
       });
       button.addEventListener('blur', () =>
         button.removeAttribute('data-touch-active'),
@@ -68,6 +72,7 @@
     color: var(--morph-fg);
     cursor: pointer;
     touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     transition:
       background-color var(--morph-duration) var(--morph-ease),
       transform 160ms var(--morph-ease);
@@ -158,7 +163,7 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .morph-button:active:not(:focus-visible) {
+    .morph-button:active {
       transform: scale(0.96);
     }
   }
