@@ -34,7 +34,7 @@ export function ChevronMorphButton({
       <svg
         viewBox="0 0 24 24"
         aria-hidden="true"
-        className="size-5.5 overflow-visible fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
+        className="size-5.5 overflow-visible rtl:-scale-x-100 fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
       >
         <path
           d={paths[direction].chevron}
