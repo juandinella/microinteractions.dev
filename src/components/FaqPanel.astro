@@ -503,6 +503,12 @@
     }
   }
 
+  /* A long URL in a question wraps instead of pushing the chevron out of the card. */
+  .fqp-trigger > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .fqp-trigger:focus-visible {
     outline: 2px solid var(--focus-ring, var(--fqp-color));
     outline-offset: -2px;
