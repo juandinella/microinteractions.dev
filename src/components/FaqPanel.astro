@@ -41,7 +41,7 @@
       </button>
     </h3>
     <div class="fqp-answer" role="region" hidden="until-found" data-answer>
-      <p class="fqp-text"><strong>Every study respects it.</strong> The movement drops out, and the change still reads without it: here the panel lands on the question at once.</p>
+      <p class="fqp-text"><strong>Every study respects it.</strong> The movement drops out, and the change still reads without it: here the panel lands on the question at once, and the answer fades in.</p>
     </div>
   </div>
   <div class="fqp-item" data-item>
@@ -64,6 +64,9 @@
   const EASE = 'cubic-bezier(0.64, 0, 0.2, 1)';
   // A question chosen mid-move starts at speed, so the panel turns without stalling.
   const RETARGET = 'cubic-bezier(0.23, 1, 0.32, 1)';
+  // Opening the first answer or closing the last isn't a trip between questions: the panel appears or leaves.
+  // It runs on the ease-out, shorter, so it answers the click at once instead of easing into it.
+  const SHOW = 240;
   // The new text starts before the old one is gone, so the panel never travels empty.
   const TEXT_OUT = 140;
   const TEXT_IN = 210;
@@ -71,6 +74,8 @@
   const TEXT_IN_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
   const SHIFT = 6;
   const BLUR = 3;
+  // With reduced motion the panel lands at once, and the new answer fades in where it is.
+  const FADE = 150;
 
   let faqId = 0;
 
@@ -203,16 +208,28 @@
           return { opacity, transform, filter };
         });
 
+        // Read before the change: whether this opens the first answer or closes the last one.
+        const shows = open < 0 || next < 0;
+        const duration = shows ? SHOW : MOVE;
+        const easing = shows || interrupted ? RETARGET : EASE;
+
         run++;
         const current = run;
         panel.getAnimations().forEach((animation) => animation.cancel());
         moving.forEach((animation) => animation.cancel());
         moving = [];
         open = next;
+        // Written before aria-expanded changes, so the chevrons turn on this move's clock and curve.
+        this.style.setProperty('--fqp-move', `${duration}ms`);
+        this.style.setProperty('--fqp-ease', easing);
         sync();
 
         if (!animate || reduceMotion.matches) {
           place();
+          // Find in page stays instant; a click under reduced motion still shows which answer changed.
+          if (animate && next >= 0) {
+            moving.push(texts[next].animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE, easing: TEXT_IN_EASE }));
+          }
           return;
         }
 
@@ -229,7 +246,6 @@
         const to = box(items[next >= 0 ? next : index]);
         const target = regions.map((answer, i) => (i === next ? box(answer).height : 0));
         const direction = to.y < from.y ? -1 : 1;
-        const easing = interrupted ? RETARGET : EASE;
         place();
         if (next < 0) {
           panel.style.transform = `translateY(${to.y}px)`;
@@ -237,26 +253,29 @@
           panel.style.opacity = '0';
         }
 
-        // Invert and play. Opacity only changes when the panel appears or leaves, and does so in the first half.
+        // Invert and play. Opacity only changes when the panel appears or leaves, and does so in the first half of
+        // the time. The curve sits on the transform and height keyframe and opacity runs linear: on an ease-out,
+        // eased progress passes the middle early, and the panel would vanish before it finished shrinking.
         const opacity = next < 0 ? 0 : 1;
         const move = panel.animate(
           [
-            { transform: `translateY(${from.y}px)`, height: `${from.height}px`, opacity: fromOpacity },
-            { opacity, offset: 0.5 },
-            { transform: `translateY(${to.y}px)`, height: `${to.height}px`, opacity },
+            { offset: 0, transform: `translateY(${from.y}px)`, height: `${from.height}px`, easing },
+            { offset: 0, opacity: fromOpacity },
+            { offset: 0.5, opacity },
+            { offset: 1, transform: `translateY(${to.y}px)`, height: `${to.height}px`, opacity },
           ],
-          { duration: MOVE, easing },
+          { duration },
         );
 
         // The card only grows or shrinks when the first answer opens or the last one closes.
         const cardTarget = next < 0 ? closed : reserve;
         if (Math.abs(card - cardTarget) >= 0.5) {
-          moving.push(this.animate([{ minHeight: `${card}px` }, { minHeight: `${cardTarget}px` }], { duration: MOVE, easing }));
+          moving.push(this.animate([{ minHeight: `${card}px` }, { minHeight: `${cardTarget}px` }], { duration, easing }));
         }
 
         regions.forEach((answer, i) => {
           if (Math.abs(heights[i] - target[i]) < 0.5) return;
-          moving.push(answer.animate([{ height: `${heights[i]}px` }, { height: `${target[i]}px` }], { duration: MOVE, easing }));
+          moving.push(answer.animate([{ height: `${heights[i]}px` }, { height: `${target[i]}px` }], { duration, easing }));
         });
 
         // Both texts travel the way the panel does: the old one leaves ahead of it, the new one follows it in.
@@ -268,7 +287,7 @@
             moving.push(
               text.animate([resuming ? textStates[i] : away(-direction), rest], {
                 duration: TEXT_IN,
-                delay: resuming ? 0 : MOVE - TEXT_IN,
+                delay: resuming ? 0 : duration - TEXT_IN,
                 easing: TEXT_IN_EASE,
                 fill: 'backwards',
               }),
@@ -297,6 +316,11 @@
         (event) => {
           const current = buttons.indexOf(event.target as HTMLButtonElement);
           if (current < 0) return;
+          // Holding Enter repeats the keydown, and each repeat would click again. One press is one change.
+          if (event.key === 'Enter' && event.repeat) {
+            event.preventDefault();
+            return;
+          }
           let next: number | undefined;
           if (event.key === 'ArrowDown') next = (current + 1) % buttons.length;
           else if (event.key === 'ArrowUp') next = (current - 1 + buttons.length) % buttons.length;
@@ -469,7 +493,6 @@
     line-height: 1.4;
     text-align: left;
     cursor: pointer;
-    transition: background-color 120ms ease;
     -webkit-tap-highlight-color: transparent;
   }
 

@@ -429,11 +429,11 @@ export const specimens: Specimen[] = [
     duration: 300,
     minDuration: 140,
     durationNote:
-      'The panel reaches the new question in 300ms, and the answers resize on the same clock. The old text fades out in 140ms; the new one fades in over the last 210ms. A question chosen mid-move takes over from where the panel is.',
+      'The panel reaches the new question in 300ms, and the answers resize on the same clock. Opening the first answer or closing the last one takes 240ms, card included. The old text fades out in 140ms; the new one fades in over the last 210ms. A question chosen mid-move takes over from where the panel is. The hover fill is instant; with reduced motion the panel lands at once and the new answer fades in over 150ms.',
     easing: [0.64, 0, 0.2, 1],
     easingName: 'custom ease-in-out',
     easingNote:
-      'Accelerates over the first third of the move and decelerates over the rest, with no overshoot. A question chosen mid-move switches to an ease-out, cubic-bezier(0.23, 1, 0.32, 1), so the panel turns without pausing.',
+      'Accelerates over the first third of the move and decelerates over the rest, with no overshoot. Opening the first answer, closing the last one, and a question chosen mid-move switch to an ease-out, cubic-bezier(0.23, 1, 0.32, 1), at 240ms for the first two, so the panel appears, leaves, or turns without pausing.',
     props: ['transform', 'height', 'opacity', 'filter'],
     positioningNote:
       'translateY moves the panel and height fits it to the answer, both measured before and after the change (FLIP). While an answer is open, min-height holds the card at its height with the longest answer open.',

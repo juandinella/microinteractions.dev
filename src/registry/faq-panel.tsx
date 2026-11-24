@@ -94,7 +94,7 @@ export function FaqPanel({ items, defaultValue, onValueChange, className }: FaqP
         >
           <h3>
             <button
-              className="group/q flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg p-3 text-left text-sm/[1.4] font-medium text-foreground transition-[background-color] duration-120 ease-[ease] [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring aria-[expanded=false]:pointer-fine:hover:bg-muted/50"
+              className="group/q flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg p-3 text-left text-sm/[1.4] font-medium text-foreground [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring aria-[expanded=false]:pointer-fine:hover:bg-muted/50"
               type="button"
               aria-expanded={item.value === open}
               data-trigger
