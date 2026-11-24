@@ -366,10 +366,10 @@ export const specimens: Specimen[] = [
     triggerLabel: 'Drag, swipe, tap, arrow keys',
     hint: 'Drag along the dots',
     touchHint: 'Drag along the dots or swipe the slides',
-    duration: 280,
+    duration: 360,
     minDuration: 80,
     durationNote:
-      'The worm has no duration of its own: it follows the scroll. A release snaps to the nearest dot in 180ms, every tap travels in 280ms however many dots it crosses, and the hover ring glides in 80ms on the same curve. A scrub catches up with the pointer, then follows it 1:1. The arrow keys jump without animating.',
+      'The worm has no duration of its own: it follows the scroll. A release snaps to the nearest dot in 180ms, a tap travels in 280ms plus 20ms for each extra dot it crosses, 360ms from end to end, and the hover ring glides in 80ms on the same curve. A scrub catches up with the pointer, then follows it 1:1. The arrow keys jump without animating.',
     easing: [0.23, 1, 0.32, 1],
     easingName: 'ease-out-quint',
     easingNote:

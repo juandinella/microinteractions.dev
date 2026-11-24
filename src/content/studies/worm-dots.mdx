@@ -28,7 +28,7 @@ prompt:
   timing:
     - "Worm: none of its own; it follows the scroll."
     - "Release snap: 180ms on `cubic-bezier(0.23, 1, 0.32, 1)`."
-    - "Tap: 280ms on the same curve, however many dots it crosses."
+    - "Tap: 280ms to the next dot, plus 20ms for each dot after it, 360ms from end to end, on the same curve. In a flat 280ms, the longest jump would move the worm more than one dot per frame at 60Hz and skip some."
     - "Scrub: a 60ms exponential catch-up until it reaches the pointer, then 1:1."
     - "Pressed dot on touch: shown after 100ms."
     - "Hover ring: 80ms `cubic-bezier(0.23, 1, 0.32, 1)` on `transform`, `width`, and `opacity`, the tap's curve."
@@ -58,7 +58,9 @@ Its two edges move on separate schedules. In the first half of a swipe the leadi
 
 The whole strip is a control. Press anywhere on it and move more than 4px with a mouse, or 10px with a finger, and the scroll follows the pointer. It closes in with an exponential catch-up, so a press far from the worm glides there instead of jumping, and once it has caught up it follows the pointer 1:1 for the rest of the drag. Easing all the way left the slides trailing behind the hand. On release it snaps to the nearest dot in 180ms. The scrub stops at the first and last dot. A rubber band past them would have to stretch the worm and the slides together, since one value carries both, so it stays out of this study.
 
-A press that doesn't move is a tap. It travels to the dot where the press went down, not where it lifted, because a finger rolls a few pixels as it leaves the glass. Every tap takes 280ms, whether it crosses one dot or five, so the strip answers in the same time wherever you aim. Scroll snapping stays off while the strip drives the scroll, and a mouse click on the slides or a vertical wheel over them doesn't stop it; a finger or a sideways scroll takes the slides back. Escape during a drag puts the worm back on the dot it started from. A cancelled pointer, such as the page taking over a vertical swipe, commits nothing and settles where the scroll already is.
+A press that doesn't move is a tap. It travels to the dot where the press went down, not where it lifted, because a finger rolls a few pixels as it leaves the glass. A tap on the next dot takes 280ms, and each dot after it adds 20ms, so the jump from one end to the other takes 360ms. At a flat 280ms, that jump moved the worm more than one dot per frame at 60Hz and skipped some.
+
+Scroll snapping stays off while the strip drives the scroll, and a mouse click on the slides or a vertical wheel over them doesn't stop a tap partway; a finger or a sideways scroll takes the slides back. Escape during a drag puts the worm back on the dot it started from. A cancelled pointer, such as the page taking over a vertical swipe, commits nothing and settles where the scroll already is.
 
 On hover, a ring behind the dots marks the one nearest the mouse, picked with the same mapping as a tap. It glides between dots in 80ms on the same curve as a tap and keeps following during a drag, so it shows where a release will land. The idea comes from Fluid Functionalism's carousel dots.
 

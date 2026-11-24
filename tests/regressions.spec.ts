@@ -2121,20 +2121,22 @@ test.describe('worm dots: taps, scrub and Escape', () => {
     }).observe(track, { attributes: true, attributeFilter: ['style'] });
   });
 
-  test('a tap from the first dot to the last travels in 280ms', async ({ page }) => {
-    await page.goto('/worm-dots/');
-    const wormDots = component(page);
-    await watchTravel(wormDots);
-    const last = await middle(dot(wormDots, 6));
-    await page.mouse.click(last.x, last.y);
-    await page.waitForFunction(() => (window as unknown as { wdTravel: { end?: number } }).wdTravel.end !== undefined);
-    const { start, end } = await page.evaluate(() => (window as unknown as { wdTravel: { start: number; end: number } }).wdTravel);
-    // 280ms plus at most a frame or two; five dots at the old 40ms each would take 440ms.
-    expect(end - start).toBeGreaterThanOrEqual(270);
-    expect(end - start).toBeLessThan(380);
-    await expect(wormDots.locator('[data-counter]')).toHaveText('6 / 6');
-    expect(await wormOffset(wormDots, 5)).toBeLessThan(0.5);
-  });
+  for (const { to, duration } of [{ to: 2, duration: 280 }, { to: 6, duration: 360 }]) {
+    test(`a tap from the first dot to dot ${to} travels in ${duration}ms`, async ({ page }) => {
+      await page.goto('/worm-dots/');
+      const wormDots = component(page);
+      await watchTravel(wormDots);
+      const target = await middle(dot(wormDots, to));
+      await page.mouse.click(target.x, target.y);
+      await page.waitForFunction(() => (window as unknown as { wdTravel: { end?: number } }).wdTravel.end !== undefined);
+      const { start, end } = await page.evaluate(() => (window as unknown as { wdTravel: { start: number; end: number } }).wdTravel);
+      // Plus at most a few frames; a flat 280ms or 40ms per extra dot would put the long tap at 280 or 440ms.
+      expect(end - start).toBeGreaterThanOrEqual(duration - 10);
+      expect(end - start).toBeLessThan(duration + 80);
+      await expect(wormDots.locator('[data-counter]')).toHaveText(`${to} / 6`);
+      expect(await wormOffset(wormDots, to - 1)).toBeLessThan(0.5);
+    });
+  }
 
   test('a mouse press on a slide or a vertical wheel does not stop a tap partway', async ({ page }) => {
     await page.goto('/worm-dots/');

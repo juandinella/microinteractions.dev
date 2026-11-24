@@ -30,9 +30,11 @@
   // A press that moves less than this is a tap. Fingers wobble more than a mouse, so touch gets more room.
   const MOUSE_SLOP = 4;
   const TOUCH_SLOP = 10;
-  // Release snap, and a tap's travel: the same time however many dots it crosses.
+  // Release snap, and a tap's travel plus a little per extra dot crossed. Across these six dots at 60Hz, the worm
+  // then moves less than one dot per frame; in a flat 280ms a long jump skipped some.
   const SNAP = 180;
   const TRAVEL = 280;
+  const PER_DOT = 20;
   // A scrub closes in on the pointer with this time constant, so a press far from the worm glides there.
   // Once it has caught up, it follows the pointer exactly.
   const CATCH_UP = 60;
@@ -338,7 +340,11 @@
           return;
         }
         // From where the press went down, not where it lifted: a finger rolls a few pixels as it leaves the glass.
-        if (!wasScrubbing) return settle(Math.round(toPosition(downX)), TRAVEL);
+        if (!wasScrubbing) {
+          const index = Math.round(toPosition(downX));
+          settle(index, TRAVEL + PER_DOT * Math.max(Math.abs(index - position()) - 1, 0));
+          return;
+        }
         // From where the pointer let go, not where the catch-up has reached: a quick scrub can end before it arrives.
         settle(Math.round(goal), SNAP);
       };
