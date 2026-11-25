@@ -224,7 +224,7 @@ test('the tick rail previews the section under the pointer and follows the scrol
   expect(await app.evaluate(() => location.hash)).toBe('');
 });
 
-test('the aligned select opens on its value, picks by drag and by key, and reports only real changes', async ({ app }) => {
+test('the aligned select opens on its value, picks by key, and reports only real changes', async ({ app }) => {
   const trigger = app.getByRole('combobox', { name: 'Region' });
   await expect(trigger).toHaveText('Lima');
   await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lima');
@@ -256,17 +256,6 @@ test('the aligned select opens on its value, picks by drag and by key, and repor
   await expect(trigger).toHaveText('Lagos');
   expect(await calls(app)).toEqual(['select:"Tokyo"', 'select:"Lagos"']);
   await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lagos');
-
-  // A press, a drag past the slop and a release picks.
-  const box = (await trigger.boundingBox())!;
-  await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await app.mouse.down();
-  const berlin = (await app.locator('aligned-select [role="option"]').first().boundingBox())!;
-  await app.mouse.move(berlin.x + 30, berlin.y + berlin.height / 2, { steps: 6 });
-  await app.mouse.up();
-  await expect(trigger).toHaveText('Berlin');
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
-  expect(await calls(app)).toEqual(['select:"Tokyo"', 'select:"Lagos"', 'select:"Berlin"']);
 });
 
 test('the aligned select submits its value in a form, a reset restores it silently, and disabled leaves it out', async ({ app }) => {

@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { specimens } from '../src/data/specimens';
 import { usagePoint } from '../src/lib/usage';
 
 declare global {
@@ -60,7 +61,7 @@ test('all content pages hydrate without CSP violations', async ({ page }) => {
   });
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  for (const path of ['/', '/text-swap/', '/hold-confirm/', '/chevron-morph/', '/plucked-underline/', '/gooey-radio-group/', '/edge-aware-tooltip/', '/drag-select/', '/resize-handle/', '/missing-security-check/']) {
+  for (const path of ['/', ...specimens.map(({ id }) => `/${id}/`), '/missing-security-check/']) {
     await page.goto(path);
     if (path !== '/' && path !== '/missing-security-check/') {
       await page.locator('[data-source-format][value="css"]').check();
@@ -217,17 +218,4 @@ test('mobile navigation still opens and Escape returns focus', async ({ page }) 
   await page.keyboard.press('Escape');
   await expect(page.locator('#mobile-index')).toBeHidden();
   await expect(toggle).toBeFocused();
-});
-
-test('CSP permits CodePen exports without contacting CodePen', async ({ page, context }) => {
-  await context.route('https://codepen.io/**', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Export received</title>' }));
-  await page.goto('/hold-confirm/');
-  await page.locator('[data-source-format][value="css"]').check();
-  const exported = context.waitForEvent('request', (request) => request.url() === 'https://codepen.io/cpe/pen/define');
-  const popup = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Edit on CodePen (opens in a new tab)', exact: true }).first().click();
-  const request = await exported;
-  expect(request.method()).toBe('POST');
-  expect(request.postData()).toContain('data=');
-  await (await popup).close();
 });

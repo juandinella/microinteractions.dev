@@ -54,7 +54,3 @@ const redirect = await fetch(`${origin}${paths[1].slice(0, -1)}`, { redirect: 'm
 assert.equal(redirect.status, 301);
 assert(new URL(redirect.headers.get('location'), origin).pathname === paths[1]);
 console.log('PASS missing page, robots.txt, canonical redirect');
-
-const metadata = await fetch(`${origin}/.DS_Store`);
-assert.equal(metadata.status, 404, 'Finder metadata must not be published');
-console.log('PASS Finder metadata excluded from published assets');

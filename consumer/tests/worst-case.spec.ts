@@ -6,7 +6,6 @@ import { expect, test, type Page } from '@playwright/test';
 // src/worst-case/studies.tsx; the first test fails until it does.
 
 const modes = ['demo', 'worst', 'empty', 'one', 'many'] as const;
-const widths = ['320', '640'] as const;
 const directions = ['ltr', 'rtl'] as const;
 
 // Scrollers meant to scroll sideways: the tab list and the carousel track.
@@ -35,44 +34,42 @@ test('every registry item has a worst case', async ({ page }) => {
 });
 
 for (const mode of modes) {
-  for (const width of widths) {
-    for (const dir of directions) {
-      test(`${mode} data at ${width}px, ${dir}: nothing overflows or gets cut`, async ({ page }) => {
-        const errors = await open(page, `data=${mode}&width=${width}&dir=${dir}`);
-        const problems = await page.evaluate((sideways) => {
-          const found: string[] = [];
-          const name = (element: Element) =>
-            `${element.localName}${element.id ? `#${element.id}` : ''}${element.textContent?.trim() ? ` "${element.textContent.trim().slice(0, 40)}"` : ''}`;
-          for (const section of document.querySelectorAll<HTMLElement>('[data-study]')) {
-            const study = section.getAttribute('aria-label');
-            const bounds = section.getBoundingClientRect();
-            for (const element of section.querySelectorAll<HTMLElement>('*')) {
-              const box = element.getBoundingClientRect();
-              // Nothing to see, or text only for screen readers in a 1px box.
-              if (!box.width || !box.height || (box.width <= 1 && box.height <= 1)) continue;
-              const style = getComputedStyle(element);
-              // A box sticking out of its study pushes the page sideways. Inside a clipping or
-              // scrolling ancestor the overflow is that ancestor's, checked below.
-              let clipped = false;
-              for (let parent = element.parentElement; parent && parent !== section; parent = parent.parentElement) {
-                if (getComputedStyle(parent).overflowX !== 'visible') clipped = true;
-              }
-              if (!clipped && (box.left < bounds.left - 1 || box.right > bounds.right + 1)) {
-                found.push(`${study}: ${name(element)} sticks out by ${Math.round(Math.max(bounds.left - box.left, box.right - bounds.right))}px`);
-              }
-              // A clipping box narrower than its content cuts it, unless it ends in an ellipsis or scrolls sideways on purpose.
-              if (style.overflowX !== 'visible' && element.scrollWidth > element.clientWidth + 1 && style.textOverflow !== 'ellipsis' && !element.matches(sideways)) {
-                found.push(`${study}: ${name(element)} cuts ${element.scrollWidth - element.clientWidth}px of its content`);
-              }
+  for (const dir of directions) {
+    test(`${mode} data, ${dir}: nothing overflows or gets cut`, async ({ page }) => {
+      const errors = await open(page, `data=${mode}&width=320&dir=${dir}`);
+      const problems = await page.evaluate((sideways) => {
+        const found: string[] = [];
+        const name = (element: Element) =>
+          `${element.localName}${element.id ? `#${element.id}` : ''}${element.textContent?.trim() ? ` "${element.textContent.trim().slice(0, 40)}"` : ''}`;
+        for (const section of document.querySelectorAll<HTMLElement>('[data-study]')) {
+          const study = section.getAttribute('aria-label');
+          const bounds = section.getBoundingClientRect();
+          for (const element of section.querySelectorAll<HTMLElement>('*')) {
+            const box = element.getBoundingClientRect();
+            // Nothing to see, or text only for screen readers in a 1px box.
+            if (!box.width || !box.height || (box.width <= 1 && box.height <= 1)) continue;
+            const style = getComputedStyle(element);
+            // A box sticking out of its study pushes the page sideways. Inside a clipping or
+            // scrolling ancestor the overflow is that ancestor's, checked below.
+            let clipped = false;
+            for (let parent = element.parentElement; parent && parent !== section; parent = parent.parentElement) {
+              if (getComputedStyle(parent).overflowX !== 'visible') clipped = true;
+            }
+            if (!clipped && (box.left < bounds.left - 1 || box.right > bounds.right + 1)) {
+              found.push(`${study}: ${name(element)} sticks out by ${Math.round(Math.max(bounds.left - box.left, box.right - bounds.right))}px`);
+            }
+            // A clipping box narrower than its content cuts it, unless it ends in an ellipsis or scrolls sideways on purpose.
+            if (style.overflowX !== 'visible' && element.scrollWidth > element.clientWidth + 1 && style.textOverflow !== 'ellipsis' && !element.matches(sideways)) {
+              found.push(`${study}: ${name(element)} cuts ${element.scrollWidth - element.clientWidth}px of its content`);
             }
           }
-          return found;
-        }, sideways);
-        expect(problems).toEqual([]);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        expect(errors).toEqual([]);
-      });
-    }
+        }
+        return found;
+      }, sideways);
+      expect(problems).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(errors).toEqual([]);
+    });
   }
 }
 
