@@ -1,5 +1,6 @@
 import { Tabs } from '@base-ui/react/tabs';
 import { useEffect, useRef, useState } from 'react';
+import { track } from '../scripts/track';
 import styles from './InstallCommand.module.css';
 
 const managers = [
@@ -41,6 +42,7 @@ export default function InstallCommand({ url }: { url: string }) {
     clearTimeout(reset.current);
     try {
       await navigator.clipboard.writeText(command(manager));
+      track('copy_install', { manager });
       setCopied(true);
       setStatus((current) => ({ message: 'Install command copied to clipboard.', version: current.version + 1 }));
       reset.current = setTimeout(clear, 1800);

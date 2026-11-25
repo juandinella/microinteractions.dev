@@ -1,5 +1,6 @@
 import { Tabs } from '@base-ui/react/tabs';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { track } from '../scripts/track';
 import styles from './SourceTabs.module.css';
 
 interface View {
@@ -71,6 +72,12 @@ export default function SourceTabs({ views, actions, ...panels }: Props) {
     clearTimeout(reset.current);
     try {
       await navigator.clipboard.writeText(code.textContent ?? '');
+      track('copy_code', {
+        format:
+          root.current?.closest<HTMLElement>('[data-source-variant]')?.dataset
+            .sourceVariant ?? '',
+        file: tab,
+      });
       if (!stillShown()) return;
       setCopied(true);
       announce(`${label} copied to clipboard.`);
