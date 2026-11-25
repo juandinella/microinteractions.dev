@@ -211,6 +211,42 @@ test('study pages offer the shadcn command for each package manager', async ({ p
   await expect(page.getByRole('button', { name: 'Add with shadcn' })).toHaveCount(0);
 });
 
+test('the install popup stays put while its button is pressed', async ({ page }) => {
+  await page.goto('/hold-confirm/');
+  const trigger = page.getByRole('button', { name: 'Add with shadcn' });
+  const popup = page.getByRole('dialog', { name: 'Add with shadcn' });
+  await expect(page.locator('astro-island', { has: trigger })).not.toHaveAttribute('ssr');
+
+  // Every frame: Chromium moved it on the press that closes, WebKit after opening from a held press.
+  await page.evaluate(() => {
+    const seen = new Set<string>();
+    (window as unknown as { seen: Set<string> }).seen = seen;
+    const sample = () => {
+      const positioner = document.querySelector('[role="dialog"]')?.parentElement;
+      if (positioner) {
+        const { x, y } = positioner.getBoundingClientRect();
+        seen.add(`${x},${y}`);
+      }
+      requestAnimationFrame(sample);
+    };
+    sample();
+  });
+  const width = (await trigger.boundingBox())!.width;
+  const heldClick = async () => {
+    await page.mouse.down();
+    await expect.poll(async () => (await trigger.boundingBox())!.width).toBeLessThan(width * 0.98);
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+  };
+  await trigger.hover();
+  await heldClick();
+  await expect(popup).toBeVisible();
+  await page.waitForTimeout(400);
+  await heldClick();
+  await expect(popup).toHaveCount(0);
+  expect(await page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen])).toHaveLength(1);
+});
+
 test.describe('plucked underline', () => {
   const durations = (page: import('@playwright/test').Page) =>
     page.locator('[data-stage] [data-pluck]').evaluateAll((links) =>
