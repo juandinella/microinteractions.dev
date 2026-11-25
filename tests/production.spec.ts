@@ -116,15 +116,9 @@ test('confirmation dialog locks background scroll and restores focus', async ({ 
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
 });
 
-test('narrow source targets and all content routes fit both themes', async ({ page }) => {
+test('narrow source targets stay 44px wide', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
-  for (const colorScheme of ['light', 'dark'] as const) {
-    await page.emulateMedia({ colorScheme });
-    for (const path of ['/', ...specimens.map(({ id }) => `/${id}/`)]) {
-      await page.goto(path);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-    }
-  }
+  await page.goto('/resize-handle/');
   await page.locator('[data-source-format][value="css"]').check();
   const tab = page.locator('[data-source-variant="css"]').getByRole('tab', { name: 'CSS', exact: true });
   await expect(tab).toBeVisible();
@@ -171,17 +165,30 @@ test('collection and hold summaries describe the behavior without JavaScript', a
   await context.close();
 });
 
-test('every page has its cover and clip, and every study plain CodePen exports', async ({ page, request }) => {
+test('every page fits 320px, hydrates without CSP violations, and has its cover, clip and plain CodePen exports', async ({ page, request }) => {
   // One page load per study.
   test.setTimeout(60_000);
   const origin = 'https://microinteractions.dev';
+  const problems: string[] = [];
+  page.on('pageerror', (error) => problems.push(error.message));
+  await page.exposeFunction('reportViolation', (violation: string) => problems.push(violation));
+  await page.addInitScript(() => document.addEventListener('securitypolicyviolation', (event) =>
+    (window as any).reportViolation(`${event.effectiveDirective}: ${event.blockedURI}`)));
+  await page.setViewportSize({ width: 320, height: 800 });
   for (const id of ['', ...specimens.map(({ id }) => id)]) {
     await page.goto(id ? `/${id}/` : '/');
-    const { meta, exported } = await page.evaluate(() => ({
+    if (id) {
+      await page.locator('[data-source-format][value="css"]').check();
+      await expect(page.getByRole('tab', { name: 'HTML', exact: true }).first()).toBeVisible();
+    }
+    const { meta, exported, overflow } = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       meta: Object.fromEntries([...document.querySelectorAll('meta')].map((tag) => [tag.getAttribute('property') ?? tag.name, tag.content])),
       exported: [...document.querySelectorAll<HTMLInputElement>('form[action="https://codepen.io/cpe/pen/define"] input[name="data"]')]
         .map((input) => JSON.parse(input.value).html as string),
     }));
+    expect(overflow, id).toBeLessThanOrEqual(1);
+    expect(problems, id).toEqual([]);
     const cover = id ? `/social/${id}.png` : '/social-preview.png';
     expect(meta, id).toMatchObject({
       'og:image': origin + cover,

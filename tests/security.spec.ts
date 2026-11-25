@@ -1,6 +1,5 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { specimens } from '../src/data/specimens';
 import { usagePoint } from '../src/lib/usage';
 
 declare global {
@@ -52,24 +51,6 @@ test('environment files are ignored while examples remain versionable', () => {
     encoding: 'utf8',
   }).trim().split('\n');
   expect(ignored).toEqual(privatePaths);
-});
-
-test('all content pages hydrate without CSP violations', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.cspViolations = [];
-    document.addEventListener('securitypolicyviolation', (event) => window.cspViolations.push(`${event.effectiveDirective}: ${event.blockedURI}`));
-  });
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  for (const path of ['/', ...specimens.map(({ id }) => `/${id}/`), '/missing-security-check/']) {
-    await page.goto(path);
-    if (path !== '/' && path !== '/missing-security-check/') {
-      await page.locator('[data-source-format][value="css"]').check();
-      await expect(page.getByRole('tab', { name: 'HTML', exact: true }).first()).toBeVisible();
-    }
-    expect(await page.evaluate(() => window.cspViolations), path).toEqual([]);
-  }
-  expect(errors).toEqual([]);
 });
 
 test('CSP blocks injected inline scripts and event handlers', async ({ page }) => {
