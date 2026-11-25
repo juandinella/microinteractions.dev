@@ -87,6 +87,9 @@ export interface Specimen {
   title: string;
   category: Category;
   summary: string;
+  // What people call the pattern without knowing the study. The agent skill matches requests against
+  // these, and its description names the first one.
+  aliases: [string, ...string[]];
   seoTitle: string;
   seoDescription: string;
   trigger: 'hover' | 'hold' | 'drag' | 'select';
@@ -141,6 +144,7 @@ export const specimens: Specimen[] = [
     title: 'Text swap button',
     category: 'Actions',
     summary: 'Swap labels without changing the button width.',
+    aliases: ['button label that swaps on hover', 'text roll'],
     seoTitle: 'CSS button text swap without resizing',
     seoDescription:
       'Swap button labels with CSS Grid while keeping the button width stable. Try the CSS demo with keyboard focus and reduced-motion support.',
@@ -163,6 +167,7 @@ export const specimens: Specimen[] = [
     title: 'Hold to confirm button',
     category: 'Actions',
     summary: 'Hold the button for 1,200ms to confirm. Release early to cancel.',
+    aliases: ['hold to delete', 'press and hold', 'long-press confirm'],
     seoTitle: 'JavaScript hold-to-confirm button',
     seoDescription:
       'Build a hold-to-confirm button with a cancelable timer, keyboard support, and status feedback. Try the demo and learn how to connect a real action.',
@@ -186,6 +191,7 @@ export const specimens: Specimen[] = [
     title: 'Chevron morph buttons',
     category: 'Navigation',
     summary: 'Extend a chevron into an arrow on hover.',
+    aliases: ['chevron to arrow', 'previous and next buttons', 'carousel arrows'],
     seoTitle: 'CSS chevron-to-arrow button animation',
     seoDescription:
       'Turn a chevron into an arrow with SVG transforms and opacity. Try the 190ms demo and copy the CSS or Tailwind version, with keyboard and reduced-motion support.',
@@ -207,6 +213,7 @@ export const specimens: Specimen[] = [
     title: 'Plucked underline',
     category: 'Navigation',
     summary: 'Pluck a link underline like a string tuned by its length.',
+    aliases: ['link underline animation', 'nav link hover'],
     seoTitle: 'CSS plucked string link underline animation',
     seoDescription:
       'Animate a nav underline like a plucked string, with a CSS linear() spring whose ring time scales with each link’s width. Works with keyboard and touch.',
@@ -238,6 +245,7 @@ export const specimens: Specimen[] = [
     title: 'Gooey radio group',
     category: 'Toggles & choices',
     summary: 'Pour the selection from one option to the next.',
+    aliases: ['animated radio buttons', 'liquid or blob selection'],
     seoTitle: 'Gooey radio button animation with an SVG filter',
     seoDescription:
       'Pour a radio group’s selection into the next option as a liquid drop, using an SVG goo filter, native radios, and the Web Animations API.',
@@ -259,6 +267,7 @@ export const specimens: Specimen[] = [
     title: 'Aligned select',
     category: 'Toggles & choices',
     summary: 'Open the menu with the current option on top of the trigger.',
+    aliases: ['custom select', 'macOS-style pop-up menu', 'dropdown to pick a value'],
     seoTitle: 'Select menu that opens on the current option',
     seoDescription:
       'A custom select whose menu opens with the current option right on the trigger, as in Linear. Press, drag and release to pick, with touch and keyboard support.',
@@ -288,6 +297,7 @@ export const specimens: Specimen[] = [
     title: 'Edge-aware tooltip',
     category: 'Values',
     summary: "Keep a slider's value label inside its container.",
+    aliases: ['slider value label', 'range input tooltip'],
     seoTitle: 'Range slider tooltip positioning',
     seoDescription:
       'Keep a range slider’s value label inside its container with CSS anchor positioning and a clamped fallback. Try the demo and copy the implementation.',
@@ -309,6 +319,7 @@ export const specimens: Specimen[] = [
     title: 'Drag to select',
     category: 'Direct manipulation',
     summary: 'Check a run of table rows in one drag down the boxes.',
+    aliases: ['drag to check rows', 'table multi-select', 'bulk selection'],
     seoTitle: 'Drag to select checkboxes in a table',
     seoDescription:
       'Select table rows by dragging down their checkboxes, with a band that previews the result, autoscroll, Escape to cancel, and keyboard support.',
@@ -337,6 +348,7 @@ export const specimens: Specimen[] = [
     title: 'Resize handle',
     category: 'Direct manipulation',
     summary: 'Show the grip where the pointer meets the divider.',
+    aliases: ['resizable sidebar', 'split pane', 'draggable divider'],
     seoTitle: 'Resizable sidebar handle that follows the pointer',
     seoDescription:
       'Resize a sidebar from a divider whose grip appears where the pointer meets it, with collapse, Escape to cancel, and window splitter keyboard support.',
@@ -367,6 +379,7 @@ export const specimens: Specimen[] = [
     title: 'Tab indicator',
     category: 'Navigation',
     summary: 'Slide the underline to the chosen tab without moving the labels.',
+    aliases: ['sliding tab underline', 'animated tabs'],
     seoTitle: 'Tab underline and bold labels, no layout shift',
     seoDescription:
       'Slide a tab underline to the chosen tab with one transform that turns mid-move, and bold the selected label without layout shift.',
@@ -390,6 +403,7 @@ export const specimens: Specimen[] = [
     title: 'Worm dots',
     category: 'Navigation',
     summary: 'Drag along the dots to scrub the slides, with a worm that follows the scroll.',
+    aliases: ['carousel dots', 'pagination dots', 'page indicator'],
     seoTitle: 'Draggable carousel dots with a worm indicator',
     seoDescription:
       'Drag carousel dots to scrub through slides, with a worm indicator that follows the scroll. Includes keyboard, touch, and reduced-motion support.',
@@ -421,6 +435,7 @@ export const specimens: Specimen[] = [
     title: 'Drag to reorder',
     category: 'Actions',
     summary: 'Open a gap in a list that follows the item you drag.',
+    aliases: ['sortable list', 'drag-and-drop list'],
     seoTitle: 'Drag to reorder list animation with a rippling gap',
     seoDescription:
       'Reorder a list with a rippling gap as nearby rows nudge apart. Try the demo with keyboard controls, live announcements, and reduced-motion support.',
@@ -451,6 +466,7 @@ export const specimens: Specimen[] = [
     title: 'FAQ panel',
     category: 'Navigation',
     summary: 'Slide one panel to the question you open and fit it to the answer.',
+    aliases: ['FAQ accordion', 'expandable questions'],
     seoTitle: 'FAQ accordion with one sliding panel',
     seoDescription:
       'Open a FAQ answer and one shared panel slides to the question, resizing to fit. Built with FLIP and the Web Animations API, with keyboard support.',
@@ -481,6 +497,7 @@ export const specimens: Specimen[] = [
     title: 'Tick rail',
     category: 'Navigation',
     summary: 'Grow the ticks around the pointer and preview the section under it.',
+    aliases: ['table of contents', 'scrollspy', 'section navigation'],
     seoTitle: 'Table of contents rail with section previews',
     seoDescription:
       'A tick rail for long pages: ticks grow around the pointer, one card previews the section, and the current tick follows the scroll. Works with keyboard and touch.',

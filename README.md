@@ -36,6 +36,12 @@ Not using React? Each study page also has the original Astro source, styled with
 
 ## For agents
 
+Install the skill, and your coding agent finds the study that fits, adds it to your project, and checks it:
+
+```sh
+npx skills@latest add https://microinteractions.dev
+```
+
 [`/llms.txt`](https://microinteractions.dev/llms.txt) indexes the collection, every page is available as Markdown with `Accept: text/markdown`, and [`/api.md`](https://microinteractions.dev/api.md) describes the endpoints.
 
 ## License

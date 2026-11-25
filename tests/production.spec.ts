@@ -266,11 +266,16 @@ test('agent skill index digest matches the published skill', async ({ request })
   const body = await (await request.get(skill.url)).body();
   const hash = Buffer.from(await crypto.subtle.digest('SHA-256', body)).toString('hex');
   expect(skill.digest).toBe(`sha256:${hash}`);
+  const studies = (await (await request.get('/openapi.json')).json()).components.parameters.Slug.schema.enum;
+  for (const id of studies.filter((slug: string) => slug !== 'index')) expect(body.toString()).toContain(`- \`${id}\` **`);
   const llms = await request.get('/llms.txt');
   expect(llms.status()).toBe(200);
   const text = await llms.text();
   expect(text).toContain('/markdown/text-swap.md');
   expect(text).toContain('/rss.xml');
+  for (const path of ['/llms.txt', '/api.md', '/']) {
+    expect(await (await request.get(path, { headers: { Accept: 'text/html' } })).text(), path).toContain('npx skills@latest add https://microinteractions.dev');
+  }
 });
 
 test('shadcn registry serves the index and installable items', async ({ request }) => {
@@ -280,8 +285,9 @@ test('shadcn registry serves the index and installable items', async ({ request 
   expect(name).toBe('microinteractions');
   const studies = (await (await request.get('/openapi.json')).json()).components.parameters.Slug.schema.enum;
   expect(items.map((item: { name: string }) => item.name).sort()).toEqual([...studies].sort());
+  // Depending on `utils` makes the CLI ask to replace the project's lib/utils.ts.
+  expect(items.filter((item: { registryDependencies?: string[] }) => item.registryDependencies?.includes('utils'))).toEqual([]);
   const item = await (await request.get('/r/text-swap.json')).json();
-  expect(item.registryDependencies).toEqual(['utils']);
   expect(item.files[0].content).toContain('export function TextSwapButton');
   for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots'], ['drag-reorder', 'drag-reorder'], ['faq-panel', 'faq-panel'], ['tick-rail', 'tick-rail'], ['aligned-select', 'aligned-select']]) {
     const element = await (await request.get(`/r/${name}.json`)).json();
