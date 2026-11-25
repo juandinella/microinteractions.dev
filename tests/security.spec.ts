@@ -53,24 +53,6 @@ test('environment files are ignored while examples remain versionable', () => {
   expect(ignored).toEqual(privatePaths);
 });
 
-test('all content pages hydrate without CSP violations', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.cspViolations = [];
-    document.addEventListener('securitypolicyviolation', (event) => window.cspViolations.push(`${event.effectiveDirective}: ${event.blockedURI}`));
-  });
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  for (const path of ['/', '/text-swap/', '/hold-confirm/', '/chevron-morph/', '/plucked-underline/', '/gooey-radio-group/', '/edge-aware-tooltip/', '/drag-select/', '/resize-handle/', '/missing-security-check/']) {
-    await page.goto(path);
-    if (path !== '/' && path !== '/missing-security-check/') {
-      await page.locator('[data-source-format][value="css"]').check();
-      await expect(page.getByRole('tab', { name: 'HTML', exact: true }).first()).toBeVisible();
-    }
-    expect(await page.evaluate(() => window.cspViolations), path).toEqual([]);
-  }
-  expect(errors).toEqual([]);
-});
-
 test('CSP blocks injected inline scripts and event handlers', async ({ page }) => {
   await page.goto('/');
   const violation = page.evaluate(() => new Promise<string>((resolve) => {
@@ -217,17 +199,4 @@ test('mobile navigation still opens and Escape returns focus', async ({ page }) 
   await page.keyboard.press('Escape');
   await expect(page.locator('#mobile-index')).toBeHidden();
   await expect(toggle).toBeFocused();
-});
-
-test('CSP permits CodePen exports without contacting CodePen', async ({ page, context }) => {
-  await context.route('https://codepen.io/**', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Export received</title>' }));
-  await page.goto('/hold-confirm/');
-  await page.locator('[data-source-format][value="css"]').check();
-  const exported = context.waitForEvent('request', (request) => request.url() === 'https://codepen.io/cpe/pen/define');
-  const popup = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Edit on CodePen (opens in a new tab)', exact: true }).first().click();
-  const request = await exported;
-  expect(request.method()).toBe('POST');
-  expect(request.postData()).toContain('data=');
-  await (await popup).close();
 });

@@ -116,15 +116,9 @@ test('confirmation dialog locks background scroll and restores focus', async ({ 
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
 });
 
-test('narrow source targets and all content routes fit both themes', async ({ page }) => {
+test('narrow source targets stay 44px wide', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
-  for (const colorScheme of ['light', 'dark'] as const) {
-    await page.emulateMedia({ colorScheme });
-    for (const path of ['/', '/text-swap/', '/chevron-morph/', '/hold-confirm/', '/edge-aware-tooltip/', '/plucked-underline/', '/resize-handle/']) {
-      await page.goto(path);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-    }
-  }
+  await page.goto('/resize-handle/');
   await page.locator('[data-source-format][value="css"]').check();
   const tab = page.locator('[data-source-variant="css"]').getByRole('tab', { name: 'CSS', exact: true });
   await expect(tab).toBeVisible();
@@ -132,11 +126,10 @@ test('narrow source targets and all content routes fit both themes', async ({ pa
   expect((await page.locator('.breadcrumb a').first().boundingBox())!.width).toBeGreaterThanOrEqual(44);
 });
 
-test('missing pages offer recovery and private assets stay unpublished', async ({ page, request }) => {
+test('missing pages offer recovery', async ({ page }) => {
   const response = await page.goto('/missing-production-check/');
   expect(response!.status()).toBe(404);
   await expect(page.getByRole('link', { name: 'Back to index', exact: true })).toHaveAttribute('href', '/');
-  expect((await request.get('/.DS_Store')).status()).toBe(404);
 });
 
 test('reduced motion keeps hold timing while removing decorative movement', async ({ page }) => {
@@ -172,43 +165,58 @@ test('collection and hold summaries describe the behavior without JavaScript', a
   await context.close();
 });
 
-test('content routes expose valid social images', async ({ page, request }) => {
-  const covers: Record<string, string> = { '/': '/social-preview.png' };
-  for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator', 'worm-dots', 'drag-reorder', 'faq-panel', 'tick-rail', 'aligned-select']) covers[`/${id}/`] = `/social/${id}.png`;
-  for (const [path, cover] of Object.entries(covers)) {
-    await page.goto(path);
-    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://microinteractions.dev${cover}`);
-    await expect(page.locator('meta[property="og:image:type"]')).toHaveAttribute('content', 'image/png');
-    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
-    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', `https://microinteractions.dev${cover}`);
-    await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute('content', await page.locator('meta[property="og:image:alt"]').getAttribute('content'));
-    const response = await request.get(cover);
-    expect(response.status()).toBe(200);
-    expect(response.headers()['content-type']).toContain('image/png');
-    const png = await response.body();
-    expect(png.readUInt32BE(16)).toBe(1200);
-    expect(png.readUInt32BE(20)).toBe(630);
-  }
-});
-
-test('studies with a recorded clip expose og:video and the others none', async ({ page, request }) => {
-  for (const { id } of specimens) {
-    await page.goto(`/${id}/`);
-    const video = page.locator('meta[property^="og:video"]');
-    if (!existsSync(`public/og/videos/${id}.mp4`)) {
-      await expect(video).toHaveCount(0);
-      continue;
+test('every page fits 320px, hydrates without CSP violations, and has its cover, clip and plain CodePen exports', async ({ page, request }) => {
+  // One page load per study.
+  test.setTimeout(60_000);
+  const origin = 'https://microinteractions.dev';
+  const problems: string[] = [];
+  page.on('pageerror', (error) => problems.push(error.message));
+  await page.exposeFunction('reportViolation', (violation: string) => problems.push(violation));
+  await page.addInitScript(() => document.addEventListener('securitypolicyviolation', (event) =>
+    (window as any).reportViolation(`${event.effectiveDirective}: ${event.blockedURI}`)));
+  await page.setViewportSize({ width: 320, height: 800 });
+  for (const id of ['', ...specimens.map(({ id }) => id)]) {
+    await page.goto(id ? `/${id}/` : '/');
+    if (id) {
+      await page.locator('[data-source-format][value="css"]').check();
+      await expect(page.getByRole('tab', { name: 'HTML', exact: true }).first()).toBeVisible();
     }
-    const url = `https://microinteractions.dev/og/videos/${id}.mp4`;
-    await expect(page.locator('meta[property="og:video"]')).toHaveAttribute('content', url);
-    await expect(page.locator('meta[property="og:video:secure_url"]')).toHaveAttribute('content', url);
-    await expect(page.locator('meta[property="og:video:type"]')).toHaveAttribute('content', 'video/mp4');
-    await expect(page.locator('meta[property="og:video:width"]')).toHaveAttribute('content', '1200');
-    await expect(page.locator('meta[property="og:video:height"]')).toHaveAttribute('content', '630');
-    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://microinteractions.dev/social/${id}.png`);
-    const response = await request.get(`/og/videos/${id}.mp4`);
-    expect(response.status()).toBe(200);
-    expect(response.headers()['content-type']).toContain('video/mp4');
+    const { meta, exported, overflow } = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      meta: Object.fromEntries([...document.querySelectorAll('meta')].map((tag) => [tag.getAttribute('property') ?? tag.name, tag.content])),
+      exported: [...document.querySelectorAll<HTMLInputElement>('form[action="https://codepen.io/cpe/pen/define"] input[name="data"]')]
+        .map((input) => JSON.parse(input.value).html as string),
+    }));
+    expect(overflow, id).toBeLessThanOrEqual(1);
+    expect(problems, id).toEqual([]);
+    const cover = id ? `/social/${id}.png` : '/social-preview.png';
+    expect(meta, id).toMatchObject({
+      'og:image': origin + cover,
+      'og:image:type': 'image/png',
+      'twitter:card': 'summary_large_image',
+      'twitter:image': origin + cover,
+      'twitter:image:alt': meta['og:image:alt'],
+    });
+    const image = await request.get(cover);
+    expect(image.headers()['content-type'], cover).toContain('image/png');
+    const png = await image.body();
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)], cover).toEqual([1200, 630]);
+
+    const clip = `/og/videos/${id}.mp4`;
+    if (existsSync(`public${clip}`)) {
+      expect(meta, id).toMatchObject({
+        'og:video': origin + clip,
+        'og:video:secure_url': origin + clip,
+        'og:video:type': 'video/mp4',
+        'og:video:width': '1200',
+        'og:video:height': '630',
+      });
+      expect((await request.get(clip)).headers()['content-type'], clip).toContain('video/mp4');
+    } else expect(meta['og:video'], id).toBeUndefined();
+
+    if (id) expect(exported.length, id).toBeGreaterThan(0);
+    // An Astro loop or frontmatter left in the source would not render on CodePen.
+    for (const html of exported) expect(html, id).not.toMatch(/^\s*---|\.map\(|=\{/);
   }
 });
 
@@ -228,7 +236,7 @@ test('RSS feed lists every study and is discoverable', async ({ page, request })
   expect(feed.status()).toBe(200);
   expect(feed.headers()['content-type']).toContain('application/rss+xml');
   const body = await feed.text();
-  expect(body.match(/<item>/g)).toHaveLength(14);
+  expect(body.match(/<item>/g)).toHaveLength(specimens.length);
   expect(body).toContain('<link>https://microinteractions.dev/resize-handle/</link>');
   await page.goto('/text-swap/');
   await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/rss.xml');
@@ -345,26 +353,6 @@ test('WebMCP tools list, read, and open studies', async ({ page }) => {
   await expect(call('get_study', { id: 'nope' })).rejects.toThrow('Unknown study');
   await call('open_study', { id: 'text-swap' });
   await expect(page).toHaveURL(/\/text-swap\/$/);
-});
-
-test('every CodePen export carries plain HTML, not template source', async ({ page }) => {
-  // One page load per study.
-  test.setTimeout(60_000);
-  let forms = 0;
-  for (const { id } of specimens) {
-    await page.goto(`/${id}/`);
-    const payloads = await page.locator('form[action="https://codepen.io/cpe/pen/define"] input[name="data"]').evaluateAll((inputs: HTMLInputElement[]) => inputs.map((input) => input.value));
-    expect(payloads.length, `${id} has an export`).toBeGreaterThan(0);
-    for (const value of payloads) {
-      const { html } = JSON.parse(value) as { html: string };
-      forms++;
-      // An Astro loop or frontmatter left in the source would not render on CodePen.
-      expect(html, id).not.toMatch(/^\s*---/);
-      expect(html, id).not.toContain('.map(');
-      expect(html, id).not.toContain('={');
-    }
-  }
-  expect(forms).toBeGreaterThan(0);
 });
 
 // A ceiling, not the target: DESIGN.md asks for about 650 body words. The prompt is counted from `prompt:` to

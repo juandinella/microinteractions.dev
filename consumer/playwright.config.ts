@@ -14,7 +14,7 @@ export default defineConfig({
   workers: 2,
   timeout: 20_000,
   expect: { timeout: 5_000 },
-  use: { trace: 'retain-on-failure' },
+  use: { trace: 'on-first-retry' },
   projects: [
     { name: 'chromium', testIgnore: /strict-mode|worst-case/, use: { ...devices['Desktop Chrome'], baseURL: built } },
     { name: 'webkit', testIgnore: /strict-mode|worst-case/, use: { ...devices['Desktop Safari'], baseURL: built } },

@@ -24,7 +24,8 @@ const run = (command, cwd = root) =>
     );
   });
 
-if (!existsSync(join(site, 'r/registry.json'))) await run('pnpm run build');
+// Always: a dist/ left from before the last edit would install and test the old components.
+await run('pnpm run build');
 
 const types = { '.json': 'application/json; charset=utf-8', '.html': 'text/html; charset=utf-8' };
 const server = createServer(async (request, response) => {

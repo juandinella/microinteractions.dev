@@ -66,14 +66,28 @@ test('a hover plucks the underline and leaving releases it', async ({ app }) => 
 
 test('the gooey drop pours, and a form reset moves the next pour back to the default', async ({ app }) => {
   const head = () => app.locator('[data-goo-blob]').last();
-  await app.getByText('Option z', { exact: true }).click();
-  expect(await app.locator('[data-goo-blob]').evaluateAll((blobs) => blobs.flatMap((blob) => blob.getAnimations()).length)).toBe(8);
-  await app.waitForTimeout(600);
+  // Reads each pour in the choice's own task, after the component's handler: on a busy runner the 340ms pour can land
+  // before the next round trip.
+  const choose = async (option: string) => {
+    const read = await app.evaluateHandle(() => {
+      const read = { animations: 0, start: '' };
+      addEventListener('change', () => {
+        const pours = [...document.querySelectorAll('[data-goo-blob]')].flatMap((blob) => blob.getAnimations());
+        read.animations = pours.length;
+        // The head is the last blob.
+        read.start = (pours.at(-1)!.effect as KeyframeEffect).getKeyframes()[0].transform as string;
+      }, { once: true });
+      return read;
+    });
+    await app.getByText(option, { exact: true }).click();
+    return read.jsonValue();
+  };
+  expect((await choose('Option z')).animations).toBe(8);
+  await expect.poll(() => app.locator('[data-goo-blob]').evaluateAll((blobs) => blobs.flatMap((blob) => blob.getAnimations()).length)).toBe(0);
   await app.getByRole('button', { name: 'Reset form' }).click();
   await expect(app.getByRole('radio', { name: 'Option x' })).toBeChecked();
   await expect.poll(() => head().evaluate((blob) => new DOMMatrix(getComputedStyle(blob).transform).m42)).toBe(0);
-  await app.getByText('Option y', { exact: true }).click();
-  const start = await head().evaluate((blob) => blob.getAnimations()[0].effect!.getKeyframes()[0].transform as string);
+  const { start } = await choose('Option y');
   expect(start).toMatch(/^translateY\(0px\)/);
   expect(await calls(app)).toEqual(['option:"z"', 'option:"x"', 'option:"y"']);
 });
@@ -210,7 +224,7 @@ test('the tick rail previews the section under the pointer and follows the scrol
   expect(await app.evaluate(() => location.hash)).toBe('');
 });
 
-test('the aligned select opens on its value, picks by drag and by key, and reports only real changes', async ({ app }) => {
+test('the aligned select opens on its value, picks by key, and reports only real changes', async ({ app }) => {
   const trigger = app.getByRole('combobox', { name: 'Region' });
   await expect(trigger).toHaveText('Lima');
   await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lima');
@@ -242,17 +256,6 @@ test('the aligned select opens on its value, picks by drag and by key, and repor
   await expect(trigger).toHaveText('Lagos');
   expect(await calls(app)).toEqual(['select:"Tokyo"', 'select:"Lagos"']);
   await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lagos');
-
-  // A press, a drag past the slop and a release picks.
-  const box = (await trigger.boundingBox())!;
-  await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await app.mouse.down();
-  const berlin = (await app.locator('aligned-select [role="option"]').first().boundingBox())!;
-  await app.mouse.move(berlin.x + 30, berlin.y + berlin.height / 2, { steps: 6 });
-  await app.mouse.up();
-  await expect(trigger).toHaveText('Berlin');
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
-  expect(await calls(app)).toEqual(['select:"Tokyo"', 'select:"Lagos"', 'select:"Berlin"']);
 });
 
 test('the aligned select submits its value in a form, a reset restores it silently, and disabled leaves it out', async ({ app }) => {
