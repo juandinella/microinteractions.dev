@@ -143,5 +143,6 @@ export default defineConfig({
 
   // No page uses astro:assets. The default 'cloudflare-binding' service would still
   // publish /_image backed by the paid Images binding, open to anonymous requests.
-  adapter: cloudflare({ imageService: 'passthrough' })
+  // Two builds at once, in two worktrees, race for the debugger's fallback port and one fails.
+  adapter: cloudflare({ imageService: 'passthrough', inspectorPort: false })
 });

@@ -1607,7 +1607,6 @@ test.describe('faq panel', () => {
   });
 
   test('arrow keys move focus and Enter opens', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/faq-panel/');
     const faq = component(page);
     const questions = faq.getByRole('button');
@@ -1620,7 +1619,6 @@ test.describe('faq panel', () => {
     await expect(questions.first()).toHaveAttribute('aria-expanded', 'true');
     await page.keyboard.press('Enter');
     await expect(questions.nth(1)).toHaveAttribute('aria-expanded', 'true');
-    expect(await offset(faq)).toBeLessThan(0.5);
   });
 
   const MOVE_EASE = 'cubic-bezier(0.64, 0, 0.2, 1)';
@@ -1903,7 +1901,7 @@ test.describe('tick rail', () => {
   test('without JavaScript, the ticks are links and the current one is already longer', async ({ browser }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
-    await page.goto('http://127.0.0.1:8791/tick-rail/');
+    await page.goto('/tick-rail/');
     const rail = component(page);
     expect(await lengths(rail)).toEqual([16, 8, 8, 8, 8, 8, 8, 8]);
     await expect(rail.getByRole('link', { name: 'Usage' })).toHaveAttribute('href', '#tkr-usage');

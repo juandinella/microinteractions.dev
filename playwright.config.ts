@@ -1,4 +1,10 @@
+import { createHash } from 'node:crypto';
 import { defineConfig, devices } from '@playwright/test';
+
+// One port per checkout, so worktrees can run the suite at the same time. Two runs in the same checkout still stop
+// with a port error: they would overwrite each other's dist/.
+const port = 20_000 + (createHash('sha1').update(import.meta.dirname).digest().readUInt16BE() % 10_000);
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './tests',
@@ -9,7 +15,7 @@ export default defineConfig({
   timeout: 20_000,
   expect: { timeout: 5_000 },
   use: {
-    baseURL: 'http://127.0.0.1:8791',
+    baseURL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -17,8 +23,8 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
-    command: 'pnpm run build && pnpm exec wrangler dev --local --ip 127.0.0.1 --port 8791 --inspector-port 9259',
-    url: 'http://127.0.0.1:8791',
+    command: `pnpm run build && pnpm exec wrangler dev --local --ip 127.0.0.1 --port ${port} --inspector-port ${port + 10_000}`,
+    url: baseURL,
     reuseExistingServer: false,
     timeout: 60_000,
   },
