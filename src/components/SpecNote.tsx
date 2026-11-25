@@ -2,18 +2,20 @@ import { Popover } from '@base-ui/react/popover';
 import { Info } from 'lucide-react';
 import styles from './SpecNote.module.css';
 
-interface Props {
-  label: string;
+type Props = {
   value: string;
   note: string;
-}
+} & (
+  | { label: string; ariaLabel?: undefined }
+  | { ariaLabel: string; label?: undefined }
+);
 
-export default function SpecNote({ label, value, note }: Props) {
+export default function SpecNote({ label, ariaLabel, value, note }: Props) {
   return (
     <Popover.Root>
       <Popover.Trigger
         className={styles.trigger}
-        aria-label={`Why this ${label.toLowerCase()}?`}
+        aria-label={ariaLabel ?? `Why this ${label.toLowerCase()}?`}
       >
         <Info size={12} strokeWidth={1.5} aria-hidden="true" />
       </Popover.Trigger>

@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { collectionDescription } from '../src/data/collection';
 import { repository } from '../src/data/repository';
-import { specimens } from '../src/data/specimens';
+import { categories, specimens } from '../src/data/specimens';
 
 test('source formats and languages work without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
@@ -188,6 +188,15 @@ test('every page fits 320px, hydrates without CSP violations, and has its cover,
         .map((input) => JSON.parse(input.value).html as string),
     }));
     expect(overflow, id).toBeLessThanOrEqual(1);
+    if (id === 'faq-panel') {
+      await page.getByRole('button', { name: 'Why this duration?', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Why 140–300ms', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Why animate these properties?', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Why transform, height, opacity, filter', exact: true })).toBeVisible();
+    }
+    if (id === 'aligned-select') {
+      await expect(page.getByRole('button', { name: 'Why animate this property?', exact: true })).toBeVisible();
+    }
     expect(problems, id).toEqual([]);
     const cover = id ? `/social/${id}.png` : '/social-preview.png';
     expect(meta, id).toMatchObject({
@@ -358,6 +367,8 @@ test('WebMCP tools list, read, and open studies', async ({ page }) => {
 // A ceiling, not the target: DESIGN.md asks for about 650 body words. The prompt is counted from `prompt:` to
 // the end of the frontmatter.
 test('study articles stay within the length budget', () => {
+  const order = specimens.map(({ category }) => categories.indexOf(category));
+  expect(order).toEqual([...order].sort((a, b) => a - b));
   for (const { id } of specimens) {
     const [, frontmatter, body] = readFileSync(`src/content/studies/${id}.mdx`, 'utf8').split(/^---$/m);
     const words = (text: string) => text.split(/\s+/).filter(Boolean).length;

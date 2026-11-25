@@ -4,14 +4,14 @@
   "hold-confirm": "8857cf8dbab2be4c",
   "chevron-morph": "2644d72dcab8ae8f",
   "plucked-underline": "32d6fc75b0de5da3",
+  "tab-indicator": "1c3e85d1befbd204",
+  "worm-dots": "75dcd259a75e7bb1",
+  "tick-rail": "f8e0f9c27125722d",
   "gooey-radio-group": "ab2acea725f9f6e4",
   "aligned-select": "0d4503cd10c69080",
   "edge-aware-tooltip": "f53d02124b146c1e",
+  "faq-panel": "d721eeed2ee9a0bb",
   "drag-select": "6da04f497b3b18e4",
   "resize-handle": "a40ab1a04ca6591a",
-  "tab-indicator": "1c3e85d1befbd204",
-  "worm-dots": "75dcd259a75e7bb1",
-  "drag-reorder": "1a0739cd25cb71bb",
-  "faq-panel": "341a1abe480e55d0",
-  "tick-rail": "f8e0f9c27125722d"
+  "drag-reorder": "98a0adec778d084d"
 }

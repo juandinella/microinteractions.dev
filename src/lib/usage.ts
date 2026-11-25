@@ -1,9 +1,10 @@
-// Counts what browser analytics can't see: registry installs and Markdown reads by agents.
+// Counts what browser analytics can't see: registry installs, Markdown reads, and skill fetches by agents.
 // Each point holds no IP or other visitor identifier. Columns: blob1 surface, blob2 study or file, blob3 user agent.
 // Query with the Analytics Engine SQL API, counting SUM(_sample_interval) because points can be sampled.
 const surfaces = [
   ['registry', /^\/r\/([\w-]+)\.json$/],
   ['markdown', /^\/markdown\/([\w-]+)\.md$/],
+  ['skill', /^\/\.well-known\/agent-skills\/([\w-]+)\/SKILL\.md$/],
 ] as const;
 
 export function usagePoint(request: Request, response: Response, slug?: string) {

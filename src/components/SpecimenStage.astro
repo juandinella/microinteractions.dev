@@ -4,7 +4,7 @@ import SpecimenPaper from './SpecimenPaper.astro';
 import SpecimenDuration from './SpecimenDuration.astro';
 import SpecNote from './SpecNote.tsx';
 import type { Inspection } from '../data/previews';
-import { curvePoints, type Specimen } from '../data/specimens';
+import { curvePoints, durationLabel, type Specimen } from '../data/specimens';
 
 interface Props {
   specimen: Specimen;
@@ -146,7 +146,7 @@ const tick =
             <SpecNote
               client:load
               label={isDrag ? 'Response' : 'Duration'}
-              value={`${s.duration}ms`}
+              value={durationLabel(s)}
               note={s.durationNote}
             />
           )
@@ -197,7 +197,13 @@ const tick =
           s.positioningNote && (
             <SpecNote
               client:load
-              label="Positioning"
+              ariaLabel={
+                isDrag
+                  ? 'Why this positioning?'
+                  : s.props.length === 1
+                    ? 'Why animate this property?'
+                    : 'Why animate these properties?'
+              }
               value={s.props.join(', ')}
               note={s.positioningNote}
             />

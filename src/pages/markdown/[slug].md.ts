@@ -44,7 +44,7 @@ export const getStaticPaths = (async () => {
         ...(prompt ? ['## Prompt', codeBlock('text', buildPrompt(specimen, prompt))] : []),
         '## Implementation',
         codeBlocks(sourceFiles(preview.source, preview.includeScript, preview.reducedMotion)),
-        ...(preview.tailwindSource ? ['## Tailwind implementation', tailwindSetupNote(preview.includeScript), codeBlocks(tailwindSourceFiles(preview.tailwindSource, preview.includeScript ? preview.source : ''))] : []),
+        ...(preview.tailwindSource ? ['## Tailwind implementation', tailwindSetupNote(preview.includeScript), codeBlocks(tailwindSourceFiles(preview.tailwindSource))] : []),
       ].join('\n\n');
       const markdown = [
         `# ${specimen.title}`,

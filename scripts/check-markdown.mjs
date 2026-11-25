@@ -33,8 +33,10 @@ for (const path of paths) {
         assert(body.includes('```css'));
         assert(body.includes('## References'));
         if (['/hold-confirm/', '/edge-aware-tooltip/', '/plucked-underline/'].includes(path)) {
-          const tailwind = body.split('## Tailwind implementation')[1];
-          assert.match(tailwind, /### JavaScript\n\n```js\n/, `${path}: Tailwind must include its script`);
+          const [implementation, tailwind] = body.split('## Tailwind implementation');
+          assert.match(implementation, /### JavaScript\n\n```js\n/, `${path}: Implementation must include its script`);
+          assert(tailwind.includes('The JavaScript is the same as in the CSS version.'), `${path}: Tailwind must point to the shared script`);
+          assert(!tailwind.includes('### JavaScript'), `${path}: Tailwind must not duplicate the script`);
         }
       }
     }

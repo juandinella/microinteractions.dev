@@ -240,6 +240,94 @@ export const specimens: Specimen[] = [
     props: ['transform', 'clip-path'],
   },
   {
+    id: 'tab-indicator',
+    published: '2026-10-22',
+    title: 'Tab indicator',
+    category: 'Navigation',
+    summary: 'Slide the underline to the chosen tab without moving the labels.',
+    aliases: ['sliding tab underline', 'animated tabs'],
+    seoTitle: 'Tab underline and bold labels, no layout shift',
+    seoDescription:
+      'Slide a tab underline to the chosen tab with one transform that turns mid-move, and bold the selected label without layout shift.',
+    trigger: 'select',
+    triggerLabel: 'Click, tap, arrow keys',
+    hint: 'Pick another tab',
+    duration: 250,
+    durationNote:
+      'The line reaches the chosen tab in 250ms, and the label turns bold and dark at the click. A tab chosen mid-move takes over from wherever the line is. When the tab is cut off, the list scrolls on the line\u2019s clock, so both arrive together. Hover is instant, and the arrow keys move the line and scroll the list without animating.',
+    easing: [0.23, 1, 0.32, 1],
+    easingName: 'ease-out-quint',
+    easingNote:
+      'Starts at full speed, so the line leaves the old tab as the click lands, then slows into the new one.',
+    props: ['transform'],
+    positioningNote:
+      'The line is 1px wide. translateX moves it to the tab’s measured position and scaleX stretches it to the tab’s width, so every move is a single transform.',
+  },
+  {
+    id: 'worm-dots',
+    published: '2026-10-23',
+    title: 'Worm dots',
+    category: 'Navigation',
+    summary: 'Drag along the dots to scrub the slides, with a worm that follows the scroll.',
+    aliases: ['carousel dots', 'pagination dots', 'page indicator'],
+    seoTitle: 'Draggable carousel dots with a worm indicator',
+    seoDescription:
+      'Drag carousel dots to scrub through slides, with a worm indicator that follows the scroll. Includes keyboard, touch, and reduced-motion support.',
+    trigger: 'drag',
+    triggerLabel: 'Drag, swipe, tap, arrow keys',
+    hint: 'Drag along the dots',
+    touchHint: 'Drag along the dots or swipe the slides',
+    duration: 360,
+    minDuration: 80,
+    durationNote:
+      'The worm has no duration of its own: it follows the scroll. A release snaps to the nearest dot in 180ms, a tap travels in 280ms plus 20ms for each extra dot it crosses, 360ms from end to end, and the hover ring glides in 80ms on the same curve. A scrub catches up with the pointer, then follows it 1:1. The arrow keys jump without animating.',
+    easing: [0.23, 1, 0.32, 1],
+    easingName: 'ease-out-quint',
+    easingNote:
+      'Starts at speed, so a release or a tap moves at once, then slows into the slide.',
+    props: ['transform', 'width'],
+    positioningNote:
+      'The worm is a box with the dots’ radius. translateX moves its trailing edge and width sets its length, both computed from the scroll position on every frame.',
+    detail: {
+      label: 'Indicator',
+      value: 'Follows the scroll',
+      why: 'follow the scroll',
+      note: 'Halfway through a swipe the worm spans both dots; let go there and it stays there. Its leading edge reaches the next dot first, then the trailing edge follows.',
+    },
+  },
+  {
+    id: 'tick-rail',
+    published: '2026-11-19',
+    title: 'Tick rail',
+    category: 'Navigation',
+    summary: 'Grow the ticks around the pointer and preview the section under it.',
+    aliases: ['table of contents', 'scrollspy', 'section navigation'],
+    seoTitle: 'Table of contents rail with section previews',
+    seoDescription:
+      'A tick rail for long pages: ticks grow around the pointer, one card previews the section, and the current tick follows the scroll. Works with keyboard and touch.',
+    trigger: 'hover',
+    triggerLabel: 'Hover, focus, tap',
+    hint: 'Hover or focus the rail',
+    touchHint: 'Tap a tick, then tap it again',
+    duration: 200,
+    minDuration: 120,
+    durationNote:
+      'The card travels and resizes in 200ms. Its text changes in 120ms out and 180ms in, and the ticks follow the pointer in 160ms.',
+    easing: [0.23, 1, 0.32, 1],
+    easingName: 'ease-out-quint',
+    easingNote:
+      'Starts at full speed, so the ticks and the card answer the pointer at once, then settle.',
+    props: ['transform', 'height', 'opacity', 'filter'],
+    positioningNote:
+      'Each tick is a 24px line scaled with scaleX, 8px at rest and never under 16px for the current section. translateY centers the card on its tick, kept inside the component.',
+    detail: {
+      label: 'Falloff',
+      value: 'Cosine over 3 rows',
+      why: 'the ticks follow the pointer, not the row',
+      note: 'Each tick’s length comes from its distance to the pointer, measured in rows, so its neighbors keep changing while the pointer moves inside a row. A falloff by row only changes when the pointer crosses into the next one.',
+    },
+  },
+  {
     id: 'gooey-radio-group',
     published: '2026-10-06',
     title: 'Gooey radio group',
@@ -314,6 +402,37 @@ export const specimens: Specimen[] = [
       'anchor-center keeps the label inside the slider while anchor(center) aligns the arrow with the thumb. A clamp() calculation handles browsers that lack the required anchor features.',
   },
   {
+    id: 'faq-panel',
+    published: '2026-11-11',
+    title: 'FAQ panel',
+    category: 'Disclosure',
+    summary: 'Slide one panel to the question you open and fit it to the answer.',
+    aliases: ['FAQ accordion', 'expandable questions'],
+    seoTitle: 'FAQ accordion with one sliding panel',
+    seoDescription:
+      'Open a FAQ answer and one shared panel slides to the question, resizing to fit. Built with FLIP and the Web Animations API, with keyboard support.',
+    trigger: 'select',
+    triggerLabel: 'Click, tap, Enter',
+    hint: 'Open another question',
+    duration: 300,
+    minDuration: 140,
+    durationNote:
+      'The panel reaches the new question in 300ms, and the answers resize on the same clock. Opening the first answer or closing the last one takes 240ms, card included. The old text fades out in 140ms; the new one fades in over the last 210ms. A question chosen mid-move takes over from where the panel is. The hover fill is instant; with reduced motion the panel lands at once and the new answer fades in over 150ms.',
+    easing: [0.64, 0, 0.2, 1],
+    easingName: 'custom ease-in-out',
+    easingNote:
+      'Accelerates over the first third of the move and decelerates over the rest, with no overshoot. Opening the first answer, closing the last one, and a question chosen mid-move switch to an ease-out, cubic-bezier(0.23, 1, 0.32, 1), at 240ms for the first two, so the panel appears, leaves, or turns without pausing.',
+    props: ['transform', 'height', 'opacity', 'filter'],
+    positioningNote:
+      'translateY moves the panel and height fits it to the answer, both measured before and after the change (FLIP). While an answer is open, min-height holds the card at its height with the longest answer open.',
+    detail: {
+      label: 'Text',
+      value: 'Moves with the panel',
+      why: 'the text moves with the panel',
+      note: 'Both answers move 6px the way the panel travels, with a 3px blur. The old one fades out ahead of the panel; the new one starts before it is gone and follows from 6px behind.',
+    },
+  },
+  {
     id: 'drag-select',
     published: '2026-10-13',
     title: 'Drag to select',
@@ -374,66 +493,10 @@ export const specimens: Specimen[] = [
     },
   },
   {
-    id: 'tab-indicator',
-    published: '2026-10-22',
-    title: 'Tab indicator',
-    category: 'Navigation',
-    summary: 'Slide the underline to the chosen tab without moving the labels.',
-    aliases: ['sliding tab underline', 'animated tabs'],
-    seoTitle: 'Tab underline and bold labels, no layout shift',
-    seoDescription:
-      'Slide a tab underline to the chosen tab with one transform that turns mid-move, and bold the selected label without layout shift.',
-    trigger: 'select',
-    triggerLabel: 'Click, tap, arrow keys',
-    hint: 'Pick another tab',
-    duration: 250,
-    durationNote:
-      'The line reaches the chosen tab in 250ms, and the label turns bold and dark at the click. A tab chosen mid-move takes over from wherever the line is. When the tab is cut off, the list scrolls on the line\u2019s clock, so both arrive together. Hover is instant, and the arrow keys move the line and scroll the list without animating.',
-    easing: [0.23, 1, 0.32, 1],
-    easingName: 'ease-out-quint',
-    easingNote:
-      'Starts at full speed, so the line leaves the old tab as the click lands, then slows into the new one.',
-    props: ['transform'],
-    positioningNote:
-      'The line is 1px wide. translateX moves it to the tab’s measured position and scaleX stretches it to the tab’s width, so every move is a single transform.',
-  },
-  {
-    id: 'worm-dots',
-    published: '2026-10-23',
-    title: 'Worm dots',
-    category: 'Navigation',
-    summary: 'Drag along the dots to scrub the slides, with a worm that follows the scroll.',
-    aliases: ['carousel dots', 'pagination dots', 'page indicator'],
-    seoTitle: 'Draggable carousel dots with a worm indicator',
-    seoDescription:
-      'Drag carousel dots to scrub through slides, with a worm indicator that follows the scroll. Includes keyboard, touch, and reduced-motion support.',
-    trigger: 'drag',
-    triggerLabel: 'Drag, swipe, tap, arrow keys',
-    hint: 'Drag along the dots',
-    touchHint: 'Drag along the dots or swipe the slides',
-    duration: 360,
-    minDuration: 80,
-    durationNote:
-      'The worm has no duration of its own: it follows the scroll. A release snaps to the nearest dot in 180ms, a tap travels in 280ms plus 20ms for each extra dot it crosses, 360ms from end to end, and the hover ring glides in 80ms on the same curve. A scrub catches up with the pointer, then follows it 1:1. The arrow keys jump without animating.',
-    easing: [0.23, 1, 0.32, 1],
-    easingName: 'ease-out-quint',
-    easingNote:
-      'Starts at speed, so a release or a tap moves at once, then slows into the slide.',
-    props: ['transform', 'width'],
-    positioningNote:
-      'The worm is a box with the dots’ radius. translateX moves its trailing edge and width sets its length, both computed from the scroll position on every frame.',
-    detail: {
-      label: 'Indicator',
-      value: 'Follows the scroll',
-      why: 'follow the scroll',
-      note: 'Halfway through a swipe the worm spans both dots; let go there and it stays there. Its leading edge reaches the next dot first, then the trailing edge follows.',
-    },
-  },
-  {
     id: 'drag-reorder',
     published: '2026-11-03',
     title: 'Drag to reorder',
-    category: 'Actions',
+    category: 'Direct manipulation',
     summary: 'Open a gap in a list that follows the item you drag.',
     aliases: ['sortable list', 'drag-and-drop list'],
     seoTitle: 'Drag to reorder list animation with a rippling gap',
@@ -458,69 +521,6 @@ export const specimens: Specimen[] = [
       value: '8px × 0.7ⁿ',
       why: 'the rows move apart',
       note: 'n is the steps from the gap. The two rows beside it move 8px and start first; the next pair move 5.6px and start 24ms later, then 3.9px at 41ms, and so on. The gap is only the nudge, marked by a line: the lifted row\u2019s own slot closes up.',
-    },
-  },
-  {
-    id: 'faq-panel',
-    published: '2026-11-11',
-    title: 'FAQ panel',
-    category: 'Navigation',
-    summary: 'Slide one panel to the question you open and fit it to the answer.',
-    aliases: ['FAQ accordion', 'expandable questions'],
-    seoTitle: 'FAQ accordion with one sliding panel',
-    seoDescription:
-      'Open a FAQ answer and one shared panel slides to the question, resizing to fit. Built with FLIP and the Web Animations API, with keyboard support.',
-    trigger: 'select',
-    triggerLabel: 'Click, tap, Enter',
-    hint: 'Open another question',
-    duration: 300,
-    minDuration: 140,
-    durationNote:
-      'The panel reaches the new question in 300ms, and the answers resize on the same clock. Opening the first answer or closing the last one takes 240ms, card included. The old text fades out in 140ms; the new one fades in over the last 210ms. A question chosen mid-move takes over from where the panel is. The hover fill is instant; with reduced motion the panel lands at once and the new answer fades in over 150ms.',
-    easing: [0.64, 0, 0.2, 1],
-    easingName: 'custom ease-in-out',
-    easingNote:
-      'Accelerates over the first third of the move and decelerates over the rest, with no overshoot. Opening the first answer, closing the last one, and a question chosen mid-move switch to an ease-out, cubic-bezier(0.23, 1, 0.32, 1), at 240ms for the first two, so the panel appears, leaves, or turns without pausing.',
-    props: ['transform', 'height', 'opacity', 'filter'],
-    positioningNote:
-      'translateY moves the panel and height fits it to the answer, both measured before and after the change (FLIP). While an answer is open, min-height holds the card at its height with the longest answer open.',
-    detail: {
-      label: 'Text',
-      value: 'Moves with the panel',
-      why: 'the text moves with the panel',
-      note: 'Both answers move 6px the way the panel travels, with a 3px blur. The old one fades out ahead of the panel; the new one starts before it is gone and follows from 6px behind.',
-    },
-  },
-  {
-    id: 'tick-rail',
-    published: '2026-11-19',
-    title: 'Tick rail',
-    category: 'Navigation',
-    summary: 'Grow the ticks around the pointer and preview the section under it.',
-    aliases: ['table of contents', 'scrollspy', 'section navigation'],
-    seoTitle: 'Table of contents rail with section previews',
-    seoDescription:
-      'A tick rail for long pages: ticks grow around the pointer, one card previews the section, and the current tick follows the scroll. Works with keyboard and touch.',
-    trigger: 'hover',
-    triggerLabel: 'Hover, focus, tap',
-    hint: 'Hover or focus the rail',
-    touchHint: 'Tap a tick, then tap it again',
-    duration: 200,
-    minDuration: 120,
-    durationNote:
-      'The card travels and resizes in 200ms. Its text changes in 120ms out and 180ms in, and the ticks follow the pointer in 160ms.',
-    easing: [0.23, 1, 0.32, 1],
-    easingName: 'ease-out-quint',
-    easingNote:
-      'Starts at full speed, so the ticks and the card answer the pointer at once, then settle.',
-    props: ['transform', 'height', 'opacity', 'filter'],
-    positioningNote:
-      'Each tick is a 24px line scaled with scaleX, 8px at rest and never under 16px for the current section. translateY centers the card on its tick, kept inside the component.',
-    detail: {
-      label: 'Falloff',
-      value: 'Cosine over 3 rows',
-      why: 'the ticks follow the pointer, not the row',
-      note: 'Each tick’s length comes from its distance to the pointer, measured in rows, so its neighbors keep changing while the pointer moves inside a row. A falloff by row only changes when the pointer crosses into the next one.',
     },
   },
 ];
