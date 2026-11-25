@@ -2,6 +2,7 @@ import server from '@astrojs/cloudflare/entrypoints/server';
 import { specimens } from './data/specimens';
 import { acceptsMarkdown } from './lib/accept-markdown';
 import { securityHeaders } from './lib/security-headers';
+import { usagePoint } from './lib/usage';
 
 const pages = new Map([
   ['/', 'index'],
@@ -49,7 +50,10 @@ const worker = {
 
 export default {
   async fetch(...args: Parameters<typeof server.fetch>) {
+    const [request, env] = args;
     const response = await worker.fetch(...args);
+    const point = usagePoint(request, response, pages.get(new URL(request.url).pathname));
+    if (point) env.USAGE?.writeDataPoint(point);
     const headers = new Headers(response.headers);
     for (const [name, value] of Object.entries(securityHeaders)) headers.set(name, value);
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });

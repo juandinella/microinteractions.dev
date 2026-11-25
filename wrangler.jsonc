@@ -8,8 +8,10 @@
 		"binding": "ASSETS",
 		"html_handling": "force-trailing-slash",
 		// Files that need nothing from the Worker skip it; their headers come from _headers.
-		"run_worker_first": ["/*", "!/_astro/*", "!/markdown/*", "!/fonts/*", "!/social/*", "!/og/*", "!/favicon.svg"]
+		"run_worker_first": ["/*", "!/_astro/*", "!/fonts/*", "!/social/*", "!/og/*", "!/favicon.svg"]
 	},
+	// Registry installs and Markdown reads, counted in src/lib/usage.ts.
+	"analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "microinteractions_usage" }],
 	"observability": {
 		"enabled": true
 	}
