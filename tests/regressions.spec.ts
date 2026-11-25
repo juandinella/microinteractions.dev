@@ -2945,7 +2945,9 @@ test.describe('tab indicator: list scroll, hover and hit areas', () => {
       const { list, tabs } = await open(page);
       const { index, x, y } = await cutOff(list, tabs);
 
-      // Samples every frame from the click, in the page, so no round trip falls between frames.
+      // Samples every frame from the click, in the page, so no round trip falls between frames. A ResizeObserver reads
+      // after every requestAnimationFrame callback, so each sample is what gets painted. A read from a callback of its
+      // own can run before the component's, and pairs this frame's line with the previous frame's scroll.
       await list.evaluate((el: HTMLElement) => {
         const line = el.querySelector<HTMLElement>('[data-line]')!;
         const read = (t: number): Sample => ({
@@ -2966,11 +2968,22 @@ test.describe('tab indicator: list scroll, hover and hit areas', () => {
             { capture: true, once: true },
           );
           const begin = performance.now();
-          const frame = () => {
+          const probe = document.createElement('div');
+          probe.style.cssText = 'position: fixed; top: 0; left: 0; width: 1px; height: 1px; visibility: hidden';
+          document.body.append(probe);
+          new ResizeObserver((_, observer) => {
             const now = performance.now();
             if (clicked !== undefined) samples.push(read(now - clicked));
-            if ((clicked !== undefined && now - clicked > 700) || now - begin > 8000) resolve(samples);
-            else requestAnimationFrame(frame);
+            if ((clicked !== undefined && now - clicked > 700) || now - begin > 8000) {
+              observer.disconnect();
+              probe.remove();
+              resolve(samples);
+            }
+          }).observe(probe);
+          const frame = () => {
+            if (!probe.isConnected) return;
+            probe.style.width = probe.style.width === '1px' ? '2px' : '1px';
+            requestAnimationFrame(frame);
           };
           requestAnimationFrame(frame);
         });
@@ -2991,14 +3004,13 @@ test.describe('tab indicator: list scroll, hover and hit areas', () => {
       // ...and it has arrived soon after the line's 250ms.
       for (const s of samples.filter((s) => s.t >= 450)) expect(Math.abs(s.scroll - last.scroll)).toBeLessThan(1);
 
-      // The list covers the same share of its trip as the line, at most one frame later: the scroll is written in
-      // requestAnimationFrame, after the line's transition has already been sampled for that frame.
+      // The list covers the same share of its trip as the line in every frame.
       const travel = last.lineX - first.lineX;
       const scrolled = last.scroll - first.scroll;
       expect(travel).toBeGreaterThan(scrolled);
       const share = samples.map((s) => ({ t: s.t, line: (s.lineX - first.lineX) / travel, scroll: (s.scroll - first.scroll) / scrolled }));
-      for (let i = 1; i < share.length; i++) {
-        expect(Math.abs(share[i].scroll - share[i - 1].line), `at ${Math.round(share[i].t)}ms`).toBeLessThan(0.08);
+      for (const { t, line, scroll } of share) {
+        expect(Math.abs(scroll - line), `at ${Math.round(t)}ms`).toBeLessThan(0.08);
       }
       // On screen the line never runs past where it ends up, then drifts back.
       for (const s of samples) expect(s.screenX, `at ${Math.round(s.t)}ms`).toBeLessThanOrEqual(last.screenX + 1);
