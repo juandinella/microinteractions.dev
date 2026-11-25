@@ -189,9 +189,15 @@ test('every page fits 320px, hydrates without CSP violations, and has its cover,
     }));
     expect(overflow, id).toBeLessThanOrEqual(1);
     if (id === 'faq-panel') {
-      await page.getByRole('button', { name: 'Why this duration?', exact: true }).click();
+      const durationNote = page.getByRole('button', { name: 'Why this duration?', exact: true });
+      const animatesNote = page.getByRole('button', { name: 'Why animate these properties?', exact: true });
+      await expect(page.locator('astro-island', { has: durationNote })).not.toHaveAttribute('ssr');
+      await durationNote.click();
       await expect(page.getByRole('heading', { name: 'Why 140–300ms', exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Why animate these properties?', exact: true }).click();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('heading', { name: 'Why 140–300ms', exact: true })).toHaveCount(0);
+      await expect(page.locator('astro-island', { has: animatesNote })).not.toHaveAttribute('ssr');
+      await animatesNote.click();
       await expect(page.getByRole('heading', { name: 'Why transform, height, opacity, filter', exact: true })).toBeVisible();
     }
     if (id === 'aligned-select') {
