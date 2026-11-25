@@ -114,7 +114,6 @@ const socialVideo = video && new URL(video, Astro.site);
       </main>
     </div>
     <script>
-      import '../scripts/webmcp';
       import '../scripts/analytics';
 
       const panel = document.querySelector<HTMLElement>('#mobile-index')!;
@@ -144,6 +143,13 @@ const socialVideo = video && new URL(video, Astro.site);
           // Markup can opt into sending a referrer (the author link keeps only noopener).
           if (!link.rel) link.rel = 'noopener noreferrer';
         }
+      }
+
+      if (
+        (document as Document & { modelContext?: unknown }).modelContext
+        ?? (navigator as Navigator & { modelContext?: unknown }).modelContext
+      ) {
+        void import('../scripts/webmcp');
       }
     </script>
   </body>

@@ -36,9 +36,15 @@ test('source survives failed island hydration', async ({ page }) => {
 
 test('delayed hydration preserves implementation geometry and selection', async ({ page }) => {
   let release!: () => void;
+  let requested = false;
   const gate = new Promise<void>((resolve) => { release = resolve; });
-  await page.route(sourceTabs, async (route) => { await gate; await route.continue(); });
-  await page.goto('/hold-confirm/', { waitUntil: 'domcontentloaded' });
+  await page.route(sourceTabs, async (route) => {
+    requested = true;
+    await gate;
+    await route.continue();
+  });
+  await page.goto('/hold-confirm/');
+  expect(requested).toBe(false);
   await page.locator('[data-source-format][value="css"]').check();
   const variant = page.locator('[data-source-variant="css"]');
   await variant.getByRole('radio', { name: 'CSS', exact: true }).check();
@@ -171,6 +177,9 @@ test('every page fits 320px, hydrates without CSP violations, and has its cover,
   const origin = 'https://microinteractions.dev';
   const problems: string[] = [];
   page.on('pageerror', (error) => problems.push(error.message));
+  page.on('request', (req) => {
+    if (/\/webmcp\.[\w-]+\.js(\?|$)/.test(req.url())) problems.push(`unexpected webmcp: ${req.url()}`);
+  });
   await page.exposeFunction('reportViolation', (violation: string) => problems.push(violation));
   await page.addInitScript(() => document.addEventListener('securitypolicyviolation', (event) =>
     (window as any).reportViolation(`${event.effectiveDirective}: ${event.blockedURI}`)));
@@ -362,7 +371,7 @@ test('WebMCP tools list, read, and open studies', async ({ page }) => {
   });
   await page.goto('/');
   const call = (name: string, input = {}) => page.evaluate(([name, input]) => (window as any).tools.get(name).execute(input, { signal: new AbortController().signal }), [name, input] as const);
-  expect(await page.evaluate(() => [...(window as any).tools.keys()])).toEqual(['list_studies', 'get_study', 'open_study']);
+  await expect.poll(() => page.evaluate(() => [...(window as any).tools.keys()])).toEqual(['list_studies', 'get_study', 'open_study']);
   expect(JSON.parse(await call('list_studies')).map((study: { id: string }) => study.id)).toContain('hold-confirm');
   expect(await call('get_study', { id: 'hold-confirm' })).toContain('HOLD_DURATION');
   await expect(call('get_study', { id: 'nope' })).rejects.toThrow('Unknown study');

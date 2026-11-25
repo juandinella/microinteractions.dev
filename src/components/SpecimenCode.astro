@@ -73,7 +73,7 @@ const variants = [
   </header>
   <div id={`${prefix}-variants`}>
     {variants.map((variant) => <div id={`${prefix}-${variant.id}-source`} data-source-variant={variant.id}>
-      <SourceTabs client:load views={variant.views.map(({ id, label }) => ({ id, label }))}>
+      <SourceTabs client:visible={{ rootMargin: '200px' }} views={variant.views.map(({ id, label }) => ({ id, label }))}>
         {variant.id !== 'prompt' && <form slot="actions" action="https://codepen.io/cpe/pen/define" method="post" target="_blank" rel="noopener">
           <input type="hidden" name="data" value={variant.codepenData} />
           <button class={styles.action} type="submit" aria-label="Edit on CodePen (opens in a new tab)">
