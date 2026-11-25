@@ -674,6 +674,16 @@ test.describe('resize handle', () => {
     return point;
   };
 
+  // The panes scroll when their content is taller than the component; the demo's content has to fit, or a
+  // scrollbar runs along the divider for a few clipped pixels.
+  test('neither pane scrolls at rest', async ({ page }) => {
+    await page.goto('/resize-handle/');
+    const overflowing = await page
+      .locator('resizable-sidebar > div')
+      .evaluateAll((elements) => elements.filter((element) => element.scrollHeight > element.clientHeight).length);
+    expect(overflowing).toBe(0);
+  });
+
   test('a drag follows the pointer, and Escape puts the sidebar back', async ({ page }) => {
     await page.goto('/resize-handle/');
     const point = await start(page);
