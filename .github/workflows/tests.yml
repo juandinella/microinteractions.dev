@@ -1,8 +1,9 @@
 # Runs the site's Playwright suite against the production Worker, and installs every study from the
 # built shadcn registry into consumer/ to check that it type-checks, renders on the server, hydrates,
 # and behaves. The site's build alone can't show that an installed component works.
-# Three parallel jobs: the site suite in Chromium, the site suite in WebKit, and the Tailwind checker's
-# self-test with the consumer check. As a single job the run took about 6.5 minutes, most of it the site suite.
+# Four parallel jobs: the site suite in Chromium, the site suite in WebKit in two halves (it's the slowest, and
+# more workers per runner squeeze the tests that measure real time), and the Tailwind checker's self-test with
+# the consumer check.
 name: Tests
 
 on:
@@ -13,19 +14,56 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 concurrency:
   group: tests-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # A merge to main with the same files as its pull request was already tested there. Anything else runs:
+  # a direct push, a branch behind main, or a pull request merged before its tests passed.
+  already-tested:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.compare.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(git rev-parse --verify --quiet HEAD^2) || { echo "Not a merge."; exit 0; }
+          if [ "$(git rev-parse 'HEAD^{tree}')" != "$(git rev-parse "$head^{tree}")" ]; then
+            echo "The merge changed files."
+            exit 0
+          fi
+          results=$(gh api "repos/${{ github.repository }}/commits/$head/check-runs?per_page=100" \
+            --jq '[.check_runs[] | select(.name | startswith("test (")) | .conclusion] | unique | map(tostring) | join(",")' || true)
+          echo "Tests on $head: ${results:-none}"
+          if [ "$results" = success ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
   test:
+    needs: already-tested
+    # Also when the job above was skipped (pull requests) or failed.
+    if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
+    name: test (${{ matrix.suite }})
     runs-on: ubuntu-latest
     strategy:
       # A failure in one suite shouldn't cancel the others' results.
       fail-fast: false
       matrix:
-        suite: [chromium, webkit, consumer]
+        include:
+          - suite: chromium
+            args: --project=chromium
+          - suite: webkit-1
+            args: --project=webkit --shard=1/2
+          - suite: webkit-2
+            args: --project=webkit --shard=2/2
+          - suite: consumer
     # Ships the browsers and their system packages. Installing them with apt took up to 13 minutes on a slow
     # mirror, longer than the tests. The tag must match @playwright/test; the first step checks it.
     container:
@@ -52,7 +90,7 @@ jobs:
       # Each suite builds the site first: the browser suites through the Playwright web server, and the
       # consumer check through check-consumer.mjs, which installs from that build.
       - if: matrix.suite != 'consumer'
-        run: pnpm run test:e2e --project=${{ matrix.suite }}
+        run: pnpm run test:e2e ${{ matrix.args }}
       - if: matrix.suite == 'consumer'
         run: pnpm exec node --test scripts/check-tailwind.test.mjs
       - if: matrix.suite == 'consumer'
