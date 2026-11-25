@@ -23,6 +23,8 @@ import styles from './InstallCommand.module.css';
 </div>
 
 <script>
+  import { track } from '../scripts/track';
+
   class SkillCommand extends HTMLElement {
     connectedCallback() {
       const command = this.querySelector<HTMLElement>('[data-command]')!;
@@ -41,6 +43,7 @@ import styles from './InstallCommand.module.css';
         clearTimeout(reset);
         try {
           await navigator.clipboard.writeText(command.textContent!);
+          track('copy_skill');
           button.dataset.copied = 'true';
           announce('Skill install command copied to clipboard.');
           reset = setTimeout(() => {

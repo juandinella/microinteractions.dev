@@ -146,6 +146,13 @@ test('production reports page views and code actions to Umami within the CSP', a
   await expect.poll(() => sent.at(-1)).toEqual({ name: 'open_codepen', data: { study: 'hold-confirm', format: 'tailwind' } });
   expect(sent).toHaveLength(4);
   expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
+
+  await page.goto('https://microinteractions.dev/');
+  await expect.poll(() => sent).toHaveLength(5);
+  await page.getByRole('button', { name: 'Copy skill install command' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ name: 'copy_skill' });
+  expect(sent).toHaveLength(6);
+  expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
 });
 
 test('a browser can opt out of analytics and back in', async ({ page, context }) => {
@@ -174,6 +181,7 @@ test('usage points cover installs and Markdown reads in production only', () => 
     usagePoint(new Request(new URL(url, 'https://microinteractions.dev'), { method, headers: { 'User-Agent': 'shadcn' } }), new Response(null, { status, headers: { 'Content-Type': type } }), slug)?.blobs;
   expect(point('/r/hold-confirm.json')).toEqual(['registry', 'hold-confirm', 'shadcn']);
   expect(point('/markdown/hold-confirm.md', { status: 304 })).toEqual(['markdown', 'hold-confirm', 'shadcn']);
+  expect(point('/.well-known/agent-skills/microinteractions/SKILL.md')).toEqual(['skill', 'microinteractions', 'shadcn']);
   expect(point('/hold-confirm/', { type: 'text/markdown; charset=utf-8', slug: 'hold-confirm' })).toEqual(['negotiated-markdown', 'hold-confirm', 'shadcn']);
   expect(point('/hold-confirm/', { slug: 'hold-confirm' })).toBeUndefined();
   expect(point('/r/missing.json', { status: 404 })).toBeUndefined();
