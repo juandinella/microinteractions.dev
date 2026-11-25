@@ -8,6 +8,16 @@ interface Props {
 }
 
 const { active } = Astro.props;
+const publishedGroups = categories
+  .map((category) => ({
+    category,
+    studies: specimens.filter((s) => s.category === category),
+  }))
+  .filter((group) => group.studies.length > 0);
+const plannedGroups = categories
+  .map((category) => ({ category, items: planned[category] }))
+  .filter((group) => group.items.length > 0);
+const plannedCount = plannedGroups.reduce((sum, group) => sum + group.items.length, 0);
 ---
 
 <nav aria-label="Collection">
@@ -31,36 +41,64 @@ const { active } = Astro.props;
   </a>
 
   {
-    categories.map((category) => {
-      const studies = specimens.filter((s) => s.category === category);
-      return (
-        <section class:list={{ empty: studies.length === 0 }}>
-          <h2>
-            <CategoryIcon category={category} muted={studies.length === 0} />
-            {category}
-          </h2>
-          <ul>
-            {studies.map((s) => (
-              <li>
-                <a
-                  href={`/${s.id}/`}
-                  aria-current={active === s.id ? 'page' : undefined}
-                >
-                  <span class="name">{s.title}</span>
-                  <NewLabel specimen={s} />
-                </a>
-              </li>
-            ))}
-            {planned[category].map((title) => (
-              <li class="planned">
-                <span class="name">{title}</span>
-                <span class="soon">soon</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      );
-    })
+    publishedGroups.map(({ category, studies }) => (
+      <section>
+        <h2>
+          <CategoryIcon category={category} />
+          {category}
+        </h2>
+        <ul>
+          {studies.map((s) => (
+            <li>
+              <a
+                href={`/${s.id}/`}
+                aria-current={active === s.id ? 'page' : undefined}
+              >
+                <span class="name">{s.title}</span>
+                <NewLabel specimen={s} />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+
+  {
+    plannedCount > 0 && (
+      <details class="planned-group">
+        <summary>
+          <svg
+            class="disclosure-chevron"
+            width="12"
+            height="12"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M6 4l4 4-4 4" />
+          </svg>
+          <span class="name">Planned</span>
+          <span class="count">{plannedCount}</span>
+        </summary>
+        <div class="planned-list">
+          {plannedGroups.map(({ category, items }) => (
+            <div class="planned-category">
+              <p class="planned-heading">{category}</p>
+              <ul>
+                {items.map((title) => (
+                  <li class="planned">{title}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </details>
+    )
   }
 </nav>
 
@@ -125,28 +163,81 @@ const { active } = Astro.props;
     flex: 1;
   }
 
-  .planned {
+  .planned-group {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  summary {
     display: flex;
     min-height: 32px;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 6px 12px;
+    border-radius: 7px;
     color: var(--quiet);
-    cursor: default;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    list-style: none;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
-  /* Darker than "soon" so a returning visitor can spot it among the planned rows. */
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  .disclosure-chevron {
+    flex: none;
+    transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .planned-group[open] summary {
+    color: var(--meta);
+  }
+
+  .planned-group[open] .disclosure-chevron {
+    transform: rotate(90deg);
+  }
+
+  .planned-list {
+    padding-top: 8px;
+  }
+
+  .planned-category + .planned-category {
+    margin-top: 16px;
+  }
+
+  .planned-heading {
+    margin: 0 12px 4px;
+    color: var(--quiet);
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+
+  .planned {
+    display: flex;
+    min-height: 26px;
+    align-items: center;
+    padding: 3px 12px;
+    color: var(--quiet);
+    cursor: default;
+    font-size: 12px;
+  }
+
   a :global(.new) {
     color: var(--text);
   }
 
-  .planned .soon,
-  .empty h2 {
-    color: var(--quiet);
-  }
-
-  .count,
-  .soon {
+  .count {
     flex: none;
     margin-left: auto;
     color: var(--meta);
@@ -155,20 +246,28 @@ const { active } = Astro.props;
     font-variant-numeric: tabular-nums;
   }
 
-  .soon {
-    font-size: 11px;
+  summary .count {
+    color: inherit;
   }
 
   @media (pointer: coarse) {
-    a {
+    a,
+    summary {
       min-height: 44px;
     }
   }
 
   @media (hover: hover) and (pointer: fine) {
-    a:hover {
+    a:hover,
+    summary:hover {
       background: var(--surface);
       color: var(--text);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .disclosure-chevron {
+      transition: none;
     }
   }
 </style>

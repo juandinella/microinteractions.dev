@@ -13,6 +13,7 @@ const managers = [
 type Manager = (typeof managers)[number]['id'];
 
 const STORAGE = 'microinteractions:package-manager';
+const SYNC_EVENT = 'microinteractions:package-manager';
 
 export default function InstallCommand({ url }: { url: string }) {
   const [manager, setManager] = useState<Manager>('npm');
@@ -29,7 +30,15 @@ export default function InstallCommand({ url }: { url: string }) {
       if (managers.some(({ id }) => id === saved)) setManager(saved as Manager);
     } catch {}
     setHydrated(true);
-    return () => clearTimeout(reset.current);
+    const sync = (event: Event) => {
+      const next = (event as CustomEvent<Manager>).detail;
+      if (managers.some(({ id }) => id === next)) setManager(next);
+    };
+    window.addEventListener(SYNC_EVENT, sync);
+    return () => {
+      window.removeEventListener(SYNC_EVENT, sync);
+      clearTimeout(reset.current);
+    };
   }, []);
 
   const clear = () => {
@@ -62,6 +71,7 @@ export default function InstallCommand({ url }: { url: string }) {
           try {
             localStorage.setItem(STORAGE, value);
           } catch {}
+          window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: value }));
         }}
       >
         <Tabs.List className={styles.tabs} activateOnFocus aria-label="Package manager">

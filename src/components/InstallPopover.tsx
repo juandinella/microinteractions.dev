@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import InstallCommand from './InstallCommand';
 import styles from './InstallPopover.module.css';
 
-// One beam of three equal chunks, one per color, laid end to end along the outline (pathLength 100 keeps it in percent).
-const CHUNK = 5;
+// One 1px glint spanning 18% of the pill outline (pathLength 100 keeps it in percent).
+const GLINT = 18;
 
 // The nearest point on the pill's outline to a point inside it, as a percent of the SVG rect path:
 // top edge left to right, right cap, bottom edge right to left, left cap.
@@ -28,72 +28,76 @@ function outlinePercent(x: number, y: number, width: number, height: number) {
 // The install command waits behind a small trigger, so the live preview stays the first thing on the page.
 export default function InstallPopover({ url }: { url: string }) {
   const anchor = useRef<HTMLSpanElement>(null);
+  const lastTouch = useRef(0);
   const [node, setNode] = useState<HTMLButtonElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
-  // Where the beam starts. Each hover remounts the strokes, which restarts the run from there.
-  const [entry, setEntry] = useState<{ at: number; run: number }>({ at: 0, run: 0 });
+  const [open, setOpen] = useState(false);
+  // One-shot border glint: runs once from the entry point and clears when finished.
+  const [glint, setGlint] = useState<{ at: number; run: number } | null>(null);
   const ref = useCallback((element: HTMLButtonElement | null) => setNode(element), []);
 
   useEffect(() => {
     if (!node) return;
-    const measure = () => {
-      const width = node.offsetWidth;
-      const height = node.offsetHeight;
-      setSize({ width, height });
-      // Keyboard focus has no pointer, so the beam starts at the top center.
-      setEntry((current) => (current.run === 0 ? { at: outlinePercent(width / 2, 0, width, height), run: 0 } : current));
-    };
+    const measure = () => setSize({ width: node.offsetWidth, height: node.offsetHeight });
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
   }, [node]);
 
-  const beam = (inset: number) => {
-    if (!size) return null;
-    const width = size.width - 2 * inset;
-    const height = size.height - 2 * inset;
-    return (
-      <svg width={size.width} height={size.height} key={entry.run} aria-hidden="true">
-        {[0, 1, 2].map((chunk) => {
-          const start = -(entry.at + chunk * CHUNK);
-          return (
-            <rect
-              key={chunk}
-              x={inset}
-              y={inset}
-              width={width}
-              height={height}
-              rx={height / 2}
-              pathLength={100}
-              strokeDasharray={`${CHUNK} ${100 - CHUNK}`}
-              style={{ strokeDashoffset: start, '--o': start, '--o2': start - 100 } as CSSProperties}
-            />
-          );
-        })}
-      </svg>
-    );
+  const startGlint = (x: number, y: number) => {
+    if (!size || open || glint) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setGlint((current) => ({ at: outlinePercent(x, y, size.width, size.height), run: (current?.run ?? 0) + 1 }));
   };
 
   return (
-    <Popover.Root>
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setGlint(null);
+      }}
+    >
       {/* The popup follows this box, not the trigger: the trigger scales while pressed and would drag the popup along. */}
       <span ref={anchor} className={styles.anchor}>
         <Popover.Trigger
           ref={ref}
           className={styles.trigger}
+          onPointerUp={(event) => {
+            if (event.pointerType === 'touch') lastTouch.current = performance.now();
+          }}
           onPointerEnter={(event) => {
-            if (event.pointerType !== 'mouse' || !size) return;
+            // iOS emits an emulated mouse pointerenter right after a tap; ignore it.
+            if (event.pointerType !== 'mouse' || performance.now() - lastTouch.current < 50) return;
+            if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
             const box = event.currentTarget.getBoundingClientRect();
             const x = Math.min(Math.max(event.clientX - box.left, 0), box.width);
             const y = Math.min(Math.max(event.clientY - box.top, 0), box.height);
-            setEntry((current) => ({ at: outlinePercent(x, y, size.width, size.height), run: current.run + 1 }));
+            startGlint(x, y);
+          }}
+          onFocus={(event) => {
+            if (size && event.currentTarget.matches(':focus-visible')) startGlint(size.width / 2, 0);
           }}
         >
-          {/* The halo paints behind the face and the beam on it, so the border it replaces stays gray everywhere else. */}
-          <span className={styles.halo} aria-hidden="true">{beam(0)}</span>
-          <span className={styles.ring} aria-hidden="true">{beam(0.5)}</span>
           <span className={styles.face} aria-hidden="true" />
+          {size && glint && (
+            <span className={styles.ring} aria-hidden="true">
+              <svg width={size.width} height={size.height} key={glint.run}>
+                <rect
+                  x={0.5}
+                  y={0.5}
+                  width={size.width - 1}
+                  height={size.height - 1}
+                  rx={(size.height - 1) / 2}
+                  pathLength={100}
+                  strokeDasharray={`${GLINT} ${100 - GLINT}`}
+                  style={{ strokeDashoffset: -glint.at, '--o': -glint.at, '--o2': -(glint.at + 100) } as CSSProperties}
+                  onAnimationEnd={() => setGlint(null)}
+                />
+              </svg>
+            </span>
+          )}
           <svg className={styles.icon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>

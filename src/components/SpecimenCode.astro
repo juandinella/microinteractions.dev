@@ -1,11 +1,13 @@
 ---
 import { Code } from 'astro:components';
 import { getEntry } from 'astro:content';
+import InstallCommand from './InstallCommand.tsx';
 import SourceTabs from './SourceTabs.tsx';
 import styles from './SourceTabs.module.css';
 import StudyHeading from './StudyHeading.astro';
 import { previews } from '../data/previews';
 import { buildPrompt } from '../data/prompt';
+import { registryItems } from '../data/registry';
 import { sourceFiles, tailwindSetupNote, tailwindSourceFiles } from '../data/source';
 import { specimens, type SpecimenId } from '../data/specimens';
 import { codeTheme } from '../styles/code-theme';
@@ -20,6 +22,15 @@ const prefix = filename.replace('.astro', '').toLowerCase();
 const study = specimens.find(({ id }) => id === Astro.props.specimen)!;
 const studyUrl = new URL(`/${study.id}/`, Astro.site);
 const prompt = (await getEntry('studies', study.id))?.data.prompt;
+const registryItem = registryItems.find(({ name }) => name === study.id);
+const installUrl = registryItem ? new URL(`/r/${registryItem.name}.json`, Astro.site).href : '';
+const reactViews = registryItem
+  ? registryItem.files.map((file) =>
+      file.path.endsWith('.tsx')
+        ? { id: 'tsx', label: 'TSX', lang: 'tsx', code: file.content }
+        : { id: 'ts', label: 'Element', lang: 'ts', code: file.content },
+    )
+  : [];
 const variants = [
   ...(prompt ? [{
     id: 'prompt',
@@ -34,6 +45,12 @@ const variants = [
     views: tailwindSourceFiles(tailwindSource, includeScript ? source : ''),
     externalScript: 'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4',
   }] : []),
+  ...(reactViews.length > 0 ? [{
+    id: 'react',
+    label: 'React',
+    views: reactViews,
+    externalScript: '',
+  }] : []),
 ].map((variant) => {
   const code = Object.fromEntries(variant.views.map((view) => [view.id, view.code]));
   const sections = { ...code };
@@ -44,7 +61,7 @@ const variants = [
   return {
     ...variant,
     code,
-    codepenData: JSON.stringify({
+    codepenData: variant.id === 'css' || variant.id === 'tailwind' ? JSON.stringify({
       title: `${study.title} · Microinteractions`,
       description: `${study.summary}\n\n${studyUrl.href}`,
       ...sections,
@@ -54,7 +71,7 @@ const variants = [
       js_external: variant.externalScript,
       layout: 'left',
       head: '<meta name="viewport" content="width=device-width, initial-scale=1">\n<style>body { margin: 8px; }</style>',
-    }),
+    }) : '',
   };
 });
 ---
@@ -73,8 +90,13 @@ const variants = [
   </header>
   <div id={`${prefix}-variants`}>
     {variants.map((variant) => <div id={`${prefix}-${variant.id}-source`} data-source-variant={variant.id}>
+      {variant.id === 'react' && installUrl && (
+        <div class="react-install">
+          <InstallCommand client:visible={{ rootMargin: '200px' }} url={installUrl} />
+        </div>
+      )}
       <SourceTabs client:visible={{ rootMargin: '200px' }} views={variant.views.map(({ id, label }) => ({ id, label }))}>
-        {variant.id !== 'prompt' && <form slot="actions" action="https://codepen.io/cpe/pen/define" method="post" target="_blank" rel="noopener">
+        {variant.codepenData && <form slot="actions" action="https://codepen.io/cpe/pen/define" method="post" target="_blank" rel="noopener">
           <input type="hidden" name="data" value={variant.codepenData} />
           <button class={styles.action} type="submit" aria-label="Edit on CodePen (opens in a new tab)">
             <span>Edit on CodePen</span>
@@ -85,9 +107,18 @@ const variants = [
         {variant.code.html && <div slot="html" class:list={{ wrap: variant.id === 'tailwind' }}><Code code={variant.code.html} lang="html" theme={codeTheme} /></div>}
         {variant.code.css && <div slot="css"><Code code={variant.code.css} lang="css" theme={codeTheme} /></div>}
         {variant.code.js && <div slot="js"><Code code={variant.code.js} lang="js" theme={codeTheme} /></div>}
+        {variant.code.tsx && <div slot="tsx"><Code code={variant.code.tsx} lang="tsx" theme={codeTheme} /></div>}
+        {variant.code.ts && <div slot="ts"><Code code={variant.code.ts} lang="ts" theme={codeTheme} /></div>}
         {variant.code.prompt && <div slot="prompt" class="wrap"><Code code={variant.code.prompt} lang="plaintext" theme={codeTheme} /></div>}
       </SourceTabs>
       {variant.id === 'tailwind' && <p class="source-note">{tailwindSetupNote(includeScript)}</p>}
+      {variant.id === 'react' && (
+        <p class="source-note">
+          {registryItem?.files.length === 2
+            ? 'The shadcn command installs the React component and its custom-element script, themed with your shadcn tokens.'
+            : 'The shadcn command installs the React component into your project, themed with your shadcn tokens.'}
+        </p>
+      )}
     </div>)}
   </div>
 </section>
@@ -98,24 +129,30 @@ const variants = [
   .source:has([data-source-format]) [data-source-variant] { display: none; }
   .source:has([data-source-format][value='prompt']:checked) [data-source-variant='prompt'],
   .source:has([data-source-format][value='css']:checked) [data-source-variant='css'],
-  .source:has([data-source-format][value='tailwind']:checked) [data-source-variant='tailwind'] { display: block; }
+  .source:has([data-source-format][value='tailwind']:checked) [data-source-variant='tailwind'],
+  .source:has([data-source-format][value='react']:checked) [data-source-variant='react'] { display: block; }
   .source-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
   .source-formats { position: relative; isolation: isolate; display: grid; grid-template-columns: repeat(var(--formats), 72px); min-width: 0; margin: 0; padding: 0; border: 0; font: 11px var(--font-mono); }
   .source-formats::before { content: ''; position: absolute; z-index: -2; inset: 6px 0; border-radius: 999px; background: var(--surface-strong); }
   .source-format-thumb { position: absolute; z-index: -1; top: 8px; bottom: 8px; left: 2px; width: calc((100% - 4px) / var(--formats)); border-radius: 999px; background: var(--text); transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1); pointer-events: none; }
   .source-formats:has(.source-format:nth-of-type(2) input:checked) .source-format-thumb { transform: translateX(100%); }
   .source-formats:has(.source-format:nth-of-type(3) input:checked) .source-format-thumb { transform: translateX(200%); }
+  .source-formats:has(.source-format:nth-of-type(4) input:checked) .source-format-thumb { transform: translateX(300%); }
   .source-formats:has(input:focus-visible) .source-format-thumb { transition: none; }
   .source-format { position: relative; display: flex; }
   .source-format input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; touch-action: manipulation; }
   .source-format span { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 44px; border-radius: 999px; color: var(--muted); }
   .source-format input:checked + span { color: var(--bg); }
   .source-format input:focus-visible + span { outline: 2px solid var(--text); outline-offset: -2px; }
+  .react-install { margin-bottom: 12px; }
   .source-note { margin: 12px 0 0; color: var(--muted); font: 11px/1.6 var(--font-mono); }
   form { display: flex; margin: 0; }
   .wrap :global(pre) { white-space: pre-wrap; overflow-wrap: anywhere; hyphens: none; }
   @media (hover: hover) and (pointer: fine) {
     .source-format input:not(:checked):hover + span { color: var(--text); }
+  }
+  @media (max-width: 480px) {
+    .source-formats { grid-template-columns: repeat(var(--formats), minmax(0, 72px)); width: min(100%, calc(var(--formats) * 72px)); }
   }
   @media (prefers-reduced-motion: reduce) {
     .source-format-thumb { transition: none; }

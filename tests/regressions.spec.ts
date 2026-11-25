@@ -139,6 +139,14 @@ test('study pages offer the shadcn command for each package manager', async ({ p
   await expect(page.getByRole('tab', { name: 'pnpm' })).toHaveAttribute('aria-selected', 'true');
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Add with shadcn' })).toHaveCount(0);
+
+  // Planned studies stay collapsed in the navigation until expanded.
+  const planned = page.locator('.sidebar details.planned-group');
+  await expect(planned).not.toHaveAttribute('open', '');
+  await expect(planned.locator('.planned').first()).toBeHidden();
+  await planned.locator('summary').click();
+  await expect(planned).toHaveAttribute('open', '');
+  await expect(planned.locator('.planned').first()).toBeVisible();
 });
 
 test.describe('skill command on the index', () => {
