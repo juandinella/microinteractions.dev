@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { collectionDescription } from '../src/data/collection';
 import { repository } from '../src/data/repository';
 import { specimens } from '../src/data/specimens';
@@ -359,4 +359,16 @@ test('every CodePen export carries plain HTML, not template source', async ({ pa
     }
   }
   expect(forms).toBeGreaterThan(0);
+});
+
+// A ceiling, not the target: DESIGN.md asks for about 650 body words. The prompt is counted from `prompt:` to
+// the end of the frontmatter.
+test('study articles stay within the length budget', () => {
+  for (const { id } of specimens) {
+    const [, frontmatter, body] = readFileSync(`src/content/studies/${id}.mdx`, 'utf8').split(/^---$/m);
+    const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
+    const prompt = frontmatter.includes('prompt:') ? frontmatter.slice(frontmatter.indexOf('prompt:')) : '';
+    expect(words(body), `${id} body`).toBeLessThanOrEqual(920);
+    expect(words(prompt), `${id} prompt`).toBeLessThanOrEqual(1650);
+  }
 });
