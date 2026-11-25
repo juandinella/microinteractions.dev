@@ -1,11 +1,11 @@
 ---
 import CategoryIcon from '../components/CategoryIcon.astro';
+import SkillCommand from '../components/SkillCommand.astro';
 import SpecimenRow from '../components/SpecimenRow.astro';
 import { author } from '../data/author';
 import { collectionDescription } from '../data/collection';
 import { repository } from '../data/repository';
 import { categories, categorySlug, specimens } from '../data/specimens';
-import { skillInstall } from '../lib/agent-skill';
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 export const prerender = true;
@@ -25,7 +25,7 @@ const groups = categories
         <span class="author-domain" aria-hidden="true">juandinella.com</span>
       </a>
     </p>
-    <p class="skill">Skill for coding agents: <code>{skillInstall}</code></p>
+    <div class="skill"><SkillCommand /></div>
   </header>
 
   <div class="collection">
@@ -99,20 +99,7 @@ const groups = categories
   }
 
   .skill {
-    margin: 0;
-    color: var(--meta);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.7;
-  }
-
-  /* One click selects the whole command. */
-  .skill code {
-    color: var(--text);
-    font: inherit;
-    overflow-wrap: anywhere;
-    user-select: all;
-    -webkit-user-select: all;
+    margin-top: 16px;
   }
 
   .byline a {

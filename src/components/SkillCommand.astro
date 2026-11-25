@@ -1,0 +1,137 @@
+---
+import { skillInstall } from '../lib/agent-skill';
+import styles from './InstallCommand.module.css';
+---
+
+<div>
+  <p class="label">Skill for coding agents</p>
+  <skill-command class:list={[styles.frame, 'frame']}>
+    <div class:list={[styles.row, 'row']}>
+      <code class:list={[styles.command, 'command']}><span class={styles.prompt} aria-hidden="true">$ </span><span data-command>{skillInstall}</span></code>
+      <button type="button" class:list={[styles.copy, 'copy']} aria-label="Copy skill install command">
+        <svg class={styles.copyIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="8" y="8" width="12" height="12" rx="2" />
+          <path d="M16 8V4H4v12h4" />
+        </svg>
+        <svg class={styles.checkIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m5 12.5 4.5 4.5L19 7.5" />
+        </svg>
+      </button>
+    </div>
+    <p class="sr-only" role="status" aria-atomic="true"></p>
+  </skill-command>
+</div>
+
+<script>
+  class SkillCommand extends HTMLElement {
+    connectedCallback() {
+      const command = this.querySelector<HTMLElement>('[data-command]')!;
+      const button = this.querySelector('button')!;
+      const status = this.querySelector('[role="status"]')!;
+      let reset: ReturnType<typeof setTimeout>;
+
+      // A new node each time, so a repeated message is announced again.
+      const announce = (message: string) => {
+        const text = document.createElement('span');
+        text.textContent = message;
+        status.replaceChildren(text);
+      };
+
+      button.addEventListener('click', async () => {
+        clearTimeout(reset);
+        try {
+          await navigator.clipboard.writeText(command.textContent!);
+          button.dataset.copied = 'true';
+          announce('Skill install command copied to clipboard.');
+          reset = setTimeout(() => {
+            delete button.dataset.copied;
+            status.replaceChildren();
+          }, 1800);
+        } catch {
+          delete button.dataset.copied;
+          getSelection()?.selectAllChildren(command);
+          announce('Clipboard unavailable. The command is selected, ready to copy.');
+        }
+      });
+    }
+  }
+
+  customElements.define('skill-command', SkillCommand);
+</script>
+
+<style>
+  .label {
+    margin: 0 0 8px;
+    color: var(--meta);
+    font: 11px/1.6 var(--font-mono);
+  }
+
+  .frame {
+    position: relative;
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .row {
+    gap: 12px;
+  }
+
+  /* Where the command doesn't fit it breaks before the URL, so all of it stays readable. */
+  .row .command {
+    padding: 12px 0 12px calc(16px + 2ch);
+    mask-image: none;
+    text-indent: -2ch;
+    white-space: normal;
+  }
+
+  .row .copy {
+    position: static;
+    margin-right: 6px;
+  }
+
+  /* Without JavaScript there is no button, and the command is plain text to select. */
+  .frame:not(:defined) .copy {
+    visibility: hidden;
+  }
+
+  /* The whole frame is the button's hit area. The press scales the icon and not the button:
+     a transform would make the button the containing block and shrink the area mid-press. */
+  .row .copy::before {
+    inset: 0;
+  }
+
+  .row .copy:active {
+    transform: none;
+  }
+
+  .copy > svg {
+    transition-property: opacity, transform, filter, scale;
+  }
+
+  .copy:active > svg {
+    scale: 0.9;
+  }
+
+  .row .copy:focus-visible {
+    outline: none;
+  }
+
+  .frame:has(:focus-visible) {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .frame:hover {
+      border-color: var(--line-strong);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .copy:active > svg {
+      scale: 1;
+    }
+  }
+</style>
