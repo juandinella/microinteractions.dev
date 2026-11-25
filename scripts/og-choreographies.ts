@@ -40,6 +40,10 @@ const box = (nth: number) => ({ selector: '[data-box-cell]', nth });
 const row = (slot: number) => ({ selector: '[data-list]', x: 0.4, y: (22 + 48 * slot) / 236 });
 const volume = (x: number) => ({ selector: '.volume-range', x });
 
+const appearance = '[data-trigger][aria-labelledby="als-theme-label"]';
+// Options of the menu that belongs to Appearance (System, Light, Dark); the menu is in the top layer but still inside the stage.
+const theme = (nth: number) => ({ selector: '#als-theme-list [role="option"]', nth, x: 0.35 });
+
 export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
   'text-swap': {
     rest: { frame: [0.7, 0.84] },
@@ -262,6 +266,30 @@ export const choreographies: Partial<Record<SpecimenId, Choreography>> = {
       await d.wait(700);
       await d.move({ frame: [0.74, 0.86] });
       await d.wait(400);
+    },
+  },
+  'aligned-select': {
+    rest: { frame: [0.8, 0.86] },
+    async play(d) {
+      await d.wait(350);
+      // A plain click: the menu opens with Light on the value and stays open.
+      await d.click(appearance);
+      await d.wait(1000);
+      await d.click(theme(2));
+      await d.wait(600);
+      // Press, drag to the option and release: one motion. Dark moves back to Light, which restores the start.
+      await d.move(appearance);
+      await d.wait(200);
+      await d.down();
+      await d.wait(350);
+      await d.move(theme(1), 450);
+      await d.wait(200);
+      await d.up();
+      await d.wait(650);
+      await d.move({ frame: [0.8, 0.86] });
+      // The trigger keeps focus after a pick; a click on the empty page takes its ring off so the loop has no seam.
+      await d.click();
+      await d.wait(500);
     },
   },
 };

@@ -1,0 +1,90 @@
+---
+observe: Click a select and let go without moving. The current option lands on the value, and the menu stays open.
+references:
+  - title: Linear's dropdown opens with the selected option over its trigger
+    author: Its_Rishikesh
+    url: https://x.com/Its_Rishikesh/status/2122752377757307042
+  - title: Select (alignItemWithTrigger)
+    author: Base UI
+    url: https://base-ui.com/react/components/select
+  - title: Select (position="item-aligned")
+    author: Radix Primitives
+    url: https://www.radix-ui.com/primitives/docs/components/select
+  - title: Select-Only Combobox Example
+    author: WAI-ARIA Authoring Practices Guide
+    url: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/
+  - title: popover
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/popover
+  - title: aria-activedescendant
+    author: MDN Web Docs
+    url: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-activedescendant
+prompt:
+  task: "Build a custom select whose menu opens with the current option on top of the trigger, its label on the same pixels as the trigger's value. Pressing, dragging to an option and releasing picks it in one motion, and a plain click leaves the menu open."
+  behavior:
+    - "Mark up the trigger as a `<button type=\"button\" role=\"combobox\" aria-haspopup=\"listbox\" aria-expanded=\"false\">` with `aria-controls` pointing at the list and `aria-labelledby` at the visible label, holding the value text and a chevron. Follow it with a `<div popover=\"manual\">` holding a `role=\"listbox\"` list of `role=\"option\"` rows with `aria-selected`, and two `aria-hidden` scroll arrows. Options need no `id`: give any option without one `<list id>-<index>`, for `aria-activedescendant`. An option's value is its `data-value`, or its label when it has none; the trigger and typeahead always use the label."
+    - "Give the trigger and the options the same 13px font. Keep the trigger 32px tall; under `(pointer: coarse)`, give it a 44px hit area with an `::after` at `position: absolute; inset: -7px 0`, so its box doesn't change. Lay out each option as `grid-template-columns: 14px minmax(0, 1fr)` with a 6px gap: a 14px check, hidden with `visibility: hidden` when the option isn't selected, then the label, ending in an ellipsis. Options are 32px tall, 40px under `(pointer: coarse)`. Reset the popover defaults (`position: fixed`, `inset: auto`, `margin: 0`, `padding: 0`, `overflow: hidden`), set `display: flex` only under `:popover-open`, and set `-webkit-tap-highlight-color: transparent` on the trigger and the menu."
+    - "To open, clear the menu's inline styles, call `showPopover()`, set the list's `scrollTop` to 0, and measure at full height, read from `offsetHeight` so the border counts. Compute the menu's top so the vertical center of the current option's label text meets the center of the trigger's value text. Clamp the top and bottom 8px inside the window and set the list's `scrollTop` to the clamped top minus the desired top. Horizontally, put the label's start edge on the value's, make the menu reach at least the trigger's far edge, cap its width at the window minus 8px on each side, and clamp it 8px inside the window. Mirror both under `direction: rtl`. Place it with inline `top`, `left`, `width` and `height`."
+    - "Open below instead when the trigger is within 20px of the window's top or bottom edge, when the cut menu would be shorter than 104px (or the full list, if shorter), or when the current option would come within 18px of a cut edge. Below means 4px under the trigger, at least the trigger's width and at most the window minus 8px on each side, as tall as fits 8px from the window's edge, with the list scrolled to center the current option. Go 4px above the trigger when below has less than that minimum and above has more room."
+    - "With a mouse, open on `pointerdown` with the primary button and no Ctrl key, call `preventDefault()`, and focus the trigger with `preventScroll: true`. A press on the trigger while the menu is open closes it. Track the largest distance from the press on the document's `pointermove`. On the `pointerup` that ends this press, pick the option under the pointer only if the pointer travelled more than 10px; released outside the menu and the trigger after more than 2px, close. `pointercancel` ends the press."
+    - "After the opening press, pick on the menu's `pointerup`: a mouse released with the primary button over an option picks it, wherever the press began; skip this while the opening press is still down. Touch and pen pick the option they went down and came up on, forgotten on `pointercancel`; WebKit sends no `click` for a touch whose `pointerdown` was prevented. Let the menu's `click` pick only when `event.detail === 0` or the last press wasn't a mouse. Call `preventDefault()` on every `pointerdown` in the menu."
+    - "Touch and pen open on the trigger's `click`, always with the placement below. In that `click`, read the type of the trigger's own last `pointerdown`, cleared after each click and `pointerup`: after a mouse press, do nothing; with `event.detail === 0`, open or close as the keyboard does; with no press behind it (VoiceOver on iOS, TalkBack), open like touch."
+    - "Highlight the option under a moving mouse on `pointermove`, with no transition, and clear it when the mouse leaves the menu. On open, highlight the current option."
+    - "Hide the list's scrollbar (`scrollbar-width: none`, `::-webkit-scrollbar { display: none }`) and keep `overflow-y: auto` and `overscroll-behavior: contain`. Show each 18px arrow, with `touch-action: none`, only when the list can scroll that way by more than 1px. Start scrolling on a mouse `pointermove` over it, ignoring mouse events within 50ms of a touch ending, at 0.4px per millisecond in a `requestAnimationFrame` loop until the end or `pointerleave`. Forward a `wheel` over an arrow to the list (non-passive, line deltas at 16px, page deltas at the list's height)."
+    - "Fade in when a pointer opens the menu with `menu.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 70, easing: 'ease-out' })`; the keyboard opens without it. Close in one frame: cancel the menu's animations and call `hidePopover()`."
+    - "Close on a mouse `pointerdown` outside the component (capture), a touch or pen `click` outside it, the trigger's `blur`, any `scroll` other than the list's (capture, passive) that moved the trigger more than 1px from where the menu was placed, measured rather than read from the event's target, since a scroll event arrives a frame late and the one from focusing the trigger can land after a keyboard open, `resize`, and `visibilitychange` to hidden."
+    - "On a pick, update `aria-selected` and the value text, and dispatch bubbling `input` and `change` events on the component when the value changed. With a `name` attribute, the component appends an `<input type=\"hidden\">` of that name holding the value, so a surrounding form submits it: disable the input when the trigger has `disabled`, ignore pointer events on a disabled trigger, and on the form's `reset`, after a timeout and unless it was cancelled, restore the option selected at first connect without events. Add every listener with the `signal` of an `AbortController` created in `connectedCallback()`; abort it in `disconnectedCallback()`, clearing the typeahead timer and closing the menu."
+  accessibility:
+    - "Follow the APG select-only combobox: focus stays on the trigger, `aria-activedescendant` points at the highlighted option and is removed when none is, and `aria-expanded` follows the menu."
+    - "Closed: ArrowDown, ArrowUp and Enter open the menu, and Space opens it only when no typeahead search is running. Open: ArrowDown and ArrowUp move one option and stop at the ends, Home and End jump to the first and last, PageUp and PageDown move 10, scrolling the list only as far as it takes to clear the arrows. Enter, or Space with no search running, picks. Ignore Enter and Space when `event.repeat` is true; the arrows keep repeating. Escape closes with `preventDefault()` and `stopPropagation()`. Tab closes without picking."
+    - "Typeahead: characters typed without Ctrl, Meta or Alt build a search that resets 1000ms after the last key and matches the start of each label; the same letter again cycles through the options that start with it. In the open menu it moves the highlight; on the closed trigger it changes the value without opening."
+    - "When the keyboard opens the menu or moves the highlight, set `data-keyed` on the menu and outline the highlighted option with `2px solid var(--focus-ring, <text color>)` at `outline-offset: -2px`. A mouse highlight removes it and stays a background fill."
+    - "Call `preventDefault()` on the trigger's Space `keyup`, or Firefox fires a click."
+    - "Keep the 70ms fade with `prefers-reduced-motion: reduce`; it is opacity only."
+    - "In forced-colors mode, outline the highlighted option 2px in `Highlight`, inset 2px."
+  avoid:
+    - "Picking on the opening press's release with no guard. Every click re-picks the value and closes the menu."
+    - "A time guard. A click held still past it re-picks the value and closes the menu."
+    - "Aligning the rows instead of the texts. The trigger's border moves its text, so the label lands a pixel off and reads as a bug."
+    - "Showing the check only on the current option, or after the label. Labels start at different x positions and shift when the value changes."
+    - "Sizing the menu from the list's `scrollHeight`, which leaves out the border. A two-option list scrolls by 2px."
+    - "The aligned placement for touch. The finger covers the trigger and the option on it."
+    - "Opening on `pointerdown` for touch. A scroll that starts on the trigger opens the menu."
+    - "Fading the menu out on close. The old menu fades over the new value."
+    - "Scrolling the list to the highlight on hover. A half-visible row runs away from the pointer."
+    - "Picking on the menu's `click` for touch. WebKit sends none after a prevented `pointerdown`, so the tap picks nothing."
+    - "Closing on every scroll on the page. An unrelated scroller closes a menu that is still in place."
+    - "Reading the trigger's pointer type from the last press anywhere on the page. A screen reader's click is taken for that press."
+---
+
+## The option opens on the value
+
+A dropdown usually opens below its trigger, so the eye and the pointer travel down to the list. This select opens where they already are: the current option lands on the trigger, its label on the same pixels as the trigger's value. The study started from Linear's dropdowns, where nothing on the page shifts and picking a value feels closer to setting a dial than to opening a list. Base UI's Select and Radix Select do it by default, and so does the native pop-up menu on macOS.
+
+A pixel off reads as a layout shift, so the script lines up the texts, not the rows: the trigger's border moves its text by a pixel. Trigger and options use the same 13px font, so once the centers meet, the baselines do too. The check sits in a 14px gutter before every label, as on macOS, so every label starts at the same x and none shifts when the check moves.
+
+## Press, drag, release
+
+A mouse opens the menu on press, so dragging to another option and letting go picks it in one motion. But the current option opens under the pointer, so a plain click is released on it too, and would re-pick the value and close the menu. The release only picks after more than 10px of movement, the threshold Radix uses. Base UI uses a 400ms timer instead, which a slow click outlasts.
+
+A click that never moved leaves the menu open, and from then on releasing over any option picks it. The highlight follows the mouse with no transition, since a highlight that eases in trails the pointer by a row.
+
+## Cut at the window edge
+
+A long list doesn't fit around the trigger. The menu is cut 8px from the window's edge and the list scrolls, so the current option still sits on the trigger, as in the time zone select of the demo. The cut edge shows an 18px scroll arrow instead of a scrollbar, as on macOS.
+
+When the aligned menu doesn't fit, it opens as a dropdown below the trigger, or above it when there is more room. Three rules send it there: the trigger is within 20px of the window's top or bottom, the cut leaves less than 104px of list, or the current option would sit under a scroll arrow. The menu is a `popover="manual"` in the top layer, so no ancestor's `overflow` can cut it. It is placed in window pixels, so a page scroll that moves the trigger closes it.
+
+## 70ms in, one frame out
+
+The menu fades in over 70ms on `ease-out` and closes in one frame. At 60fps that is four frames (36%, 66%, 88%, 100%), so it still reads as a fade; the stronger curve of this site's longer entrances would reach 76% on the first frame, almost a pop. Nothing scales or slides, as in [the recording of Linear's dropdown](https://x.com/Its_Rishikesh/status/2122752377757307042). Closing at once shows the new value right away, with no old menu fading over it.
+
+<Implementation specimen={props.specimenId} />
+
+## Keyboard, touch, and forms
+
+The keyboard follows the APG select-only combobox: focus stays on the trigger, `aria-activedescendant` points at the highlighted option, and the arrows, Home, End and the Page keys move it. Typing jumps to an option, and on the closed trigger changes the value, as a native select does. A menu opened from the keyboard skips the fade and covers the trigger's focus ring, so the highlighted option gets a 2px ring instead.
+
+Touch opens the menu on tap, so a scroll that starts on the trigger doesn't open it, and always below the trigger, because the finger covers it. The fade is opacity only, so it stays with reduced motion.
+
+With a `name`, a hidden input carries the value, so the select submits with its form. It holds one value: groups, disabled options and multiple selection are what Base UI's Select adds.

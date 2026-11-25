@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { AlignedSelect } from '@/components/aligned-select';
 import { ChevronMorphButton } from '@/components/chevron-morph';
 import { DragReorder } from '@/components/drag-reorder';
 import { DragSelectTable } from '@/components/drag-select';
@@ -31,6 +32,7 @@ export function App() {
   const [tabs, setTabs] = React.useState(['a', 'b', 'c']);
   const [rows, setRows] = React.useState(['A', 'B', 'C', 'D', 'E']);
   const [options, setOptions] = React.useState(['x', 'y', 'z']);
+  const [regionDisabled, setRegionDisabled] = React.useState(false);
   const [slides, setSlides] = React.useState(3);
   const [defaults, setDefaults] = React.useState({ tab: 'b', option: 'x', volume: 50 });
   const [saved, setSaved] = React.useState(['x', 'y', 'z']);
@@ -45,6 +47,7 @@ export function App() {
         <button type="button" onClick={() => setRows((list) => [...list, 'F'])}>Add row F</button>
         <button type="button" onClick={() => setOptions((list) => without(list, 'y'))}>Remove option y</button>
         <button type="button" onClick={() => setOptions((list) => without(list, 'z'))}>Remove option z</button>
+        <button type="button" onClick={() => setRegionDisabled((value) => !value)}>Toggle region</button>
         <button type="button" onClick={() => setSlides((count) => count + 1)}>Add slide</button>
         <button type="button" onClick={() => setDefaults({ tab: 'c', option: 'y', volume: 10 })}>Change defaults</button>
         <button type="button" onClick={() => setSaved((list) => [...list].reverse())}>Reverse saved tasks</button>
@@ -139,6 +142,11 @@ export function App() {
           </section>
         ))}
       </TickRail>
+
+      <section aria-label="Aligned select" className="flex items-center justify-between gap-4">
+        <span id="als-app-label">Region</span>
+        <AlignedSelect aria-labelledby="als-app-label" name="region" disabled={regionDisabled} options={['Berlin', 'Lagos', 'Lima', 'Tokyo']} defaultValue="Lima" onValueChange={log('select')} />
+      </section>
 
       <WormDots
         aria-label="Slides"

@@ -16,7 +16,8 @@ export type SpecimenId =
   | 'worm-dots'
   | 'drag-reorder'
   | 'faq-panel'
-  | 'tick-rail';
+  | 'tick-rail'
+  | 'aligned-select';
 
 export const categories = [
   'Actions',
@@ -251,6 +252,35 @@ export const specimens: Specimen[] = [
     easingNote:
       'Head and tail share the curve, offset by 40ms; the gap between them is the drop. The slow start lets it pull away from the old ring before it travels. A choice made mid-pour switches to cubic-bezier(0.23, 1, 0.32, 1), which starts at speed, so the drop never stalls; a redirected drop also loses the tail\'s lag and lands at 300ms.',
     props: ['transform'],
+  },
+  {
+    id: 'aligned-select',
+    published: '2026-11-25',
+    title: 'Aligned select',
+    category: 'Toggles & choices',
+    summary: 'Open the menu with the current option on top of the trigger.',
+    seoTitle: 'Select menu that opens on the current option',
+    seoDescription:
+      'A custom select whose menu opens with the current option right on the trigger, as in Linear. Press, drag and release to pick, with touch and keyboard support.',
+    trigger: 'select',
+    triggerLabel: 'Press and drag, click, keys',
+    hint: 'Press a select and drag to an option',
+    duration: 70,
+    durationNote:
+      'The menu fades in over 70ms and closes in one frame, so a pick shows the new value at once. Opening from the keyboard skips the fade, and the highlight follows the pointer with no transition.',
+    easing: [0, 0, 0.58, 1],
+    easingName: 'ease-out',
+    easingNote:
+      'At 70ms the menu gets four frames at 60fps. ease-out spreads the fade across all four (36%, 66%, 88%, 100%), so it reads as a fade, not a pop. The stronger cubic-bezier(0.23, 1, 0.32, 1) the longer entrances use would reach 76% on the first frame and finish by the second: almost no fade.',
+    props: ['opacity'],
+    positioningNote:
+      'The menu is a popover in the top layer, placed with top and left so the center of the current option\u2019s label meets the center of the trigger\u2019s value. When it would leave the window it is cut at the edge and the list scrolls, so the option stays on the trigger.',
+    detail: {
+      label: 'Release guard',
+      value: '10px',
+      why: 'a release guard',
+      note: 'The current option opens under the pointer, so the opening press is released on it. That release only picks if the pointer moved more than 10px since the press; otherwise every click would re-pick the value and close the menu.',
+    },
   },
   {
     id: 'edge-aware-tooltip',

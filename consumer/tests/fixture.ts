@@ -12,6 +12,7 @@ const elements = [
   'drag-reorder',
   'faq-panel',
   'tick-rail',
+  'aligned-select',
 ];
 
 // Opens the app once its custom elements are defined, and fails the test on any console error,

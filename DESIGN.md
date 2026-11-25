@@ -149,6 +149,10 @@ Elevation is mostly structural, not atmospheric. Default surfaces use thin borde
 
 **The State Earns Shadow Rule.** Static decoration does not get shadow. A shadow must explain pressure, lift, or layered code space.
 
+**The Dark Edge Rule.** In dark, a popover or menu that opens over a surface of its own color has a border at least 3:1 against that surface. Neither its shadow nor a lighter fill counts as its edge.
+Why: accessibility decides dark mode. A shadow barely shows on a dark page, and a fill one step lighter reaches only about 1.1:1 while lowering the hover highlight's contrast; 3:1 is what WCAG asks of a component's boundary.
+<!-- 2026-11-25: "en cuanto al dark mode lo que hay que hacer es lo que sea mejor para a11y" -->
+
 ## 5. Components
 
 ### Buttons
@@ -168,6 +172,11 @@ Elevation is mostly structural, not atmospheric. Default surfaces use thin borde
 - **Style:** Minimal underline field with transparent background.
 - **Focus:** Border color shifts to Graphite Text. Floating label moves upward and becomes mono.
 - **Error / Disabled:** Not yet implemented. Add clear text and border state before adding color-only cues.
+
+### Menus and listboxes
+- **An option the keyboard highlights gets a 2px focus ring inset 2px (`--focus-ring`), never only a background. A mouse highlight stays a background.**
+  Why: a tinted highlight alone is about 1.2:1 against the menu, and a menu opened from the keyboard covers the trigger's focus ring, so focus would have no visible indicator. The pointer is its own cue.
+  <!-- 2026-11-25: "1. ok, vamos con eso" (ring on the keyboard highlight, Aligned select) -->
 
 ### Library Shell (`src/layouts/BaseLayout.astro`)
 
@@ -192,6 +201,10 @@ The only link is "Open study", a text action: a 12px mono label, always underlin
 Each study has a stable root-level URL from its ID. The shared opening is breadcrumb, title and summary, then the demo. A quiet mono toolbar labels the live preview and provides a 44px “Prompt and code” text anchor to `#implementation`, without an arrow. The label names both formats the block offers. The stage contains its applicable inspector, an optional observation, and technical metadata. The article body follows, then references when supplied and previous/next links. Their chevrons morph into arrows on hover/focus like "Open study"; the previous link's glyph is mirrored. The first and last studies link back to the index in the footer.
 
 Write the study as a short article, with left-aligned prose capped at `65ch`, `16px` headings, `14px/1.75` body text, and `16px` between paragraphs. The body starts `48px` after the demo (`36px` on mobile); new sections, figures, and code use `36px` spacing. The demo, figures, and code keep the full content width. Markdown `##` headings render through `StudyHeading.astro`, with a focusable anchor target and a quiet permalink revealed on hover or keyboard focus. Omit heading rails, editorial cards, and repeated accessibility callouts. Explain focus beside hover, reduced motion beside transitions, and practical constraints beside the mechanism they affect.
+
+Keep the body at about 650 words or fewer and the prompt under 1,600. When a review round adds detail, cut elsewhere: edge cases go in the prompt, not the body. A test fails past 920 body words or 1,650 prompt words, but that is a ceiling, not the target.
+Why: the range of the other studies is not enough when an article lands at its top; at 899 words Aligned select still read as long.
+<!-- 2026-11-24/25: "no deberia pasar lo que esta pasando la verdad" (at 1,399 words); "creo que el estudio es largo igualmente" (at 899) -->
 
 Content lives in `src/content/studies/{id}.mdx`, validated by `src/content.config.ts`. Frontmatter accepts an optional `observe` sentence and a `references` array of `title`, `url`, and optional `author`. Do not duplicate collection titles, summaries, or timings in the article. The route provides two MDX components:
 
@@ -230,7 +243,9 @@ A study with a `prompt` in its MDX frontmatter shows Prompt as the first, defaul
 ### Do:
 - **Do** use OKLCH values for all new colors and keep neutrals tinted toward Portfolio Ink's hue at 258.74.
 - **Do** add every new interaction to the shared metadata and preview registry, with accurate timing and its own study page. Verify the same live component fits its index row.
-- **Do** animate transform and opacity for motion. Keep timing tactile with `cubic-bezier(0.19, 1, 0.22, 1)`.
+- **Do** animate transform and opacity for motion. Keep timing tactile with `cubic-bezier(0.19, 1, 0.22, 1)` when the motion lasts long enough to show it; a fade of 100ms or less uses `ease-out`.
+  Why: at 70ms (four frames at 60fps) the strong curve reaches 76% on the first frame and reads as a pop; `ease-out` spreads it over 36, 66, 88 and 100%. A curve is chosen per duration, not copied from another study.
+  <!-- 2026-11-25: "no necesariamente la curva de uno se debe aplicar a la otra, no?"; kept ease-out for Aligned select's 70ms fade -->
 - **Do** keep copy short enough that the preview remains the object of attention.
 - **Do** use full borders, tonal backgrounds, and spacing to separate surfaces.
 - **Do** preserve keyboard and reduced-motion behavior for every demo.

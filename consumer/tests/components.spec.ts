@@ -4,7 +4,7 @@ test('the server markup hydrates with one form and every element', async ({ app,
   const html = await (await request.get('/')).text();
   // A nested form would be dropped by the parser and break hydration.
   expect(html.match(/<form\b/g)).toHaveLength(1);
-  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots', 'drag-reorder', 'faq-panel', 'tick-rail']) expect(html).toContain(`<${tag}`);
+  for (const tag of ['hold-to-confirm', 'drag-select-table', 'worm-dots', 'drag-reorder', 'faq-panel', 'tick-rail', 'aligned-select']) expect(html).toContain(`<${tag}`);
   await expect(app.getByRole('button', { name: 'Delete project', exact: true })).toBeVisible();
 });
 
@@ -208,4 +208,78 @@ test('the tick rail previews the section under the pointer and follows the scrol
   await expect(tick('two')).toHaveAttribute('aria-current', 'location');
   await expect(app.locator('#section-two')).toBeFocused();
   expect(await app.evaluate(() => location.hash)).toBe('');
+});
+
+test('the aligned select opens on its value, picks by drag and by key, and reports only real changes', async ({ app }) => {
+  const trigger = app.getByRole('combobox', { name: 'Region' });
+  await expect(trigger).toHaveText('Lima');
+  await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lima');
+
+  // On screen first: the menu is placed in window pixels, and the site tests cover the focus that scrolls.
+  await trigger.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await app.waitForTimeout(100);
+  await trigger.focus();
+  await app.keyboard.press('ArrowDown');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  const gap = await app.locator('aligned-select').evaluate((el) => {
+    const value = el.querySelector('[data-display]')!.getBoundingClientRect();
+    const label = el.querySelector('[aria-selected="true"] [data-label]')!.getBoundingClientRect();
+    return Math.abs(value.top + value.height / 2 - (label.top + label.height / 2));
+  });
+  expect(gap).toBeLessThanOrEqual(0.5);
+
+  // Picking the current option again reports nothing.
+  await app.keyboard.press('Enter');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(await calls(app)).toEqual([]);
+
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('Enter');
+  await expect(trigger).toHaveText('Tokyo');
+  // Typeahead on the closed trigger changes the value too.
+  await app.keyboard.press('l');
+  await expect(trigger).toHaveText('Lagos');
+  expect(await calls(app)).toEqual(['select:"Tokyo"', 'select:"Lagos"']);
+  await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lagos');
+
+  // A press, a drag past the slop and a release picks.
+  const box = (await trigger.boundingBox())!;
+  await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await app.mouse.down();
+  const berlin = (await app.locator('aligned-select [role="option"]').first().boundingBox())!;
+  await app.mouse.move(berlin.x + 30, berlin.y + berlin.height / 2, { steps: 6 });
+  await app.mouse.up();
+  await expect(trigger).toHaveText('Berlin');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(await calls(app)).toEqual(['select:"Tokyo"', 'select:"Lagos"', 'select:"Berlin"']);
+});
+
+test('the aligned select submits its value in a form, a reset restores it silently, and disabled leaves it out', async ({ app }) => {
+  const trigger = app.getByRole('combobox', { name: 'Region' });
+  const region = () => app.evaluate(() => new FormData(document.querySelector('form')!).get('region'));
+  await expect.poll(region).toBe('Lima');
+  await trigger.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await app.waitForTimeout(100);
+  await trigger.focus();
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('Enter');
+  await expect(trigger).toHaveText('Tokyo');
+  expect(await region()).toBe('Tokyo');
+  expect(await calls(app)).toEqual(['select:"Tokyo"']);
+
+  // The reset restores defaultValue and, like a native select, tells nobody.
+  await app.getByRole('button', { name: 'Reset form' }).click();
+  await expect(trigger).toHaveText('Lima');
+  await expect.poll(region).toBe('Lima');
+  expect(await calls(app)).toEqual(['select:"Tokyo"']);
+
+  await app.getByRole('button', { name: 'Toggle region' }).click();
+  await expect(trigger).toBeDisabled();
+  await expect.poll(region).toBeNull();
+  await app.getByRole('button', { name: 'Toggle region' }).click();
+  await expect.poll(region).toBe('Lima');
+  await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
 });
