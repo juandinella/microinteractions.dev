@@ -218,7 +218,10 @@ const pointers = {
 
 function installPointer(shapes) {
   const layer = document.createElement('div');
-  layer.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;contain:strict';
+  // A popover itself, so it can sit above a demo's popovers: the top layer outranks any z-index, and the last
+  // element shown is on top, so the layer is shown again after every popover the demo opens.
+  layer.popover = 'manual';
+  layer.style.cssText = 'position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:none;overflow:visible;z-index:2147483647;pointer-events:none;contain:strict';
   const rings = Array.from({ length: 4 }, () => {
     const ring = document.createElement('div');
     ring.style.cssText = 'position:absolute;left:0;top:0;box-sizing:border-box;border:1.5px solid oklch(0.23 0.012 258.74);border-radius:50%';
@@ -227,6 +230,13 @@ function installPointer(shapes) {
   const cursor = layer.appendChild(document.createElement('div'));
   cursor.style.cssText = 'position:absolute;left:0;top:0;filter:drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.28))';
   document.documentElement.append(layer);
+  layer.showPopover();
+  // toggle doesn't bubble; a capture listener on the document still sees it.
+  document.addEventListener('toggle', (event) => {
+    if (event.target === layer || event.newState !== 'open') return;
+    layer.hidePopover();
+    layer.showPopover();
+  }, true);
 
   const shapeAt = (x, y) => {
     const element = document.elementFromPoint(x, y);
