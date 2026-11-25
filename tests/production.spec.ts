@@ -266,11 +266,16 @@ test('agent skill index digest matches the published skill', async ({ request })
   const body = await (await request.get(skill.url)).body();
   const hash = Buffer.from(await crypto.subtle.digest('SHA-256', body)).toString('hex');
   expect(skill.digest).toBe(`sha256:${hash}`);
+  const studies = (await (await request.get('/openapi.json')).json()).components.parameters.Slug.schema.enum;
+  for (const id of studies.filter((slug: string) => slug !== 'index')) expect(body.toString()).toContain(`- \`${id}\` **`);
   const llms = await request.get('/llms.txt');
   expect(llms.status()).toBe(200);
   const text = await llms.text();
   expect(text).toContain('/markdown/text-swap.md');
   expect(text).toContain('/rss.xml');
+  for (const path of ['/llms.txt', '/api.md', '/']) {
+    expect(await (await request.get(path, { headers: { Accept: 'text/html' } })).text(), path).toContain('npx skills@latest add https://microinteractions.dev');
+  }
 });
 
 test('shadcn registry serves the index and installable items', async ({ request }) => {

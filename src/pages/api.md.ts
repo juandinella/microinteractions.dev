@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { specimens } from '../data/specimens';
+import { skillInstall } from '../lib/agent-skill';
 
 export const prerender = true;
 
@@ -13,6 +14,8 @@ export const GET: APIRoute = ({ site }) => new Response(`${[
   [`- \`${new URL('/markdown/index.md', site).href}\` — collection index`, ...specimens.map((specimen) => `- \`${new URL(`/markdown/${specimen.id}.md`, site).href}\` — ${specimen.title}`)].join('\n'),
   '## React components',
   `The [shadcn registry index](${new URL('/r/registry.json', site).href}) lists the installable React components. Each study's Markdown includes its install command when a React port is available. The CLI installs the component and any required custom-element script, using your project's shadcn theme tokens. To install by name, add \`"@microinteractions": "${new URL('/r/', site).href}{name}.json"\` to \`registries\` in \`components.json\`, then run \`npx shadcn@latest add @microinteractions/{name}\`.`,
+  '## Agent skill',
+  `\`${skillInstall}\` installs a skill that tells a coding agent how to find, install, adapt, and review a study.`,
   '## In-browser tools (WebMCP)',
   'Every page registers these tools with `document.modelContext` for agents running in the browser:',
   '- `list_studies` — every study with category, trigger, duration, easing, and URLs\n- `get_study` — `{ id }`; the study as Markdown, including source\n- `open_study` — `{ id }`; navigates the tab to the live demo',
