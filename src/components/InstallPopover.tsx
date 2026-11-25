@@ -1,5 +1,5 @@
 import { Popover } from '@base-ui/react/popover';
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import InstallCommand from './InstallCommand';
 import styles from './InstallPopover.module.css';
 
@@ -27,6 +27,7 @@ function outlinePercent(x: number, y: number, width: number, height: number) {
 
 // The install command waits behind a small trigger, so the live preview stays the first thing on the page.
 export default function InstallPopover({ url }: { url: string }) {
+  const anchor = useRef<HTMLSpanElement>(null);
   const [node, setNode] = useState<HTMLButtonElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   // Where the beam starts. Each hover remounts the strokes, which restarts the run from there.
@@ -76,28 +77,31 @@ export default function InstallPopover({ url }: { url: string }) {
 
   return (
     <Popover.Root>
-      <Popover.Trigger
-        ref={ref}
-        className={styles.trigger}
-        onPointerEnter={(event) => {
-          if (event.pointerType !== 'mouse' || !size) return;
-          const box = event.currentTarget.getBoundingClientRect();
-          const x = Math.min(Math.max(event.clientX - box.left, 0), box.width);
-          const y = Math.min(Math.max(event.clientY - box.top, 0), box.height);
-          setEntry((current) => ({ at: outlinePercent(x, y, size.width, size.height), run: current.run + 1 }));
-        }}
-      >
-        {/* The halo paints behind the face and the beam on it, so the border it replaces stays gray everywhere else. */}
-        <span className={styles.halo} aria-hidden="true">{beam(0)}</span>
-        <span className={styles.ring} aria-hidden="true">{beam(0.5)}</span>
-        <span className={styles.face} aria-hidden="true" />
-        <svg className={styles.icon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        <span className={styles.label}>Add with shadcn</span>
-      </Popover.Trigger>
+      {/* The popup follows this box, not the trigger: the trigger scales while pressed and would drag the popup along. */}
+      <span ref={anchor} className={styles.anchor}>
+        <Popover.Trigger
+          ref={ref}
+          className={styles.trigger}
+          onPointerEnter={(event) => {
+            if (event.pointerType !== 'mouse' || !size) return;
+            const box = event.currentTarget.getBoundingClientRect();
+            const x = Math.min(Math.max(event.clientX - box.left, 0), box.width);
+            const y = Math.min(Math.max(event.clientY - box.top, 0), box.height);
+            setEntry((current) => ({ at: outlinePercent(x, y, size.width, size.height), run: current.run + 1 }));
+          }}
+        >
+          {/* The halo paints behind the face and the beam on it, so the border it replaces stays gray everywhere else. */}
+          <span className={styles.halo} aria-hidden="true">{beam(0)}</span>
+          <span className={styles.ring} aria-hidden="true">{beam(0.5)}</span>
+          <span className={styles.face} aria-hidden="true" />
+          <svg className={styles.icon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span className={styles.label}>Add with shadcn</span>
+        </Popover.Trigger>
+      </span>
       <Popover.Portal>
-        <Popover.Positioner className={styles.positioner} side="bottom" align="end" sideOffset={8} collisionPadding={16}>
+        <Popover.Positioner className={styles.positioner} anchor={anchor} side="bottom" align="end" sideOffset={8} collisionPadding={16}>
           <Popover.Popup className={styles.popup}>
             <Popover.Title className={styles.title}>Add with shadcn</Popover.Title>
             <Popover.Description className={styles.description}>
