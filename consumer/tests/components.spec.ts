@@ -66,14 +66,28 @@ test('a hover plucks the underline and leaving releases it', async ({ app }) => 
 
 test('the gooey drop pours, and a form reset moves the next pour back to the default', async ({ app }) => {
   const head = () => app.locator('[data-goo-blob]').last();
-  await app.getByText('Option z', { exact: true }).click();
-  expect(await app.locator('[data-goo-blob]').evaluateAll((blobs) => blobs.flatMap((blob) => blob.getAnimations()).length)).toBe(8);
-  await app.waitForTimeout(600);
+  // Reads each pour in the choice's own task, after the component's handler: on a busy runner the 340ms pour can land
+  // before the next round trip.
+  const choose = async (option: string) => {
+    const read = await app.evaluateHandle(() => {
+      const read = { animations: 0, start: '' };
+      addEventListener('change', () => {
+        const pours = [...document.querySelectorAll('[data-goo-blob]')].flatMap((blob) => blob.getAnimations());
+        read.animations = pours.length;
+        // The head is the last blob.
+        read.start = (pours.at(-1)!.effect as KeyframeEffect).getKeyframes()[0].transform as string;
+      }, { once: true });
+      return read;
+    });
+    await app.getByText(option, { exact: true }).click();
+    return read.jsonValue();
+  };
+  expect((await choose('Option z')).animations).toBe(8);
+  await expect.poll(() => app.locator('[data-goo-blob]').evaluateAll((blobs) => blobs.flatMap((blob) => blob.getAnimations()).length)).toBe(0);
   await app.getByRole('button', { name: 'Reset form' }).click();
   await expect(app.getByRole('radio', { name: 'Option x' })).toBeChecked();
   await expect.poll(() => head().evaluate((blob) => new DOMMatrix(getComputedStyle(blob).transform).m42)).toBe(0);
-  await app.getByText('Option y', { exact: true }).click();
-  const start = await head().evaluate((blob) => blob.getAnimations()[0].effect!.getKeyframes()[0].transform as string);
+  const { start } = await choose('Option y');
   expect(start).toMatch(/^translateY\(0px\)/);
   expect(await calls(app)).toEqual(['option:"z"', 'option:"x"', 'option:"y"']);
 });

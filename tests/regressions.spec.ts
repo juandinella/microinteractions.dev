@@ -1,5 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+// Stops the page's timers, animation frames and performance.now(), however slow the runner is. clock.install() alone
+// leaves them running in real time; it has to come before page.goto(). CSS transitions and animations keep running.
+const pauseClock = async (page: Page) => page.clock.pauseAt(await page.evaluate(() => Date.now() + 60_000));
+
 const slugs = ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'tab-indicator'];
 const scripted = ['hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'tab-indicator'];
 
@@ -391,9 +395,14 @@ test.describe('gooey radio group', () => {
   test('a click pours the drop into the option, and the trace follows it', async ({ page }) => {
     await page.goto('/gooey-radio-group/');
     const stage = page.locator('[data-stage]');
+    // Counted in the choice's own task, after the component's handler: on a busy runner the 340ms pour can land
+    // before the next round trip.
+    await stage.evaluate((el: HTMLElement) => addEventListener('change', () => {
+      el.dataset.poursOnChange = String([...el.querySelectorAll('[data-goo-blob]')].flatMap((blob) => blob.getAnimations()).length);
+    }, { once: true }));
     await stage.getByText('Pickup').click();
     await expect(stage.getByRole('radio', { name: 'Pickup' })).toBeChecked();
-    expect(await blobAnimations(stage)).toBe(8);
+    await expect(stage).toHaveAttribute('data-pours-on-change', '8');
     await expect.poll(() => headY(stage)).toBe(132);
     await expect(page.locator('[data-trace-readout]')).toHaveText('340');
   });
@@ -1166,9 +1175,10 @@ test.describe('drag to reorder', () => {
   });
 
   test('rows at rest wait by distance, rows still moving retarget at once', async ({ page }) => {
-    // A frozen clock: the second move happens while the rows are still moving, however slow the runner is.
     await page.clock.install();
     await page.goto('/drag-reorder/');
+    // The second move has to happen while the rows are still moving.
+    await pauseClock(page);
     const items = component(page).locator('[data-item]');
     const delays = () => items.evaluateAll((els) => els.slice(1).map((el) => (el as HTMLElement).style.transitionDelay));
     const box = (await items.nth(0).boundingBox())!;
@@ -1529,20 +1539,32 @@ test.describe('tick rail', () => {
     const box = el.querySelector('[data-card-box]')!.getBoundingClientRect();
     return Math.abs(box.top + box.height / 2 - (tick.top + tick.height / 2));
   }, index);
-  // Synthetic mouse events on the rail, timed in the page, so a slow runner can't stretch the delays.
-  const showsAfter = (rail: import('@playwright/test').Locator, index: number) => rail.evaluate((el, index) => new Promise<number>((resolve) => {
+  // Synthetic mouse events on the rail, timed in the page, so a slow runner can't stretch the delays. With `afterHide`,
+  // they wait for the open card to hide and start in that task: the 400ms warm window can run out between round trips.
+  // Returns once it is watching, before the time is known.
+  const watchShow = (rail: import('@playwright/test').Locator, index: number, afterHide: boolean) => rail.evaluateHandle((el, { index, afterHide }) => {
     const card = el.querySelector('[data-card]')!;
-    const tick = el.querySelectorAll('[data-tick]')[index].getBoundingClientRect();
-    const start = performance.now();
-    new MutationObserver((_, observer) => {
-      if (!card.hasAttribute('data-showing')) return;
-      observer.disconnect();
-      resolve(performance.now() - start);
-    }).observe(card, { attributes: true, attributeFilter: ['data-showing'] });
-    el.querySelector('[data-rail]')!.dispatchEvent(new PointerEvent('pointermove', {
-      pointerType: 'mouse', clientX: tick.left + 20, clientY: tick.top + tick.height / 2, bubbles: true,
-    }));
-  }), index);
+    const showing = (value: boolean) => new Promise<void>((resolve) => {
+      new MutationObserver((_, observer) => {
+        if (card.hasAttribute('data-showing') !== value) return;
+        observer.disconnect();
+        resolve();
+      }).observe(card, { attributes: true, attributeFilter: ['data-showing'] });
+    });
+    const time = async () => {
+      if (afterHide) await showing(false);
+      const tick = el.querySelectorAll('[data-tick]')[index].getBoundingClientRect();
+      const start = performance.now();
+      const shown = showing(true).then(() => performance.now() - start);
+      el.querySelector('[data-rail]')!.dispatchEvent(new PointerEvent('pointermove', {
+        pointerType: 'mouse', clientX: tick.left + 20, clientY: tick.top + tick.height / 2, bubbles: true,
+      }));
+      return shown;
+    };
+    return { ms: time() };
+  }, { index, afterHide });
+  const showsAfter = async (rail: import('@playwright/test').Locator, index: number) =>
+    (await watchShow(rail, index, false)).evaluate(({ ms }) => ms);
 
   test('the ticks follow the pointer inside a row, not only across rows', async ({ page }) => {
     // Without transitions, each length is read as soon as the pointer moves.
@@ -1565,7 +1587,6 @@ test.describe('tick rail', () => {
   test('one card waits for intent, lands on its tick, and reopens at once while warm', async ({ page }) => {
     await page.goto('/tick-rail/');
     const rail = component(page);
-    const card = rail.locator('[data-card]');
     expect(await showsAfter(rail, 2)).toBeGreaterThanOrEqual(70);
     await expect(title(rail)).toHaveText('Usage');
     await expect.poll(() => offset(rail, 2)).toBeLessThan(1);
@@ -1576,9 +1597,9 @@ test.describe('tick rail', () => {
     await expect(title(rail)).toHaveText('Touch');
     await expect.poll(() => offset(rail, 5)).toBeLessThan(1);
 
+    const reopened = await watchShow(rail, 1, true);
     await page.mouse.move(box.x + 400, box.y + 200);
-    await expect(card).not.toHaveAttribute('data-showing');
-    expect(await showsAfter(rail, 1)).toBeLessThan(40);
+    expect(await reopened.evaluate(({ ms }) => ms)).toBeLessThan(40);
     await expect(title(rail)).toHaveText('Install');
   });
 
@@ -2009,6 +2030,7 @@ test.describe('resize handle: threshold, give and hover', () => {
     test.use({ reducedMotion: 'no-preference' });
 
     test('below the minimum the edge gives while the width stays, and snaps back on release', async ({ page }) => {
+      await page.clock.install();
       await page.goto('/resize-handle/');
       const point = await start(page);
       await grab(page, point);
@@ -2019,9 +2041,13 @@ test.describe('resize handle: threshold, give and hover', () => {
       expect(await shown(page)).toBe('110px');
       expect((await page.locator('[data-side]').boundingBox())!.width).toBeCloseTo(110, 0);
 
+      // The snap and the samples share the paused clock. In real time, a pause between the release and the first
+      // sample made the snap look shorter than it is.
+      await pauseClock(page);
       await sampleRelease(page);
       await page.mouse.up();
-      await page.waitForFunction(() => (window as any).__releaseDone === true);
+      await page.clock.runFor(450);
+      expect(await page.evaluate(() => (window as any).__releaseDone)).toBe(true);
       const raw: { t: number; width: number }[] = await page.evaluate(() => (window as any).__release);
       // Measured boxes carry sub-pixel noise (110.0000006); a tenth of a pixel is far below anything visible.
       const samples = raw.map(({ t, width }) => ({ t, width: Math.round(width * 10) / 10 }));
@@ -2772,7 +2798,7 @@ test.describe('plucked underline: intent, touch and keyboard blur', () => {
       // between steps, however slow the runner is. CSS transitions still run on real time.
       await page.clock.install();
       await page.goto('/plucked-underline/');
-      await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
+      await pauseClock(page);
     });
 
     test('a link scrolled under a still cursor waits for the mouse to move', async ({ page }) => {
@@ -2842,6 +2868,8 @@ test.describe('plucked underline: intent, touch and keyboard blur', () => {
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await expect(first).toHaveAttribute('data-plucked', '');
       await expect.poll(runs).toHaveLength(1);
+      // Left before its first frame advances, the opening has nothing to reverse and no closing transition starts.
+      await first.evaluate((link) => link.querySelector('svg')!.getAnimations().forEach((opening) => opening.finish()));
       await page.mouse.move(0, 0);
       // A run left by the Tab would come first.
       await expect.poll(runs).toEqual(['0.14s', '0.11s']);
