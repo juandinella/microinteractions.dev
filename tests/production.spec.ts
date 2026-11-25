@@ -8,7 +8,7 @@ import { specimens } from '../src/data/specimens';
 test('source formats and languages work without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  await page.goto('http://127.0.0.1:8791/hold-confirm/');
+  await page.goto('/hold-confirm/');
   for (const format of ['CSS', 'Tailwind']) {
     await page.getByRole('radio', { name: format, exact: true }).first().check();
     const variant = page.locator(`[data-source-variant="${format.toLowerCase()}"]`);
@@ -148,19 +148,19 @@ test('reduced motion keeps hold timing while removing decorative movement', asyn
   await expect(page.locator('[data-trace-readout]')).toHaveText('220');
 });
 
-test('Markdown content negotiation and complete Tailwind exports', () => {
-  console.log(execFileSync(process.execPath, ['scripts/check-markdown.mjs', 'http://127.0.0.1:8791'], { encoding: 'utf8' }));
+test('Markdown content negotiation and complete Tailwind exports', ({ baseURL }) => {
+  console.log(execFileSync(process.execPath, ['scripts/check-markdown.mjs', baseURL!], { encoding: 'utf8' }));
 });
 
 test('collection and hold summaries describe the behavior without JavaScript', async ({ browser, request }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  await page.goto('http://127.0.0.1:8791/');
+  await page.goto('/');
   await expect(page.locator('.intro .description')).toHaveText(`${collectionDescription} The site is open source on GitHub.`);
   const markdown = await (await request.get('/markdown/index.md')).text();
   expect(markdown).toContain(collectionDescription);
   expect(markdown).toContain(`[on GitHub](${repository.url})`);
-  await page.goto('http://127.0.0.1:8791/hold-confirm/');
+  await page.goto('/hold-confirm/');
   await expect(page.locator('.study-header .summary')).toHaveText('Hold the button for 1,200ms to confirm. Release early to cancel.');
   await context.close();
 });
