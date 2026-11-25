@@ -211,6 +211,61 @@ test('study pages offer the shadcn command for each package manager', async ({ p
   await expect(page.getByRole('button', { name: 'Add with shadcn' })).toHaveCount(0);
 });
 
+test.describe('skill command on the index', () => {
+  const command = 'npx skills@latest add https://microinteractions.dev';
+
+  test('a press anywhere on the frame copies the command and confirms it', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', {
+      value: async (text: string) => { (window as unknown as { copied: string[] }).copied = [...((window as unknown as { copied?: string[] }).copied ?? []), text]; },
+    }));
+    const copied = () => page.evaluate(() => (window as unknown as { copied?: string[] }).copied);
+    const copy = page.getByRole('button', { name: 'Copy skill install command' });
+    const frame = (await page.locator('skill-command').boundingBox())!;
+    expect(frame.height).toBeGreaterThanOrEqual(44);
+
+    // Held past the press feedback and released far from the icon: the hit area must not shrink mid-press.
+    await page.mouse.move(frame.x + 8, frame.y + 8);
+    await page.mouse.down();
+    await page.waitForTimeout(250);
+    await page.mouse.move(frame.x + 60, frame.y + 12);
+    await page.mouse.up();
+    await expect(copy).toHaveAttribute('data-copied', 'true');
+    expect(await copied()).toEqual([command]);
+    expect(await page.evaluate(() => String(getSelection()))).toBe('');
+    await expect(page.getByRole('status').filter({ hasText: 'Skill install command copied to clipboard.' })).toHaveCount(1);
+    await expect(copy).not.toHaveAttribute('data-copied');
+
+    await copy.focus();
+    await page.keyboard.press('Enter');
+    await expect(copy).toHaveAttribute('data-copied', 'true');
+    expect(await copied()).toEqual([command, command]);
+  });
+
+  test('a blocked clipboard leaves the command selected', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { value: () => Promise.reject(new Error('blocked')) }));
+    const copy = page.getByRole('button', { name: 'Copy skill install command' });
+    await copy.click();
+    await expect.poll(() => page.evaluate(() => String(getSelection()))).toBe(command);
+    await expect(copy).not.toHaveAttribute('data-copied');
+    await expect(page.getByRole('status').filter({ hasText: 'The command is selected' })).toHaveCount(1);
+  });
+
+  test('it is plain text without JavaScript and never overflows', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 320, height: 640 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await expect(page.locator('skill-command code')).toHaveText(`$ ${command}`);
+    await expect(page.locator('skill-command button')).toBeHidden();
+    const frame = (await page.locator('skill-command').boundingBox())!;
+    expect(frame.x + frame.width).toBeLessThanOrEqual(320);
+    const text = page.locator('skill-command code');
+    expect(await text.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(0);
+    await context.close();
+  });
+});
+
 test('the install popup stays put while its button is pressed', async ({ page }) => {
   await page.goto('/hold-confirm/');
   const trigger = page.getByRole('button', { name: 'Add with shadcn' });
