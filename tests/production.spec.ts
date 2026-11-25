@@ -280,8 +280,9 @@ test('shadcn registry serves the index and installable items', async ({ request 
   expect(name).toBe('microinteractions');
   const studies = (await (await request.get('/openapi.json')).json()).components.parameters.Slug.schema.enum;
   expect(items.map((item: { name: string }) => item.name).sort()).toEqual([...studies].sort());
+  // Depending on `utils` makes the CLI ask to replace the project's lib/utils.ts.
+  expect(items.filter((item: { registryDependencies?: string[] }) => item.registryDependencies?.includes('utils'))).toEqual([]);
   const item = await (await request.get('/r/text-swap.json')).json();
-  expect(item.registryDependencies).toEqual(['utils']);
   expect(item.files[0].content).toContain('export function TextSwapButton');
   for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots'], ['drag-reorder', 'drag-reorder'], ['faq-panel', 'faq-panel'], ['tick-rail', 'tick-rail'], ['aligned-select', 'aligned-select']]) {
     const element = await (await request.get(`/r/${name}.json`)).json();

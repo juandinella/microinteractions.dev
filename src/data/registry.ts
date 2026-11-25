@@ -5,6 +5,8 @@ import { specimens, type SpecimenId } from './specimens';
 // The studies installable with the shadcn CLI. Each item is a React port of the live demo
 // that themes itself with the consumer's shadcn tokens. A demo with a custom element ships
 // the element's script unchanged, so the behavior keeps a single source.
+// Items don't depend on shadcn's `utils`: `shadcn init` already wrote lib/utils.ts, and the CLI would ask to
+// replace a project's own version, which in a shell without a terminal ends with nothing installed.
 const items: Partial<Record<SpecimenId, { element?: string; css?: Record<string, Record<string, string>> }>> = {
   'text-swap': {},
   'chevron-morph': {},
@@ -45,7 +47,6 @@ export const registryItems = specimens.flatMap((specimen) => {
     type: 'registry:component',
     title: specimen.title,
     description: specimen.summary,
-    registryDependencies: ['utils'],
     files: [
       { path: `registry/${specimen.id}.tsx`, type: 'registry:component', content: components[`${specimen.id}.tsx`] },
       ...(item.element ? [{ path: `registry/${specimen.id}-element.ts`, type: 'registry:component', content: elementModule(item.element) }] : []),
