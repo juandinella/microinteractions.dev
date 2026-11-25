@@ -191,10 +191,12 @@ test('usage points cover installs and Markdown reads in production only', () => 
 
 test('external links open isolated; only the author link sends a referrer', async ({ page }) => {
   await page.goto('/');
-  const author = page.locator('.byline a');
-  await expect(author).toHaveAttribute('rel', 'noopener');
-  await expect(author).toHaveAttribute('target', '_blank');
+  for (const author of [page.locator('.byline a'), page.locator('.home-footer .footer-credit a')]) {
+    await expect(author).toHaveAttribute('rel', 'noopener');
+    await expect(author).toHaveAttribute('target', '_blank');
+  }
   await expect(page.getByRole('link', { name: 'on GitHub' })).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(page.locator('.home-footer').getByRole('link', { name: 'GitHub', exact: true })).toHaveAttribute('rel', 'noopener noreferrer');
 });
 
 test('mobile navigation still opens and Escape returns focus', async ({ page }) => {

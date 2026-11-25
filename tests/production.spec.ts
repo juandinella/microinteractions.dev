@@ -19,6 +19,13 @@ test('source formats and languages work without JavaScript', async ({ browser })
     await expect(variant.getByRole('button', { name: 'Edit on CodePen (opens in a new tab)' })).toBeVisible();
     await expect(variant.getByRole('button', { name: /^Copy/ })).toBeHidden();
   }
+  await page.getByRole('radio', { name: 'React', exact: true }).first().check();
+  const react = page.locator('[data-source-variant="react"]');
+  await expect(react.getByRole('region', { name: 'TSX source' })).toContainText('HoldConfirmButton');
+  await react.getByRole('radio', { name: 'Element', exact: true }).check();
+  await expect(react.getByRole('region', { name: 'Element source' })).toContainText('HOLD_DURATION');
+  await expect(react.locator('code').first()).toContainText('shadcn@latest add https://microinteractions.dev/r/hold-confirm.json');
+  await expect(react.getByRole('button', { name: 'Edit on CodePen (opens in a new tab)' })).toHaveCount(0);
   await context.close();
 });
 
@@ -262,6 +269,10 @@ test('RSS feed lists every study and is discoverable', async ({ page, request })
   const body = await feed.text();
   expect(body.match(/<item>/g)).toHaveLength(specimens.length);
   expect(body).toContain('<link>https://microinteractions.dev/resize-handle/</link>');
+  await page.goto('/');
+  const footer = page.locator('footer.home-footer');
+  await expect(footer.getByRole('link', { name: 'RSS', exact: true })).toHaveAttribute('href', '/rss.xml');
+  await expect(footer.getByRole('link', { name: 'GitHub', exact: true })).toHaveAttribute('href', repository.url);
   await page.goto('/text-swap/');
   await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/rss.xml');
   const conventional = await request.get('/sitemap.xml', { maxRedirects: 0 });

@@ -89,6 +89,8 @@
 :global([data-static-source]:has(input[value='html']:checked)) [data-source-panel='html'],
 :global([data-static-source]:has(input[value='css']:checked)) [data-source-panel='css'],
 :global([data-static-source]:has(input[value='js']:checked)) [data-source-panel='js'],
+:global([data-static-source]:has(input[value='tsx']:checked)) [data-source-panel='tsx'],
+:global([data-static-source]:has(input[value='ts']:checked)) [data-source-panel='ts'],
 :global([data-static-source]:has(input[value='prompt']:checked)) [data-source-panel='prompt'] { display: block; }
 
 .indicator {

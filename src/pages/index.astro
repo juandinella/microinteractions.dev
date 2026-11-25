@@ -45,6 +45,16 @@ const groups = categories
       </section>
     ))}
   </div>
+
+  <footer class="home-footer">
+    <p class="footer-credit">
+      A project by <a href={author.url} target="_blank" rel="noopener">{author.name}</a>
+    </p>
+    <nav class="footer-links" aria-label="Links">
+      <a href="/rss.xml">RSS</a>
+      <a href={repository.url} target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+  </footer>
 </BaseLayout>
 
 <style>
@@ -194,5 +204,58 @@ const groups = categories
     border-radius: 3px;
     outline: 2px solid var(--text);
     outline-offset: 4px;
+  }
+
+  .home-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 24px;
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--meta);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .footer-credit {
+    margin: 0;
+  }
+
+  .footer-links {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .home-footer a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
+    touch-action: manipulation;
+  }
+
+  .home-footer a:focus-visible {
+    border-radius: 3px;
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .home-footer a:hover {
+      text-decoration-color: currentColor;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .home-footer {
+      margin-top: 56px;
+    }
   }
 </style>

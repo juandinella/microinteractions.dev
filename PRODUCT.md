@@ -18,7 +18,7 @@ Microinteractions Gallery is a browsable library of sensory UI behavior studies.
 - Every study has a stable root-level slug, such as `/text-swap`, and reads as a short interactive article. A shared opening provides the title, summary, live preview, relevant inspector, and a direct link to the implementation. Each study composes its own body from prose, figures, comparisons, code, and interactive examples. Keep the complete implementation close to the first explanation by default; the article chooses its position. An optional sentence below the demo points out something worth trying. Explain keyboard behavior, reduced motion, and integration advice beside the mechanism they affect. References and credits appear at the end when supplied.
 - A shared sidebar exposes the collection and marks the current page. On narrow screens it becomes an inline, expandable index.
 - Previous/next links connect studies in collection order. Each page also links back to the index.
-- Navigation lists published studies, plus planned studies and empty categories as unavailable rows marked "soon". Adding a study updates the index, sidebar, and route generation from shared data.
+- Navigation lists published studies grouped by active category, with planned studies tucked into a collapsed disclosure at the bottom. Adding a study updates the index, sidebar, and route generation from shared data.
 - Article bodies live in one MDX file per study. Collection metadata stays in `src/data/specimens.ts`; live components, source, and inspection modes stay in `src/data/previews.ts`. Shared article tools provide consistent presentation without prescribing every study’s headings or length.
 
 ## Brand Personality
