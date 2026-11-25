@@ -146,6 +146,25 @@ export const fixtures = {
     many: Array.from({ length: 40 }, (_, index) => ({ label: `Section ${index + 1}`, description: `About section ${index + 1}` })),
   },
 
+  // Each list is one select's options; the study renders a row per list.
+  select: {
+    demo: [
+      ['Auckland', 'Berlin', 'Buenos Aires', 'Cairo', 'London', 'Lisbon', 'Madrid', 'New York', 'Paris', 'São Paulo', 'Seoul', 'Sydney', 'Tokyo', 'Toronto'],
+      ['Off', 'Allow'],
+      ['⌘+Enter', 'Enter'],
+      ['System', 'Light', 'Dark'],
+    ],
+    worst: [
+      ['Pacific/Port_Moresby_and_the_surrounding_islands_of_Melanesia_UTC+10:00', 'UTC', 'Europe/Amsterdam'],
+      ['Benachrichtigungen vollständig deaktivieren', 'Nur wichtige Benachrichtigungen zulassen', 'Alle'],
+      ['Ctrl+Shift+Alt+Option+Enter', 'مفتاح الإدخال', '送信'],
+      ['🌗 Automatic', 'Jo'],
+      Array.from({ length: 60 }, (_, index) => `Option ${index + 1} with a label long enough to widen the menu`),
+    ],
+    one: [['Only choice']],
+    many: [Array.from({ length: 200 }, (_, index) => `Zone ${index + 1}`)],
+  },
+
   // The documented maximum: at 320px a tenth dot pushes the counter out of the carousel.
   slides: { demo: 3, worst: 7, empty: 0, one: 1, many: 9 },
 };

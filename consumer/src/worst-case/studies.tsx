@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { AlignedSelect } from '@/components/aligned-select';
 import { ChevronMorphButton } from '@/components/chevron-morph';
 import { DragReorder } from '@/components/drag-reorder';
 import { DragSelectTable } from '@/components/drag-select';
@@ -105,6 +106,19 @@ export const studies: Record<string, (mode: Mode) => React.ReactNode> = {
       </TickRail>
     );
   },
+
+  'aligned-select': (mode) => (
+    <ul className="grid w-[min(100%,400px)] grid-cols-[minmax(0,1fr)] rounded-xl border border-border bg-card px-4 py-1 text-sm">
+      {pick(fixtures.select, mode, []).map((options, index) => (
+        <li key={index} className="flex min-h-12 items-center justify-between gap-4 not-first:border-t">
+          <span id={`als-${mode}-${index}`} className="min-w-0 truncate">
+            Setting {index + 1}
+          </span>
+          <AlignedSelect aria-labelledby={`als-${mode}-${index}`} options={options} defaultValue={options[Math.min(1, options.length - 1)]} className="max-w-[60%]" />
+        </li>
+      ))}
+    </ul>
+  ),
 
   'worm-dots': (mode) => (
     <WormDots

@@ -211,6 +211,42 @@ test('study pages offer the shadcn command for each package manager', async ({ p
   await expect(page.getByRole('button', { name: 'Add with shadcn' })).toHaveCount(0);
 });
 
+test('the install popup stays put while its button is pressed', async ({ page }) => {
+  await page.goto('/hold-confirm/');
+  const trigger = page.getByRole('button', { name: 'Add with shadcn' });
+  const popup = page.getByRole('dialog', { name: 'Add with shadcn' });
+  await expect(page.locator('astro-island', { has: trigger })).not.toHaveAttribute('ssr');
+
+  // Every frame: Chromium moved it on the press that closes, WebKit after opening from a held press.
+  await page.evaluate(() => {
+    const seen = new Set<string>();
+    (window as unknown as { seen: Set<string> }).seen = seen;
+    const sample = () => {
+      const positioner = document.querySelector('[role="dialog"]')?.parentElement;
+      if (positioner) {
+        const { x, y } = positioner.getBoundingClientRect();
+        seen.add(`${x},${y}`);
+      }
+      requestAnimationFrame(sample);
+    };
+    sample();
+  });
+  const width = (await trigger.boundingBox())!.width;
+  const heldClick = async () => {
+    await page.mouse.down();
+    await expect.poll(async () => (await trigger.boundingBox())!.width).toBeLessThan(width * 0.98);
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+  };
+  await trigger.hover();
+  await heldClick();
+  await expect(popup).toBeVisible();
+  await page.waitForTimeout(400);
+  await heldClick();
+  await expect(popup).toHaveCount(0);
+  expect(await page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen])).toHaveLength(1);
+});
+
 test.describe('plucked underline', () => {
   const durations = (page: import('@playwright/test').Page) =>
     page.locator('[data-stage] [data-pluck]').evaluateAll((links) =>
@@ -3312,5 +3348,689 @@ test.describe('tick rail: clicks, intent and the current tick', () => {
       );
       expect(Math.abs(gap)).toBeLessThan(2);
     });
+  });
+});
+
+test.describe('aligned select', () => {
+  type Scope = import('@playwright/test').Page;
+  const ZONE = 0;
+  const THEME = 3;
+  const field = (page: Scope, index: number) => page.locator('[data-stage] aligned-select').nth(index);
+  const trigger = (page: Scope, index: number) => field(page, index).getByRole('combobox');
+  const menu = (page: Scope, index: number) => field(page, index).locator('[data-menu]');
+  const options = (page: Scope, index: number) => field(page, index).getByRole('option');
+  const expanded = (page: Scope, index: number) => expect(trigger(page, index)).toHaveAttribute('aria-expanded', 'true');
+  const closed = (page: Scope, index: number) => expect(trigger(page, index)).toHaveAttribute('aria-expanded', 'false');
+
+  // The menu is placed in window pixels, so the trigger goes to the middle of the window, clear of both edges.
+  const open = async (page: Scope, index: number) => {
+    await page.goto('/aligned-select/');
+    await page.waitForFunction(() => customElements.get('aligned-select'));
+    await trigger(page, index).evaluate((el) => new Promise<void>((resolve) => {
+      el.scrollIntoView({ block: 'center', behavior: 'instant' });
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+  };
+  const center = async (locator: import('@playwright/test').Locator) => {
+    const box = (await locator.boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  // How far the selected option's label sits from the trigger's value, on each axis.
+  const misalignment = (page: Scope, index: number) => field(page, index).evaluate((el) => {
+    const value = el.querySelector('[data-display]')!.getBoundingClientRect();
+    const label = el.querySelector('[aria-selected="true"] [data-label]')!.getBoundingClientRect();
+    return {
+      y: Math.abs(value.top + value.height / 2 - (label.top + label.height / 2)),
+      start: Math.abs(getComputedStyle(el).direction === 'rtl' ? value.right - label.right : value.left - label.left),
+    };
+  });
+  const selectedText = async (page: Scope, index: number) => (await field(page, index).locator('[aria-selected="true"]').textContent())!.trim();
+  // Counts the change events that reach the document.
+  const watchChanges = (page: Scope) => page.evaluate(() => {
+    const seen: [string, boolean][] = [];
+    (window as unknown as { seen: typeof seen }).seen = seen;
+    document.addEventListener('change', (event) => seen.push([(event.target as Element).localName, event.bubbles]));
+  });
+  const changes = (page: Scope) => page.evaluate(() => (window as unknown as { seen: [string, boolean][] }).seen);
+
+  test('a click opens the menu on the value and leaves it open', async ({ page }) => {
+    await open(page, THEME);
+    await trigger(page, THEME).click();
+    await expanded(page, THEME);
+    await expect(menu(page, THEME)).toBeVisible();
+    for (const axis of Object.values(await misalignment(page, THEME))) expect(axis).toBeLessThanOrEqual(0.5);
+    // The release of the opening press lands on the current option and must not pick it.
+    await page.waitForTimeout(300);
+    await expanded(page, THEME);
+
+    for (const index of [1, 2]) {
+      await open(page, index);
+      await trigger(page, index).click();
+      await expanded(page, index);
+      for (const axis of Object.values(await misalignment(page, index))) expect(axis).toBeLessThanOrEqual(0.5);
+    }
+  });
+
+  test('press, drag past 10px and release picks the option, closes, and fires one bubbling change', async ({ page }) => {
+    await open(page, THEME);
+    await watchChanges(page);
+    const start = await center(trigger(page, THEME));
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await expanded(page, THEME);
+    const dark = await center(options(page, THEME).nth(2));
+    await page.mouse.move(dark.x, dark.y, { steps: 6 });
+    await page.mouse.up();
+    await closed(page, THEME);
+    await expect(trigger(page, THEME)).toHaveText('Dark');
+    expect(await selectedText(page, THEME)).toBe('Dark');
+    expect(await changes(page)).toEqual([['aligned-select', true]]);
+  });
+
+  test('a release under 10px picks nothing, and one dragged out of the menu closes it', async ({ page }) => {
+    await open(page, THEME);
+    await watchChanges(page);
+    const start = await center(trigger(page, THEME));
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 3, start.y + 4, { steps: 3 });
+    await page.mouse.up();
+    await expanded(page, THEME);
+    await expect(trigger(page, THEME)).toHaveText('Light');
+
+    // Nine pixels down is still inside the slop.
+    await page.keyboard.press('Escape');
+    await closed(page, THEME);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 9, { steps: 3 });
+    await page.mouse.up();
+    await expanded(page, THEME);
+    await expect(trigger(page, THEME)).toHaveText('Light');
+    await page.keyboard.press('Escape');
+    await closed(page, THEME);
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x - 300, start.y + 20, { steps: 8 });
+    await page.mouse.up();
+    await closed(page, THEME);
+    await expect(trigger(page, THEME)).toHaveText('Light');
+    expect(await changes(page)).toEqual([]);
+  });
+
+  test('a mouse press outside closes the menu', async ({ page }) => {
+    await open(page, THEME);
+    await trigger(page, THEME).click();
+    await expanded(page, THEME);
+    const outside = await center(page.locator('[data-stage] li').first().locator('span').first());
+    await page.mouse.move(outside.x, outside.y);
+    await page.mouse.down();
+    await closed(page, THEME);
+    await page.mouse.up();
+    await expect(menu(page, THEME)).toBeHidden();
+  });
+
+  test('a long list is cut 8px from the window edge and scrolled so the current option stays on the trigger', async ({ page }) => {
+    await open(page, ZONE);
+    await trigger(page, ZONE).click();
+    await expanded(page, ZONE);
+    const state = await field(page, ZONE).evaluate((el) => {
+      const shell = el.querySelector('[data-menu]')!.getBoundingClientRect();
+      const list = el.querySelector<HTMLElement>('[data-list]')!;
+      return {
+        top: shell.top,
+        bottom: document.documentElement.clientHeight - shell.bottom,
+        scrolled: list.scrollTop,
+        up: getComputedStyle(el.querySelector('[data-arrow="up"]')!).opacity,
+        hasUp: el.querySelector('[data-menu]')!.hasAttribute('data-up'),
+      };
+    });
+    expect(Math.abs(state.top - 8)).toBeLessThanOrEqual(0.5);
+    expect(state.bottom).toBeGreaterThanOrEqual(7.5);
+    expect(state.scrolled).toBeGreaterThan(100);
+    expect(state.hasUp).toBe(true);
+    expect(state.up).toBe('1');
+    expect(await selectedText(page, ZONE)).toBe('Tokyo');
+    const { y, start } = await misalignment(page, ZONE);
+    expect(y).toBeLessThanOrEqual(1);
+    expect(start).toBeLessThanOrEqual(0.5);
+  });
+
+  test('scrolling the list keeps the menu open, and scrolling the page closes it', async ({ page }) => {
+    await open(page, ZONE);
+    await trigger(page, ZONE).focus();
+    await page.keyboard.press('ArrowDown');
+    await expanded(page, ZONE);
+    await field(page, ZONE).locator('[data-list]').evaluate((list) => list.scrollBy(0, -60));
+    await page.waitForTimeout(100);
+    await expanded(page, ZONE);
+    await page.evaluate(() => scrollBy({ top: 40, behavior: 'instant' }));
+    await closed(page, ZONE);
+    await expect(menu(page, ZONE)).toBeHidden();
+  });
+
+  test('a trigger within 20px of the window edge opens below it', async ({ page }) => {
+    await open(page, THEME);
+    // Waits two frames, so the scroll event of the move has fired before the menu opens.
+    // The sticky header would cover the trigger from a pointer, so the keyboard opens it.
+    await trigger(page, THEME).evaluate((el) => new Promise<void>((resolve) => {
+      scrollBy({ top: el.getBoundingClientRect().top - 10, behavior: 'instant' });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.focus({ preventScroll: true });
+        resolve();
+      }));
+    }));
+    expect((await trigger(page, THEME).boundingBox())!.y).toBeLessThan(20);
+    await page.keyboard.press('ArrowDown');
+    await expanded(page, THEME);
+    const { below } = await field(page, THEME).evaluate((el) => ({
+      below: el.querySelector('[data-menu]')!.getBoundingClientRect().top - el.querySelector('[data-trigger]')!.getBoundingClientRect().bottom,
+    }));
+    expect(below).toBeGreaterThanOrEqual(0);
+    expect(below).toBeLessThan(12);
+  });
+
+  test('the keyboard opens without animation, moves the highlight, and keeps focus on the trigger', async ({ page }) => {
+    await open(page, ZONE);
+    const box = trigger(page, ZONE);
+    const active = async () => (await field(page, ZONE).locator('[data-highlighted]').textContent())!.trim();
+    await watchChanges(page);
+    await box.focus();
+    await page.keyboard.press('ArrowDown');
+    await expanded(page, ZONE);
+    expect(await menu(page, ZONE).evaluate((el) => el.getAnimations().length)).toBe(0);
+    await expect(box).toHaveAttribute('aria-activedescendant', (await options(page, ZONE).nth(24).getAttribute('id'))!);
+    expect(await active()).toBe('Tokyo');
+
+    await page.keyboard.press('ArrowDown');
+    expect(await active()).toBe('Toronto');
+    await page.keyboard.press('ArrowDown');
+    expect(await active()).toBe('Toronto');
+    await page.keyboard.press('ArrowUp');
+    expect(await active()).toBe('Tokyo');
+    await page.keyboard.press('Home');
+    expect(await active()).toBe('Auckland');
+    // The list scrolls to the highlight, and the arrow shows there is more below.
+    await expect(menu(page, ZONE)).not.toHaveAttribute('data-up');
+    await page.keyboard.press('PageDown');
+    expect(await active()).toBe('Johannesburg');
+    await page.keyboard.press('PageDown');
+    expect(await active()).toBe('Paris');
+    await page.keyboard.press('PageUp');
+    expect(await active()).toBe('Johannesburg');
+    await page.keyboard.press('End');
+    expect(await active()).toBe('Toronto');
+    await expect(box).toHaveAttribute('aria-activedescendant', (await options(page, ZONE).nth(25).getAttribute('id'))!);
+    await expect(box).toBeFocused();
+    // The highlighted option is inside the menu, clear of its scroll arrows.
+    const clear = await field(page, ZONE).evaluate((el) => {
+      const shell = el.querySelector('[data-menu]')!.getBoundingClientRect();
+      const row = el.querySelector('[data-highlighted]')!.getBoundingClientRect();
+      return row.top >= shell.top && row.bottom <= shell.bottom;
+    });
+    expect(clear).toBe(true);
+
+    await page.keyboard.press('Enter');
+    await closed(page, ZONE);
+    await expect(box).toHaveText('Toronto');
+    await expect(box).toBeFocused();
+    expect(await changes(page)).toEqual([['aligned-select', true]]);
+  });
+
+  test('Escape and Tab close the menu without picking, and focus never leaves the trigger', async ({ page }) => {
+    await open(page, THEME);
+    await watchChanges(page);
+    const box = trigger(page, THEME);
+    await box.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect(field(page, THEME).locator('[data-highlighted]')).toHaveText('Dark');
+    await expect(box).toBeFocused();
+    await page.keyboard.press('Escape');
+    await closed(page, THEME);
+    await expect(box).toBeFocused();
+    await expect(box).toHaveText('Light');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowUp');
+    await expanded(page, THEME);
+    await page.keyboard.press('Tab');
+    await closed(page, THEME);
+    await expect(box).not.toBeFocused();
+    await expect(box).toHaveText('Light');
+    expect(await selectedText(page, THEME)).toBe('Light');
+    expect(await changes(page)).toEqual([]);
+  });
+
+  test('typing on the closed trigger changes the value, cycles on the same letter, and resets after a second', async ({ page }) => {
+    await open(page, ZONE);
+    const box = trigger(page, ZONE);
+    await watchChanges(page);
+    await box.focus();
+    await expect(box).toHaveText('Tokyo');
+    await page.keyboard.press('l');
+    await expect(box).toHaveText('Lagos');
+    expect(await selectedText(page, ZONE)).toBe('Lagos');
+    await closed(page, ZONE);
+    await page.keyboard.press('l');
+    await expect(box).toHaveText('Lima');
+    await page.keyboard.press('l');
+    await expect(box).toHaveText('Lisbon');
+    // "li" typed together is one search; the same letter alone cycled above.
+    await page.waitForTimeout(1100);
+    await page.keyboard.press('l');
+    await page.keyboard.press('o');
+    await expect(box).toHaveText('London');
+    await page.waitForTimeout(1100);
+    // The search has reset: "i" is a new search, not "loi".
+    await page.keyboard.press('i');
+    await expect(box).toHaveText('Istanbul');
+    expect((await changes(page)).length).toBe(5);
+  });
+
+  test('typing inside the open menu moves the highlight and Enter picks it', async ({ page }) => {
+    await open(page, ZONE);
+    const box = trigger(page, ZONE);
+    await box.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('s');
+    await expect(field(page, ZONE).locator('[data-highlighted]')).toHaveText('São Paulo');
+    await page.keyboard.press('Enter');
+    await expect(box).toHaveText('São Paulo');
+    await closed(page, ZONE);
+  });
+
+  test('with reduced motion the end state is the same and the only animation is a 70ms fade', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, THEME);
+    // Read in the press's own task, after the element's handler: the fade is over within a few frames.
+    await page.evaluate(() => addEventListener('pointerdown', () => {
+      const [fade] = document.querySelectorAll('[data-menu]')[3].getAnimations();
+      document.documentElement.dataset.fade = JSON.stringify(fade && {
+        properties: Object.keys(fade.effect!.getKeyframes()[0]).filter((key) => !['offset', 'easing', 'composite', 'computedOffset'].includes(key)),
+        duration: fade.effect!.getTiming().duration,
+      });
+    }, { once: true }));
+    await trigger(page, THEME).click();
+    await expanded(page, THEME);
+    expect(await page.evaluate(() => document.documentElement.dataset.fade)).toBe(JSON.stringify({ properties: ['opacity'], duration: 70 }));
+    for (const axis of Object.values(await misalignment(page, THEME))) expect(axis).toBeLessThanOrEqual(0.5);
+    await options(page, THEME).nth(2).click();
+    await closed(page, THEME);
+    await expect(trigger(page, THEME)).toHaveText('Dark');
+  });
+
+  test('a press on an option of an open menu, dragged to another and released, picks that one', async ({ page }) => {
+    await open(page, THEME);
+    await watchChanges(page);
+    await trigger(page, THEME).click();
+    await expanded(page, THEME);
+    await page.waitForTimeout(100);
+    const from = await center(options(page, THEME).nth(0));
+    const to = await center(options(page, THEME).nth(2));
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 5 });
+    await page.mouse.up();
+    await closed(page, THEME);
+    await expect(trigger(page, THEME)).toHaveText('Dark');
+    expect(await changes(page)).toEqual([['aligned-select', true]]);
+  });
+
+  test('a very long label keeps the menu inside a 320px window and ends in an ellipsis', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await open(page, 1);
+    const long = 'Benachrichtigungen vollständig deaktivieren und nie wieder anzeigen, auch nicht am Wochenende';
+    await field(page, 1).evaluate((el, text) => {
+      const option = el.querySelector<HTMLElement>('[aria-selected="true"]')!;
+      option.dataset.value = text;
+      option.querySelector('[data-label]')!.textContent = text;
+      el.querySelector('[data-display]')!.textContent = text;
+    }, long);
+    await trigger(page, 1).click();
+    await expanded(page, 1);
+    const state = await field(page, 1).evaluate((el) => {
+      const shell = el.querySelector('[data-menu]')!.getBoundingClientRect();
+      const label = el.querySelector<HTMLElement>('[aria-selected="true"] [data-label]')!;
+      return {
+        left: shell.left,
+        right: document.documentElement.clientWidth - shell.right,
+        ellipsis: getComputedStyle(label).textOverflow,
+        cut: label.scrollWidth > label.clientWidth,
+      };
+    });
+    expect(state.left).toBeGreaterThanOrEqual(7.5);
+    expect(state.right).toBeGreaterThanOrEqual(7.5);
+    expect(state.ellipsis).toBe('ellipsis');
+    expect(state.cut).toBe(true);
+  });
+
+  test('holding Enter on the closed trigger opens once, and does not pick or close', async ({ page }) => {
+    await open(page, THEME);
+    await watchChanges(page);
+    await trigger(page, THEME).focus();
+    for (let i = 0; i < 4; i++) await page.keyboard.down('Enter');
+    await page.keyboard.up('Enter');
+    await expanded(page, THEME);
+    await expect(trigger(page, THEME)).toHaveText('Light');
+    expect(await changes(page)).toEqual([]);
+  });
+
+  test('Space in the middle of a typeahead search joins it instead of opening, and opens once the search is over', async ({ page }) => {
+    await open(page, ZONE);
+    const box = trigger(page, ZONE);
+    await box.focus();
+    for (const key of ['l', 'o', 's', ' ', 'a']) await page.keyboard.press(key);
+    await expect(box).toHaveText('Los Angeles');
+    await closed(page, ZONE);
+    await page.waitForTimeout(1100);
+    await page.keyboard.press(' ');
+    await expanded(page, ZONE);
+  });
+
+  test('Escape closes one layer: a document listener never sees it', async ({ page }) => {
+    await open(page, THEME);
+    await page.evaluate(() => {
+      const keys: string[] = [];
+      (window as unknown as { keys: string[] }).keys = keys;
+      document.addEventListener('keydown', (event) => keys.push(event.key));
+    });
+    await trigger(page, THEME).focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Escape');
+    await closed(page, THEME);
+    expect(await page.evaluate(() => (window as unknown as { keys: string[] }).keys)).toEqual(['ArrowDown']);
+  });
+
+  test('another scroller keeps the menu open, and the page scroll still closes it', async ({ page }) => {
+    await open(page, THEME);
+    await page.evaluate(() => {
+      const scroller = document.createElement('div');
+      scroller.id = 'unrelated';
+      scroller.style.cssText = 'position:fixed;left:0;bottom:0;width:80px;height:40px;overflow:auto';
+      scroller.innerHTML = '<div style="height:400px"></div>';
+      document.body.append(scroller);
+    });
+    await trigger(page, THEME).focus();
+    await page.keyboard.press('ArrowDown');
+    await expanded(page, THEME);
+    await page.locator('#unrelated').evaluate((el) => (el.scrollTop = 50));
+    await page.waitForTimeout(200);
+    expect(await page.locator('#unrelated').evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expanded(page, THEME);
+    await page.evaluate(() => scrollBy({ top: 40, behavior: 'instant' }));
+    await closed(page, THEME);
+  });
+
+  test('a scroll arrow that appears under an idle pointer does not start scrolling, a moving pointer does', async ({ page }) => {
+    await open(page, ZONE);
+    const box = (await trigger(page, ZONE).boundingBox())!;
+    // The aligned menu of a long list is cut at 8px, so its up arrow sits at the top of the window.
+    await page.mouse.move(box.x + box.width / 2, 17);
+    await trigger(page, ZONE).evaluate((el) => el.focus({ preventScroll: true }));
+    await page.keyboard.press('ArrowDown');
+    await expanded(page, ZONE);
+    const list = field(page, ZONE).locator('[data-list]');
+    await expect(menu(page, ZONE)).toHaveAttribute('data-up', '');
+    const before = await list.evaluate((el) => el.scrollTop);
+    await page.waitForTimeout(400);
+    expect(await list.evaluate((el) => el.scrollTop)).toBe(before);
+    await page.mouse.move(box.x + box.width / 2 + 3, 17, { steps: 3 });
+    await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBeLessThan(before);
+  });
+
+  test('focusing a trigger that is out of view scrolls it in and the menu opened at once stays open', async ({ page }) => {
+    await open(page, THEME);
+    await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+    await trigger(page, THEME).evaluate((el) => new Promise<void>((resolve) => {
+      // focus() scrolls the trigger into view; its scroll event arrives a frame after the menu opened.
+      el.focus();
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    await expanded(page, THEME);
+    await page.waitForTimeout(200);
+    await expanded(page, THEME);
+  });
+
+  test('the keyboard highlight gets a 2px ring, the mouse highlight does not', async ({ page }) => {
+    await open(page, THEME);
+    const box = trigger(page, THEME);
+    await box.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    const highlighted = field(page, THEME).locator('[data-highlighted]');
+    await expect(highlighted).toHaveText('Dark');
+    await expect(menu(page, THEME)).toHaveAttribute('data-keyed', '');
+    await expect(highlighted).toHaveCSS('outline-width', '2px');
+    await expect(highlighted).toHaveCSS('outline-style', 'solid');
+
+    const target = await center(options(page, THEME).nth(0));
+    await page.mouse.move(target.x - 5, target.y, { steps: 2 });
+    await page.mouse.move(target.x, target.y, { steps: 2 });
+    await expect(highlighted).toHaveText('System');
+    await expect(menu(page, THEME)).not.toHaveAttribute('data-keyed');
+    await expect(highlighted).not.toHaveCSS('outline-style', 'solid');
+  });
+
+  // A copy of a demo select inside a form (and a fieldset), under its own name, so the form behavior is tested on
+  // markup the page already styles. `setup` runs on the copy before it connects.
+  const inForm = async (page: Scope, source: number, name: string, setup = '') => {
+    await page.goto('/aligned-select/');
+    await page.waitForFunction(() => customElements.get('aligned-select'));
+    await page.evaluate(([source, name, setup]) => {
+      const copy = document.querySelectorAll('[data-stage] aligned-select')[Number(source)].cloneNode(true) as HTMLElement;
+      copy.querySelector(':scope > input')?.remove();
+      copy.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+      copy.setAttribute('name', String(name));
+      new Function('copy', String(setup))(copy);
+      const form = document.createElement('form');
+      form.id = 'form';
+      const fieldset = document.createElement('fieldset');
+      fieldset.id = 'fieldset';
+      fieldset.style.cssText = 'border:0;padding:0;margin:0';
+      fieldset.append(copy);
+      form.append(fieldset);
+      document.body.append(form);
+      const log: string[] = [];
+      (window as unknown as { log: string[] }).log = log;
+      form.addEventListener('input', (event) => log.push(`input:${event.bubbles}:${event.composed}`));
+      form.addEventListener('change', () => log.push('change'));
+    }, [source, name, setup]);
+    // On screen before any focus, whose scroll would close a menu opened at once.
+    await page.locator('#form [data-trigger]').evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+    await page.waitForTimeout(100);
+    return page.locator('#form aligned-select');
+  };
+  const submitted = (page: Scope, name: string) => page.evaluate((name) => new FormData(document.querySelector<HTMLFormElement>('#form')!).get(name), name);
+  const eventLog = (page: Scope) => page.evaluate(() => (window as unknown as { log: string[] }).log);
+
+  test('in a form, a pick is submitted, input then change fire once, and a reset restores the first value silently', async ({ page }) => {
+    const select = await inForm(page, THEME, 'theme');
+    const box = select.getByRole('combobox');
+    expect(await submitted(page, 'theme')).toBe('Light');
+    await box.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(box).toHaveText('Dark');
+    expect(await submitted(page, 'theme')).toBe('Dark');
+    expect(await eventLog(page)).toEqual(['input:true:true', 'change']);
+
+    // Picking the same option again reports nothing.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    expect(await eventLog(page)).toEqual(['input:true:true', 'change']);
+
+    // A cancelled reset changes nothing.
+    await page.evaluate(() => {
+      const stop = (event: Event) => event.preventDefault();
+      document.querySelector('#form')!.addEventListener('reset', stop, { once: true });
+      document.querySelector<HTMLFormElement>('#form')!.reset();
+    });
+    await page.waitForTimeout(100);
+    await expect(box).toHaveText('Dark');
+
+    // A reset closes an open menu and restores the value the element started with.
+    await page.keyboard.press('ArrowDown');
+    await expect(box).toHaveAttribute('aria-expanded', 'true');
+    await page.evaluate(() => document.querySelector<HTMLFormElement>('#form')!.reset());
+    await expect(box).toHaveAttribute('aria-expanded', 'false');
+    await expect(box).toHaveText('Light');
+    expect(await submitted(page, 'theme')).toBe('Light');
+    expect(await select.locator('[aria-selected="true"]').textContent()).toContain('Light');
+    expect(await eventLog(page)).toEqual(['input:true:true', 'change']);
+  });
+
+  test('a disabled trigger or fieldset does not open, leaves the value out of the form, and works again when enabled', async ({ page }) => {
+    const select = await inForm(page, THEME, 'theme');
+    const box = select.getByRole('combobox');
+    for (const target of ['trigger', 'fieldset'] as const) {
+      const set = (disabled: boolean) =>
+        page.evaluate(([target, disabled]) => {
+          const element = target === 'trigger' ? document.querySelector<HTMLButtonElement>('#form [data-trigger]')! : document.querySelector<HTMLFieldSetElement>('#fieldset')!;
+          element.disabled = Boolean(disabled);
+        }, [target, disabled] as const);
+      await set(true);
+      await expect.poll(() => submitted(page, 'theme')).toBeNull();
+      await box.scrollIntoViewIfNeeded();
+      const at = await center(box);
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down();
+      await page.mouse.up();
+      await expect(box).toHaveAttribute('aria-expanded', 'false');
+      await expect(select.locator('[data-menu]')).toBeHidden();
+
+      await set(false);
+      await expect.poll(() => submitted(page, 'theme')).toBe('Light');
+      await box.click();
+      await expect(box).toHaveAttribute('aria-expanded', 'true');
+      await page.keyboard.press('Escape');
+      await expect(box).toHaveAttribute('aria-expanded', 'false');
+    }
+  });
+
+  test('an open menu closes when its trigger is disabled', async ({ page }) => {
+    const select = await inForm(page, THEME, 'theme');
+    const box = select.getByRole('combobox');
+    await box.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(box).toHaveAttribute('aria-expanded', 'true');
+    await box.evaluate((el: HTMLButtonElement) => (el.disabled = true));
+    await expect(box).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('an option with a data-value shows its label, is found by its label, and submits its value', async ({ page }) => {
+    const select = await inForm(
+      page,
+      ZONE,
+      'zone',
+      `[...copy.querySelectorAll('[role="option"]')].find((o) => o.textContent.trim() === 'Lima').dataset.value = 'America/Lima';`,
+    );
+    const box = select.getByRole('combobox');
+    expect(await submitted(page, 'zone')).toBe('Tokyo');
+    await box.focus();
+    // "l" cycles through Lagos, then Lima.
+    await page.keyboard.press('l');
+    await page.keyboard.press('l');
+    await expect(box).toHaveText('Lima');
+    expect(await submitted(page, 'zone')).toBe('America/Lima');
+    expect(await select.evaluate((el) => (el as HTMLElement & { value: string }).value)).toBe('America/Lima');
+    expect(await eventLog(page)).toEqual(['input:true:true', 'change', 'input:true:true', 'change']);
+  });
+
+  test('moving the element keeps the picked value and its hidden input, and a reset still restores the first one', async ({ page }) => {
+    const select = await inForm(page, THEME, 'theme');
+    const box = select.getByRole('combobox');
+    await box.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(box).toHaveText('Dark');
+
+    await page.evaluate(() => {
+      const element = document.querySelector('#form aligned-select')!;
+      element.remove();
+      document.querySelector('#fieldset')!.append(element);
+    });
+    await expect(box).toHaveText('Dark');
+    expect(await submitted(page, 'theme')).toBe('Dark');
+    expect(await select.locator(':scope > input[type="hidden"]').count()).toBe(1);
+    expect(await select.evaluate((el) => (el as HTMLElement & { value: string }).value)).toBe('Dark');
+
+    await page.evaluate(() => document.querySelector<HTMLFormElement>('#form')!.reset());
+    await expect(box).toHaveText('Light');
+    expect(await submitted(page, 'theme')).toBe('Light');
+  });
+
+  test('right to left, the labels still start where the value does', async ({ page }) => {
+    await open(page, THEME);
+    await page.evaluate(() => (document.documentElement.dir = 'rtl'));
+    for (const index of [THEME, ZONE]) {
+      await trigger(page, index).evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+      await page.waitForTimeout(100);
+      await trigger(page, index).click();
+      await expanded(page, index);
+      const { y, start } = await misalignment(page, index);
+      expect(y).toBeLessThanOrEqual(1);
+      expect(start).toBeLessThanOrEqual(0.5);
+      await page.keyboard.press('Escape');
+      await closed(page, index);
+    }
+  });
+
+  test('the Tailwind version shares the script and its hooks', async ({ page }) => {
+    await page.goto('/aligned-select/');
+    const code: Record<string, Record<string, string>> = {};
+    for (const format of ['css', 'tailwind']) {
+      await page.locator(`[data-source-format][value="${format}"]`).check();
+      const variant = page.locator(`[data-source-variant="${format}"]`);
+      code[format] = {};
+      for (const language of ['HTML', 'JavaScript']) {
+        await variant.getByRole('tab', { name: language, exact: true }).click();
+        code[format][language] = (await variant.getByRole('tabpanel', { name: language, exact: true }).locator('code').textContent())!;
+      }
+    }
+    expect(code.tailwind.JavaScript).toBe(code.css.JavaScript);
+    for (const hook of ['data-trigger', 'data-display', 'data-menu', 'data-list', 'data-label', 'data-arrow']) {
+      expect(code.tailwind.HTML).toContain(hook);
+    }
+  });
+});
+
+test.describe('aligned select on touch', () => {
+  test.use({ hasTouch: true });
+
+  test('a tap opens the menu below the trigger, a tap on an option picks it, and a tap outside closes', async ({ page }) => {
+    await page.goto('/aligned-select/');
+    await page.waitForFunction(() => customElements.get('aligned-select'));
+    const select = page.locator('[data-stage] aligned-select').nth(3);
+    const box = select.getByRole('combobox');
+    await box.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+    await page.waitForTimeout(100);
+    await page.evaluate(() => {
+      const taps: string[] = [];
+      (window as unknown as { taps: string[] }).taps = taps;
+      addEventListener('pointerdown', (event) => taps.push(event.pointerType), { capture: true });
+    });
+
+    await box.tap();
+    await expect(box).toHaveAttribute('aria-expanded', 'true');
+    const gap = await select.evaluate((el) => el.querySelector('[data-menu]')!.getBoundingClientRect().top - el.querySelector('[data-trigger]')!.getBoundingClientRect().bottom);
+    expect(gap).toBeGreaterThanOrEqual(0);
+    expect(gap).toBeLessThan(12);
+
+    await select.getByRole('option', { name: 'Dark' }).tap();
+    await expect(box).toHaveAttribute('aria-expanded', 'false');
+    await expect(box).toHaveText('Dark');
+
+    await box.tap();
+    await expect(box).toHaveAttribute('aria-expanded', 'true');
+    // A visible row label, so the page doesn't scroll, which would close the menu by itself.
+    await page.locator('[data-stage] li').first().locator('span').first().tap();
+    await expect(box).toHaveAttribute('aria-expanded', 'false');
+    await expect(box).toHaveText('Dark');
+    expect(await page.evaluate(() => (window as unknown as { taps: string[] }).taps.every((type) => type === 'touch'))).toBe(true);
   });
 });

@@ -174,7 +174,7 @@ test('collection and hold summaries describe the behavior without JavaScript', a
 
 test('content routes expose valid social images', async ({ page, request }) => {
   const covers: Record<string, string> = { '/': '/social-preview.png' };
-  for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator', 'worm-dots', 'drag-reorder', 'faq-panel', 'tick-rail']) covers[`/${id}/`] = `/social/${id}.png`;
+  for (const id of ['text-swap', 'chevron-morph', 'hold-confirm', 'edge-aware-tooltip', 'plucked-underline', 'gooey-radio-group', 'drag-select', 'resize-handle', 'tab-indicator', 'worm-dots', 'drag-reorder', 'faq-panel', 'tick-rail', 'aligned-select']) covers[`/${id}/`] = `/social/${id}.png`;
   for (const [path, cover] of Object.entries(covers)) {
     await page.goto(path);
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://microinteractions.dev${cover}`);
@@ -228,7 +228,7 @@ test('RSS feed lists every study and is discoverable', async ({ page, request })
   expect(feed.status()).toBe(200);
   expect(feed.headers()['content-type']).toContain('application/rss+xml');
   const body = await feed.text();
-  expect(body.match(/<item>/g)).toHaveLength(13);
+  expect(body.match(/<item>/g)).toHaveLength(14);
   expect(body).toContain('<link>https://microinteractions.dev/resize-handle/</link>');
   await page.goto('/text-swap/');
   await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/rss.xml');
@@ -283,7 +283,7 @@ test('shadcn registry serves the index and installable items', async ({ request 
   const item = await (await request.get('/r/text-swap.json')).json();
   expect(item.registryDependencies).toEqual(['utils']);
   expect(item.files[0].content).toContain('export function TextSwapButton');
-  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots'], ['drag-reorder', 'drag-reorder'], ['faq-panel', 'faq-panel'], ['tick-rail', 'tick-rail']]) {
+  for (const [name, tag] of [['hold-confirm', 'hold-to-confirm'], ['edge-aware-tooltip', 'edge-aware-tooltip'], ['gooey-radio-group', 'gooey-radio-group'], ['plucked-underline', 'plucked-underline'], ['drag-select', 'drag-select-table'], ['resize-handle', 'resizable-sidebar'], ['tab-indicator', 'tab-indicator'], ['worm-dots', 'worm-dots'], ['drag-reorder', 'drag-reorder'], ['faq-panel', 'faq-panel'], ['tick-rail', 'tick-rail'], ['aligned-select', 'aligned-select']]) {
     const element = await (await request.get(`/r/${name}.json`)).json();
     expect(element.files.map((file: { path: string }) => file.path)).toEqual([`registry/${name}.tsx`, `registry/${name}-element.ts`]);
     expect(element.files[0].content).toContain(`<${tag}`);
@@ -339,4 +339,24 @@ test('WebMCP tools list, read, and open studies', async ({ page }) => {
   await expect(call('get_study', { id: 'nope' })).rejects.toThrow('Unknown study');
   await call('open_study', { id: 'text-swap' });
   await expect(page).toHaveURL(/\/text-swap\/$/);
+});
+
+test('every CodePen export carries plain HTML, not template source', async ({ page }) => {
+  // One page load per study.
+  test.setTimeout(60_000);
+  let forms = 0;
+  for (const { id } of specimens) {
+    await page.goto(`/${id}/`);
+    const payloads = await page.locator('form[action="https://codepen.io/cpe/pen/define"] input[name="data"]').evaluateAll((inputs: HTMLInputElement[]) => inputs.map((input) => input.value));
+    expect(payloads.length, `${id} has an export`).toBeGreaterThan(0);
+    for (const value of payloads) {
+      const { html } = JSON.parse(value) as { html: string };
+      forms++;
+      // An Astro loop or frontmatter left in the source would not render on CodePen.
+      expect(html, id).not.toMatch(/^\s*---/);
+      expect(html, id).not.toContain('.map(');
+      expect(html, id).not.toContain('={');
+    }
+  }
+  expect(forms).toBeGreaterThan(0);
 });
