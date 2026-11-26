@@ -47,9 +47,9 @@ On every `input` event, JavaScript turns the value into a number from 0 to 1. CS
 
 The label, arrow, and fill have no transition, because any easing would leave the label trailing the thumb. `transition-property: none` keeps it that way when global styles add a duration. Reduced motion needs no fallback since nothing is timed.
 
-At 0 and 100 the native range stops dead while the pointer keeps going. Stretching the track past the end, the way a rubber band gives, would soften that stop, but it would add motion to a control whose point is that nothing trails the pointer. This study leaves it out.
+At 0 and 100 the native range stops dead while the pointer keeps going. Stretching the track past the end, the way [Resize handle](/resize-handle/) gives before it collapses, would soften that stop, but it would add motion to a control whose point is that nothing trails the pointer. This study leaves it out.
 
-The native range input handles the keyboard, including Home and End. `aria-valuetext` gives screen readers the value with its unit, and the visual label stays hidden so the value isn't announced twice. The input is 44px high, and `touch-action: pan-y` lets people scroll the page vertically over it.
+The native range input handles the keyboard, including Home and End, as native radios do in [Gooey radio group](/gooey-radio-group/). `aria-valuetext` gives screen readers the value with its unit, and the visual label stays hidden so the value isn't announced twice. The input is 44px high, and `touch-action: pan-y` lets people scroll the page vertically over it.
 
 ## Different values and units
 

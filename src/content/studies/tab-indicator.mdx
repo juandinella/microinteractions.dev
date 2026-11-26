@@ -53,7 +53,7 @@ prompt:
 
 ## One line, one transform
 
-There is a single line at the bottom of the list. When a tab is chosen, the script measures the tab with `getBoundingClientRect()` and writes its position and width into one transform: `translateX()` to get there and `scaleX()` to match its width. A CSS transition takes it there in 250ms.
+There is a single line at the bottom of the list. When a tab is chosen, the script measures the tab with `getBoundingClientRect()` and writes its position and width into one transform: `translateX()` to get there and `scaleX()` to match its width. A CSS transition takes it there in 250ms. In [Worm dots](/worm-dots/) the indicator has no clock and follows the scroll instead.
 
 A transition can be interrupted. Choose another tab before the line arrives and it turns from where it is, without jumping back to either end. It keeps the position but not the speed, so after the turn it starts again from the fast start of the curve.
 
