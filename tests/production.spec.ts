@@ -262,6 +262,32 @@ test('structured data dates studies and lists the collection', async ({ page }) 
   expect(article.image).toBe('https://microinteractions.dev/social/hold-confirm.png');
 });
 
+test('a study\'s changes reach its page, Markdown, install notes, structured data and sitemap', async ({ page, request }) => {
+  const graph = async () => JSON.parse(await page.locator('script[type="application/ld+json"]').textContent() ?? '{}')['@graph'];
+  const article = async () => (await graph()).find((node: { '@type': string }) => node['@type'] === 'Article');
+  const changed = specimens.find((specimen) => specimen.changes?.length)!;
+  const [latest] = changed.changes!;
+
+  await page.goto(`/${changed.id}/`);
+  const changes = page.locator('section.changes');
+  await expect(changes.getByRole('heading', { name: 'Changes' })).toBeVisible();
+  await expect(changes.locator('li')).toHaveCount(changed.changes!.length);
+  await expect(changes.locator('li').first().locator('time')).toHaveAttribute('datetime', latest.date);
+  await expect(changes.locator('li').first()).toContainText(latest.note);
+  expect((await article()).dateModified).toBe(latest.date);
+  await expect(page.locator('meta[property="article:modified_time"]')).toHaveAttribute('content', latest.date);
+
+  expect(await (await request.get(`/markdown/${changed.id}.md`)).text()).toContain(`## Changes\n\n- ${latest.date} — ${latest.note}`);
+  expect((await (await request.get(`/r/${changed.id}.json`)).json()).docs).toContain(`Latest change, ${latest.date}: ${latest.note}`);
+  expect(await (await request.get('/sitemap-0.xml')).text()).toContain(`<loc>https://microinteractions.dev/${changed.id}/</loc><lastmod>${latest.date}`);
+
+  // A study without changes shows no block and claims no modified date.
+  const unchanged = specimens.find((specimen) => !specimen.changes)!;
+  await page.goto(`/${unchanged.id}/`);
+  await expect(page.locator('section.changes')).toHaveCount(0);
+  expect((await article()).dateModified).toBeUndefined();
+});
+
 test('RSS feed lists every study and is discoverable', async ({ page, request }) => {
   const feed = await request.get('/rss.xml');
   expect(feed.status()).toBe(200);

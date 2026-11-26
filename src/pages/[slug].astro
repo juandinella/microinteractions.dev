@@ -45,7 +45,7 @@ const { observe, references } = study.data;
 const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : undefined;
 ---
 
-<BaseLayout title={`${specimen.seoTitle} — Microinteractions`} description={specimen.seoDescription} active={specimen.id} articleTitle={specimen.title} published={specimen.published} image={`/social/${specimen.id}.png`} imageAlt={socialImageAlt(specimen)} video={video}>
+<BaseLayout title={`${specimen.seoTitle} — Microinteractions`} description={specimen.seoDescription} active={specimen.id} articleTitle={specimen.title} published={specimen.published} modified={specimen.changes?.[0]?.date} image={`/social/${specimen.id}.png`} imageAlt={socialImageAlt(specimen)} video={video}>
   <article>
     <header class="study-header">
       <div class="breadcrumb">
@@ -80,6 +80,13 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
           <a href={reference.url} target="_blank" rel="noopener noreferrer"><span class="reference-title">{reference.title}</span> <span class="reference-arrow" aria-hidden="true">↗</span></a>
           {reference.author && <span class="reference-author">{reference.author}</span>}
         </li>)}
+      </ul>
+    </section>}
+
+    {specimen.changes && <section class="changes" aria-labelledby="changes">
+      <StudyHeading id="changes">Changes</StudyHeading>
+      <ul>
+        {specimen.changes.map((change) => <li><time datetime={change.date}>{change.date}</time><span>{change.note}</span></li>)}
       </ul>
     </section>}
 
@@ -236,6 +243,10 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
   .references a .reference-title { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; }
   .references a .reference-arrow { text-decoration: none; }
   .reference-author { color: var(--muted); font-size: 12px; }
+  .changes { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .changes ul { display: grid; gap: 8px; max-width: 65ch; margin: 16px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.5; }
+  .changes li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 16px; }
+  .changes time { color: var(--muted); font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
 
   .study-pagination {
     display: grid;

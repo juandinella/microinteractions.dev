@@ -53,6 +53,10 @@ export const registryItems = specimens.flatMap((specimen) => {
     ],
     ...(item.css ? { css: item.css } : {}),
     categories: [specimen.category],
-    docs: `Study: https://microinteractions.dev/${specimen.id}/`,
+    // The CLI prints this after an install, so someone updating sees what changed since the last one.
+    docs: [
+      `Study: https://microinteractions.dev/${specimen.id}/`,
+      ...(specimen.changes ? [`Latest change, ${specimen.changes[0].date}: ${specimen.changes[0].note}`] : []),
+    ].join('\n'),
   }];
 });

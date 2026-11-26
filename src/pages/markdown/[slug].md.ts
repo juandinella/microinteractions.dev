@@ -59,6 +59,7 @@ export const getStaticPaths = (async () => {
         ...(study.data.observe ? [`## What to observe\n\n${study.data.observe}`] : []),
         study.body.replace('<Implementation specimen={props.specimenId} />', () => implementation),
         ...(study.data.references.length ? ['## References', study.data.references.map((reference) => `- [${reference.title}](${reference.url})${reference.author ? ` — ${reference.author}` : ''}`).join('\n')] : []),
+        ...(specimen.changes ? ['## Changes', specimen.changes.map((change) => `- ${change.date} — ${change.note}`).join('\n')] : []),
       ].join('\n\n');
       return { params: { slug: specimen.id }, props: { markdown } };
     }),

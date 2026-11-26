@@ -80,10 +80,18 @@ export const planned: Record<Category, string[]> = {
   ],
 };
 
+// The day a study last changed for its readers: its latest change, or the day it went live.
+export const updated = (specimen: Pick<Specimen, 'published' | 'changes'>) => specimen.changes?.[0]?.date ?? specimen.published;
+
 export interface Specimen {
   id: SpecimenId;
   // The day the study went live, as YYYY-MM-DD.
   published: string;
+  // What changed for someone who already copied or installed the study: contract, behavior, accessibility,
+  // timing or props. Not refactors, wording or tests, which git already records. Newest first, dated
+  // YYYY-MM-DD. A note that concerns one version only starts with it ("React port:", "CSS:", "Tailwind:");
+  // the element script ships with every version, so its changes take no prefix.
+  changes?: { date: string; note: string }[];
   title: string;
   category: Category;
   summary: string;
@@ -242,6 +250,10 @@ export const specimens: Specimen[] = [
   {
     id: 'tab-indicator',
     published: '2026-10-22',
+    changes: [
+      { date: '2026-11-26', note: 'React port: takes a controlled value.' },
+      { date: '2026-11-26', note: "Setting the element's selectedIndex selects a tab from code, without animating; focus on a tab follows the selection." },
+    ],
     title: 'Tab indicator',
     category: 'Navigation',
     summary: 'Slide the underline to the chosen tab without moving the labels.',
@@ -330,6 +342,9 @@ export const specimens: Specimen[] = [
   {
     id: 'gooey-radio-group',
     published: '2026-10-06',
+    changes: [
+      { date: '2026-11-26', note: 'React port: takes disabled.' },
+    ],
     title: 'Gooey radio group',
     category: 'Toggles & choices',
     summary: 'Pour the selection from one option to the next.',
@@ -352,6 +367,10 @@ export const specimens: Specimen[] = [
   {
     id: 'aligned-select',
     published: '2026-11-25',
+    changes: [
+      { date: '2026-11-26', note: 'React port: takes a controlled value, and a form reset now calls onValueChange.' },
+      { date: '2026-11-26', note: "Setting the element's value selects that option from code, without a change event." },
+    ],
     title: 'Aligned select',
     category: 'Toggles & choices',
     summary: 'Open the menu with the current option on top of the trigger.',
@@ -382,6 +401,9 @@ export const specimens: Specimen[] = [
   {
     id: 'edge-aware-tooltip',
     published: '2026-09-29',
+    changes: [
+      { date: '2026-11-26', note: 'React port: takes name and disabled, and a form reset now calls onValueChange.' },
+    ],
     title: 'Edge-aware tooltip',
     category: 'Values',
     summary: "Keep a slider's value label inside its container.",
