@@ -19,6 +19,9 @@ type Tab = {
   content: React.ReactNode;
 };
 
+// React 18 warns about a layout effect during server rendering; React 19 skips it quietly.
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
+
 type TabIndicatorProps = {
   tabs: Tab[];
   // The selected tab, controlled: a click or an arrow key calls onValueChange, and the tab stays only once
@@ -92,7 +95,7 @@ export function TabIndicator({
   const values: string[] = JSON.parse(key);
   const shown = value === undefined ? selected : values.includes(value) ? value : values[0];
 
-  React.useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     controlled.current = value !== undefined;
     if (value === undefined || shown === undefined) return;
     selection.current = shown;

@@ -143,7 +143,7 @@ test('tabs follow clicks and arrow keys', async ({ app }) => {
   expect(await calls(app)).toEqual(['tab:"c"', 'tab:"b"']);
 });
 
-test('controlled tabs follow value at once, animate a click value takes, and go back from one it refuses', async ({ app }) => {
+test('controlled tabs follow value at once, animate a click value takes, and go back, focus too, from one it refuses', async ({ app }) => {
   const one = app.getByRole('tab', { name: 'View one' });
   const line = app.locator('tab-indicator', { has: one }).locator('[data-line]');
   // Clicks in the page and reads the line a frame later, after React has rendered the parent's answer.
@@ -168,7 +168,14 @@ test('controlled tabs follow value at once, animate a click value takes, and go 
   expect(await clickAndRead('View two')).toBe(0);
   await expect(one).toHaveAttribute('aria-selected', 'true');
   await expect(app.getByRole('tabpanel', { name: 'View one' })).toHaveText('View panel one');
-  expect(await calls(app)).toEqual(['view:"one"', 'view:"two"']);
+
+  // An arrow key moves focus with the selection; going back takes focus back too, so it never rests on a tab
+  // out of the tab order.
+  await one.focus();
+  await app.keyboard.press('ArrowRight');
+  await expect(one).toBeFocused();
+  await expect(one).toHaveAttribute('aria-selected', 'true');
+  expect(await calls(app)).toEqual(['view:"one"', 'view:"two"', 'view:"two"']);
 });
 
 test('a controlled select follows value, shows a pick only once value takes it, and reports a reset', async ({ app }) => {

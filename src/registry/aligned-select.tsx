@@ -39,6 +39,9 @@ type AlignedSelectProps = Omit<
 
 type SelectElement = HTMLElement & { value: string };
 
+// React 18 warns about a layout effect during server rendering; React 19 skips it quietly.
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
+
 // The element writes the selection itself (aria-selected, the trigger's text, a bubbling change event),
 // so the value React renders follows that event instead of racing it. The element reads its options
 // once, so a different list remounts it and keeps the value if it is still there.
@@ -104,9 +107,10 @@ export function AlignedSelect({
   const wanted = value ?? current;
   const selected = options.includes(wanted) ? wanted : options[0];
 
-  React.useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     controlled.current = value !== undefined;
     shown.current = selected;
+    if (value === undefined) return;
     const target = element.current;
     // React has already rendered aria-selected, so the getter can't tell; setting the same value is silent.
     // Before the element upgrades, the markup already shows selected; a value set then would hide its setter.
