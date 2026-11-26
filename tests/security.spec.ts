@@ -136,9 +136,9 @@ test('production reports page views and code actions to Umami within the CSP', a
 
   await page.locator('[data-source-format][value="tailwind"]').check();
   const variant = page.locator('[data-source-variant="tailwind"]');
-  await variant.getByRole('tab', { name: 'JavaScript', exact: true }).click();
-  await variant.getByRole('button', { name: 'Copy JavaScript' }).click();
-  await expect.poll(() => sent.at(-1)).toEqual({ name: 'copy_code', data: { study: 'hold-confirm', format: 'tailwind', file: 'js' } });
+  await variant.getByRole('tab', { name: 'CSS', exact: true }).click();
+  await variant.getByRole('button', { name: 'Copy CSS' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ name: 'copy_code', data: { study: 'hold-confirm', format: 'tailwind', file: 'css' } });
 
   const popup = page.waitForEvent('popup');
   await variant.getByRole('button', { name: 'Edit on CodePen (opens in a new tab)', exact: true }).click();
@@ -204,9 +204,9 @@ test('mobile navigation still opens and Escape returns focus', async ({ page }) 
   await page.goto('/hold-confirm/');
   const toggle = page.getByRole('button', { name: 'Studies', exact: true });
   await toggle.click();
-  await expect(page.locator('#mobile-index')).toBeVisible();
+  await expect(page.locator('#site-index')).toBeVisible();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Escape');
-  await expect(page.locator('#mobile-index')).toBeHidden();
+  await expect(page.locator('#site-index')).toBeHidden();
   await expect(toggle).toBeFocused();
 });

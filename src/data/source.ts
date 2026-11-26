@@ -1,7 +1,5 @@
 import tokens from '../styles/tokens.css?raw';
 
-export type ReducedMotion = 'instant' | 'component';
-
 export function dedent(source: string) {
   const lines = source.replace(/^\n|\s+$/g, '').split('\n');
   const indent = Math.min(
@@ -23,7 +21,7 @@ function scriptFiles(source: string) {
 export const tailwindSetupNote = (includeScript: boolean) =>
   `Paste the CSS tab into the stylesheet that imports Tailwind CSS v4.1 or later.${includeScript ? ' The JavaScript is the same as in the CSS version.' : ''}`;
 
-export function tailwindSourceFiles(source: string, scriptSource = '') {
+export function tailwindSourceFiles(source: string) {
   const style = /<style is:global>([\s\S]*?)<\/style>/;
   return [
     {
@@ -38,14 +36,12 @@ export function tailwindSourceFiles(source: string, scriptSource = '') {
       lang: 'css',
       code: dedent(source.match(style)![1]),
     },
-    ...scriptFiles(scriptSource),
   ];
 }
 
 export function sourceFiles(
   source: string,
   includeScript: boolean,
-  reducedMotion: ReducedMotion,
 ) {
   const markup = dedent(
     source
@@ -78,15 +74,7 @@ export function sourceFiles(
       ),
       '$1  font-family: system-ui, sans-serif;\n',
     );
-  const css = [
-    `${root}, ${root} * {\n  box-sizing: border-box;\n}`,
-    styles,
-    reducedMotion === 'instant' &&
-      /transition(?:-[\w-]+)?:/.test(styles) &&
-      `@media (prefers-reduced-motion: reduce) {\n  ${root}, ${root} * {\n    transition: none !important;\n  }\n}`,
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  const css = `${root}, ${root} * {\n  box-sizing: border-box;\n}\n\n${styles}`;
   return [
     { id: 'html', label: 'HTML', lang: 'html', code: markup },
     { id: 'css', label: 'CSS', lang: 'css', code: css },

@@ -83,34 +83,25 @@ const socialVideo = video && new URL(video, Astro.site);
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href="/" aria-label="Microinteractions Gallery, index">
-          <Logo id="mobile-logo-trace" />
-          <span>Microinteractions</span>
-        </a>
-
-        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-index">
-          Studies
-          <svg class="icon-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-          <svg class="icon-close" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      </div>
-    </header>
-
-    <div id="mobile-index" class="mobile-index" hidden><SpecimenNav active={active} /></div>
-
     <div class="site-shell">
       <aside class="sidebar">
-        <a class="brand sidebar-brand" href="/" aria-label="Microinteractions Gallery, index">
-          <Logo id="sidebar-logo-trace" />
-          <span>Microinteractions</span>
-        </a>
-        <div class="sidebar-scroll"><SpecimenNav active={active} /></div>
+        <div class="sidebar-top">
+          <a class="brand" href="/" aria-label="Microinteractions Gallery, index">
+            <Logo />
+            <span>Microinteractions</span>
+          </a>
+
+          <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-index">
+            Studies
+            <svg class="icon-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+            <svg class="icon-close" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div id="site-index" class="sidebar-scroll"><SpecimenNav active={active} /></div>
       </aside>
 
       <main id="main" tabindex="-1">
@@ -120,21 +111,18 @@ const socialVideo = video && new URL(video, Astro.site);
     <script>
       import '../scripts/analytics';
 
-      const panel = document.querySelector<HTMLElement>('#mobile-index')!;
+      const list = document.querySelector<HTMLElement>('#site-index')!;
       const toggle = document.querySelector<HTMLButtonElement>('.menu-toggle')!;
-      const setOpen = (open: boolean) => {
-        toggle.setAttribute('aria-expanded', String(open));
-        panel.hidden = !open;
-      };
-      toggle.addEventListener('click', () => setOpen(panel.hidden));
+      const isOpen = () => toggle.getAttribute('aria-expanded') === 'true';
+      const setOpen = (open: boolean) => toggle.setAttribute('aria-expanded', String(open));
+      toggle.addEventListener('click', () => setOpen(!isOpen()));
       document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !panel.hidden) {
+        if (event.key === 'Escape' && isOpen()) {
           setOpen(false);
           toggle.focus();
         }
       });
 
-      const list = document.querySelector<HTMLElement>('.sidebar-scroll')!;
       const current = list.querySelector<HTMLElement>('a[aria-current="page"]');
       if (current) {
         const offset = current.getBoundingClientRect().top - list.getBoundingClientRect().top;
@@ -160,34 +148,21 @@ const socialVideo = video && new URL(video, Astro.site);
 </html>
 
 <style>
-  .site-header {
-    display: none;
-    height: 64px;
-    background: var(--bg);
-  }
-
-  .header-inner {
-    display: flex;
-    height: 100%;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 0 20px;
-  }
-
   .brand {
     display: inline-flex;
     min-height: 44px;
     align-items: center;
-    gap: 12px;
-    font-size: 15px;
+    gap: 8px;
+    font-size: 13px;
     font-weight: 500;
     letter-spacing: -0.025em;
+    white-space: nowrap;
   }
 
   .brand :global(.logo) {
-    width: 46px;
+    width: 36px;
     height: auto;
+    flex: none;
     color: var(--brand);
   }
 
@@ -208,18 +183,9 @@ const socialVideo = video && new URL(video, Astro.site);
     flex-direction: column;
   }
 
-  .sidebar-brand {
+  .sidebar-top {
     flex: none;
-    align-self: flex-start;
-    gap: 8px;
     margin: 0 20px 24px;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
-  .sidebar-brand :global(.logo) {
-    width: 36px;
-    flex: none;
   }
 
   .sidebar-scroll {
@@ -295,8 +261,7 @@ const socialVideo = video && new URL(video, Astro.site);
     scroll-margin-top: 80px;
   }
 
-  .menu-toggle,
-  .mobile-index {
+  .menu-toggle {
     display: none;
   }
 
@@ -331,24 +296,34 @@ const socialVideo = video && new URL(video, Astro.site);
   }
 
   @media (max-width: 780px) {
-    .site-header {
+    .site-shell {
       display: block;
-      height: 56px;
-    }
-
-    .header-inner,
-    .site-shell {
-      padding-inline: 20px;
-    }
-
-    .site-shell {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 28px;
-      padding-top: 16px;
+      padding: 0;
     }
 
     .sidebar {
-      display: none;
+      position: static;
+      display: block;
+      height: auto;
+    }
+
+    .sidebar-top {
+      display: flex;
+      height: 56px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0;
+      padding: 0 20px;
+    }
+
+    .brand {
+      gap: 12px;
+      font-size: 15px;
+    }
+
+    .brand :global(.logo) {
+      width: 46px;
     }
 
     .menu-toggle {
@@ -388,10 +363,18 @@ const socialVideo = video && new URL(video, Astro.site);
       display: block;
     }
 
-    .mobile-index:not([hidden]) {
-      display: block;
+    /* The same list is the sidebar on desktop and the Studies panel here. */
+    .sidebar-scroll {
+      display: none;
+      overflow: visible;
       padding: 4px 8px 24px;
       border-bottom: 1px solid var(--line);
+      mask-image: none;
+      animation: none;
+    }
+
+    .sidebar:has(.menu-toggle[aria-expanded='true']) .sidebar-scroll {
+      display: block;
       transition: opacity 160ms ease-out;
 
       @starting-style {
@@ -399,19 +382,26 @@ const socialVideo = video && new URL(video, Astro.site);
       }
     }
 
+    /* In block layout, a centered auto width shrinks to the content, so code blocks would widen the page. */
     main {
-      padding-top: 0;
+      width: auto;
+      justify-self: normal;
+      margin: 16px 20px 0;
+      padding: 0 0 80px;
       scroll-margin-top: 84px;
     }
   }
 
   @media (max-width: 380px) {
-    .header-inner,
-    .site-shell {
+    .sidebar-top {
       padding-inline: 16px;
     }
 
-    .mobile-index:not([hidden]) {
+    main {
+      margin-inline: 16px;
+    }
+
+    .sidebar-scroll {
       padding-inline: 4px;
     }
 

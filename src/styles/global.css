@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
-/* shadcn registry ports style the consumer's app, not this site. */
+/* shadcn registry ports style the consumer's app, not this site. The Tailwind variants
+   are only shown as source (?raw), never rendered here. */
 @source not "../registry";
 @source not "../../consumer";
+@source not "../components/tailwind";
 
 @import "./fonts.css";
 @import "./tokens.css";

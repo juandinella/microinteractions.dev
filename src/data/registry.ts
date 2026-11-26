@@ -7,7 +7,7 @@ import { specimens, type SpecimenId } from './specimens';
 // the element's script unchanged, so the behavior keeps a single source.
 // Items don't depend on shadcn's `utils`: `shadcn init` already wrote lib/utils.ts, and the CLI would ask to
 // replace a project's own version, which in a shell without a terminal ends with nothing installed.
-const items: Partial<Record<SpecimenId, { element?: string; css?: Record<string, Record<string, string>> }>> = {
+const items: Record<SpecimenId, { element?: string; css?: Record<string, Record<string, string>> }> = {
   'text-swap': {},
   'chevron-morph': {},
   'hold-confirm': { element: 'HoldToConfirmButton.astro' },
@@ -39,10 +39,9 @@ function elementModule(file: string) {
 
 export const registryName = 'microinteractions';
 
-export const registryItems = specimens.flatMap((specimen) => {
+export const registryItems = specimens.map((specimen) => {
   const item = items[specimen.id];
-  if (!item) return [];
-  return [{
+  return {
     name: specimen.id,
     type: 'registry:component',
     title: specimen.title,
@@ -58,5 +57,5 @@ export const registryItems = specimens.flatMap((specimen) => {
       `Study: https://microinteractions.dev/${specimen.id}/`,
       ...(specimen.changes ? [`Latest change, ${specimen.changes[0].date}: ${specimen.changes[0].note}`] : []),
     ].join('\n'),
-  }];
+  };
 });

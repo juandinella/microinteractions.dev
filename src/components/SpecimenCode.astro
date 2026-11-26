@@ -17,46 +17,47 @@ interface Props {
   specimen: SpecimenId;
 }
 
-const { source, tailwindSource, filename, includeScript, reducedMotion } = previews[Astro.props.specimen];
+const { source, tailwindSource, filename, includeScript } = previews[Astro.props.specimen];
 const prefix = filename.replace('.astro', '').toLowerCase();
 const study = specimens.find(({ id }) => id === Astro.props.specimen)!;
 const studyUrl = new URL(`/${study.id}/`, Astro.site);
-const prompt = (await getEntry('studies', study.id))?.data.prompt;
-const registryItem = registryItems.find(({ name }) => name === study.id);
-const installUrl = registryItem ? new URL(`/r/${registryItem.name}.json`, Astro.site).href : '';
-const reactViews = registryItem
-  ? registryItem.files.map((file) =>
-      file.path.endsWith('.tsx')
-        ? { id: 'tsx', label: 'TSX', lang: 'tsx', code: file.content }
-        : { id: 'ts', label: 'Element', lang: 'ts', code: file.content },
-    )
-  : [];
+const prompt = (await getEntry('studies', study.id))!.data.prompt;
+const registryItem = registryItems.find(({ name }) => name === study.id)!;
+const installUrl = new URL(`/r/${registryItem.name}.json`, Astro.site).href;
+const cssViews = sourceFiles(source, includeScript);
+// The Tailwind variant runs the CSS version's script: the page shows it once, the export carries it.
+const script = cssViews.find(({ id }) => id === 'js')?.code;
 const variants = [
-  ...(prompt ? [{
+  {
     id: 'prompt',
     label: 'Prompt',
     views: [{ id: 'prompt', label: 'Prompt', lang: 'plaintext', code: buildPrompt(study, prompt) }],
     externalScript: '',
-  }] : []),
-  { id: 'css', label: 'CSS', views: sourceFiles(source, includeScript, reducedMotion), externalScript: '' },
-  ...(tailwindSource ? [{
+  },
+  { id: 'css', label: 'CSS', views: cssViews, externalScript: '' },
+  {
     id: 'tailwind',
     label: 'Tailwind',
-    views: tailwindSourceFiles(tailwindSource, includeScript ? source : ''),
+    views: tailwindSourceFiles(tailwindSource),
     externalScript: 'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4',
-  }] : []),
-  ...(reactViews.length > 0 ? [{
+  },
+  {
     id: 'react',
     label: 'React',
-    views: reactViews,
+    views: registryItem.files.map((file) =>
+      file.path.endsWith('.tsx')
+        ? { id: 'tsx', label: 'TSX', lang: 'tsx', code: file.content }
+        : { id: 'ts', label: 'Element', lang: 'ts', code: file.content },
+    ),
     externalScript: '',
-  }] : []),
+  },
 ].map((variant) => {
-  const code = Object.fromEntries(variant.views.map((view) => [view.id, view.code]));
+  const code: Record<string, string> = Object.fromEntries(variant.views.map((view) => [view.id, view.code]));
   const sections = { ...code };
   if (variant.id === 'tailwind') {
     sections.html = `<style type="text/tailwindcss">\n${sections.css}\n</style>\n\n${sections.html}`;
     delete sections.css;
+    if (script) sections.js = script;
   }
   return {
     ...variant,
@@ -79,18 +80,18 @@ const variants = [
 <section class="source" data-source aria-labelledby="implementation">
   <header class="source-heading">
     <StudyHeading id="implementation">Implementation</StudyHeading>
-    {variants.length > 1 && <fieldset class="source-formats" data-source-formats style={`--formats: ${variants.length}`}>
+    <fieldset class="source-formats" data-source-formats style={`--formats: ${variants.length}`}>
       <legend class="sr-only">Implementation format</legend>
       <span class="source-format-thumb" aria-hidden="true"></span>
       {variants.map((variant, index) => <label class="source-format">
         <input type="radio" name={`${prefix}-format`} value={variant.id} checked={index === 0} data-source-format aria-controls={`${prefix}-${variant.id}-source`} />
         <span>{variant.label}</span>
       </label>)}
-    </fieldset>}
+    </fieldset>
   </header>
   <div id={`${prefix}-variants`}>
     {variants.map((variant) => <div id={`${prefix}-${variant.id}-source`} data-source-variant={variant.id}>
-      {variant.id === 'react' && installUrl && (
+      {variant.id === 'react' && (
         <div class="react-install">
           <InstallCommand client:visible={{ rootMargin: '200px' }} url={installUrl} />
         </div>
@@ -114,7 +115,7 @@ const variants = [
       {variant.id === 'tailwind' && <p class="source-note">{tailwindSetupNote(includeScript)}</p>}
       {variant.id === 'react' && (
         <p class="source-note">
-          {registryItem?.files.length === 2
+          {registryItem.files.length === 2
             ? 'The shadcn command installs the React component and its custom-element script, themed with your shadcn tokens.'
             : 'The shadcn command installs the React component into your project, themed with your shadcn tokens.'}
         </p>
@@ -126,7 +127,7 @@ const variants = [
 <style>
   .source { min-width: 0; }
   .source [hidden] { display: none; }
-  .source:has([data-source-format]) [data-source-variant] { display: none; }
+  [data-source-variant] { display: none; }
   .source:has([data-source-format][value='prompt']:checked) [data-source-variant='prompt'],
   .source:has([data-source-format][value='css']:checked) [data-source-variant='css'],
   .source:has([data-source-format][value='tailwind']:checked) [data-source-variant='tailwind'],
