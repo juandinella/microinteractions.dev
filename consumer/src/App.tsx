@@ -33,6 +33,7 @@ export function App() {
   const [rows, setRows] = React.useState(['A', 'B', 'C', 'D', 'E']);
   const [options, setOptions] = React.useState(['x', 'y', 'z']);
   const [regionDisabled, setRegionDisabled] = React.useState(false);
+  const [fieldsDisabled, setFieldsDisabled] = React.useState(false);
   const [slides, setSlides] = React.useState(3);
   const [defaults, setDefaults] = React.useState({ tab: 'b', option: 'x', volume: 50 });
   const [saved, setSaved] = React.useState(['x', 'y', 'z']);
@@ -48,6 +49,7 @@ export function App() {
         <button type="button" onClick={() => setOptions((list) => without(list, 'y'))}>Remove option y</button>
         <button type="button" onClick={() => setOptions((list) => without(list, 'z'))}>Remove option z</button>
         <button type="button" onClick={() => setRegionDisabled((value) => !value)}>Toggle region</button>
+        <button type="button" onClick={() => setFieldsDisabled((value) => !value)}>Toggle volume and delivery</button>
         <button type="button" onClick={() => setSlides((count) => count + 1)}>Add slide</button>
         <button type="button" onClick={() => setDefaults({ tab: 'c', option: 'y', volume: 10 })}>Change defaults</button>
         <button type="button" onClick={() => setSaved((list) => [...list].reverse())}>Reverse saved tasks</button>
@@ -70,9 +72,9 @@ export function App() {
         />
       </fieldset>
 
-      <section aria-label="Edge-aware tooltip">
-        <EdgeAwareSlider label="Volume" defaultValue={defaults.volume} onValueChange={log('volume')} />
-      </section>
+      <fieldset aria-label="Edge-aware tooltip" className="m-0 border-0 p-0">
+        <EdgeAwareSlider label="Volume" name="volume" disabled={fieldsDisabled} defaultValue={defaults.volume} onValueChange={log('volume')} />
+      </fieldset>
 
       <section aria-label="Plucked underline">
         <nav className="flex gap-1" aria-label="Sections">
@@ -83,6 +85,8 @@ export function App() {
 
       <GooeyRadioGroup
         legend="Delivery"
+        name="delivery"
+        disabled={fieldsDisabled}
         defaultValue={defaults.option}
         onValueChange={log('option')}
         options={options.map((value) => ({ value, label: `Option ${value}` }))}

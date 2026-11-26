@@ -56,6 +56,45 @@ test('the slider keeps its tooltip inside and follows a form reset', async ({ ap
   await expect(slider).toHaveAttribute('aria-valuetext', '50 percent');
 });
 
+test('the slider and the gooey group submit their values, and disabled leaves them out', async ({ app }) => {
+  const values = () => app.evaluate(() => {
+    const data = new FormData(document.querySelector('form')!);
+    return [data.get('volume'), data.get('delivery')];
+  });
+  const slider = app.getByRole('slider', { name: 'Volume' });
+  expect(await values()).toEqual(['50', 'x']);
+  await slider.focus();
+  await app.keyboard.press('End');
+  await app.getByText('Option z', { exact: true }).click();
+  expect(await values()).toEqual(['100', 'z']);
+
+  await app.getByRole('button', { name: 'Toggle volume and delivery' }).click();
+  await expect(slider).toBeDisabled();
+  await expect(app.getByRole('radio', { name: 'Option y' })).toBeDisabled();
+  expect(await values()).toEqual([null, null]);
+  await expect(app.locator('edge-aware-tooltip')).toHaveCSS('opacity', '0.5');
+  const option = app.getByText('Option y', { exact: true });
+  await expect(option).toHaveCSS('opacity', '0.5');
+  await expect(option).toHaveCSS('cursor', 'not-allowed');
+  await option.click({ force: true });
+  await option.hover();
+  // Past the ring's 150ms fade, a hover on a disabled option still shows no ring.
+  await app.waitForTimeout(200);
+  expect(await option.locator('span').first().evaluate((ring) => getComputedStyle(ring, '::after').opacity)).toBe('0');
+  await expect(app.getByRole('radio', { name: 'Option z' })).toBeChecked();
+  await app.getByRole('button', { name: 'Toggle volume and delivery' }).click();
+  expect(await values()).toEqual(['100', 'z']);
+
+  // A disabled fieldset around the slider disables it the same way.
+  const group = app.getByRole('group', { name: 'Edge-aware tooltip' });
+  await group.evaluate((fieldset: HTMLFieldSetElement) => (fieldset.disabled = true));
+  await expect(slider).toBeDisabled();
+  await expect(app.locator('edge-aware-tooltip')).toHaveCSS('opacity', '0.5');
+  expect((await values())[0]).toBeNull();
+  await group.evaluate((fieldset: HTMLFieldSetElement) => (fieldset.disabled = false));
+  expect(await calls(app)).toEqual(['volume:100', 'option:"z"']);
+});
+
 test('a hover plucks the underline and leaving releases it', async ({ app }) => {
   const link = app.getByRole('link', { name: 'Get in touch' });
   await link.hover();

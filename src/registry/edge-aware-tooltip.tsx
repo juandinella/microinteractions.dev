@@ -19,6 +19,10 @@ type EdgeAwareSliderProps = {
   max?: number;
   step?: number;
   onValueChange?: (value: number) => void;
+  // Submits the value with a surrounding form under this name. A form reset restores defaultValue
+  // without calling onValueChange; disabled (or a disabled fieldset) leaves it out and dims the slider.
+  name?: string;
+  disabled?: boolean;
   className?: string;
 };
 
@@ -32,6 +36,8 @@ export function EdgeAwareSlider({
   max = 100,
   step = 1,
   onValueChange,
+  name,
+  disabled,
   className,
 }: EdgeAwareSliderProps) {
   // Uncontrolled: `defaultValue` is read once. A later change would rewrite the input's value
@@ -48,7 +54,7 @@ export function EdgeAwareSlider({
   return (
     <edge-aware-tooltip
       className={cn(
-        'relative mt-12 block h-11 transition-none [--x:var(--value)] rtl:[--x:calc(1-var(--value))] [anchor-scope:--volume-thumb] **:transition-none',
+        'relative mt-12 block h-11 transition-none has-disabled:opacity-50 [--x:var(--value)] rtl:[--x:calc(1-var(--value))] [anchor-scope:--volume-thumb] **:transition-none',
         className,
       )}
       style={{ '--value': (initial - min) / (max - min) } as React.CSSProperties}
@@ -70,11 +76,13 @@ export function EdgeAwareSlider({
       </span>
       <span aria-hidden="true" className="pointer-events-none absolute bottom-10.5 left-[calc(12px+(100%-24px)*var(--x)-4px)] size-2 rotate-45 bg-foreground supports-[(position-anchor:--volume-thumb)_and_(justify-self:anchor-center)_and_(anchor-scope:--volume-thumb)]:[position-anchor:--volume-thumb] supports-[(position-anchor:--volume-thumb)_and_(justify-self:anchor-center)_and_(anchor-scope:--volume-thumb)]:bottom-[calc(anchor(top)+8px)] supports-[(position-anchor:--volume-thumb)_and_(justify-self:anchor-center)_and_(anchor-scope:--volume-thumb)]:left-[calc(anchor(center)-4px)]" />
       <input
-        className="relative m-0 block h-11 w-full cursor-ew-resize touch-pan-y appearance-none bg-transparent p-0 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-slider-runnable-track]:h-6 [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:h-6 [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background [&::-moz-range-thumb]:box-border [&::-moz-range-thumb]:size-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary [&::-moz-range-thumb]:bg-background"
+        className="relative m-0 block h-11 w-full cursor-ew-resize touch-pan-y appearance-none disabled:cursor-not-allowed bg-transparent p-0 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-slider-runnable-track]:h-6 [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:h-6 [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background [&::-moz-range-thumb]:box-border [&::-moz-range-thumb]:size-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary [&::-moz-range-thumb]:bg-background"
         type="range"
         min={min}
         max={max}
         step={step}
+        name={name}
+        disabled={disabled}
         defaultValue={initial}
         aria-label={label}
         aria-valuetext={`${initial} percent`}
