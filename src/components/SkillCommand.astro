@@ -39,7 +39,8 @@ import styles from './InstallCommand.module.css';
         status.replaceChildren(text);
       };
 
-      button.addEventListener('click', async () => {
+      // On the element, not the button: a press anywhere on the frame copies, and the button's own click bubbles here.
+      this.addEventListener('click', async () => {
         clearTimeout(reset);
         try {
           await navigator.clipboard.writeText(command.textContent!);
@@ -89,52 +90,38 @@ import styles from './InstallCommand.module.css';
     white-space: normal;
   }
 
-  .row .copy {
-    position: static;
-    margin-right: 6px;
-  }
-
   /* Without JavaScript there is no button, and the command is plain text to select. */
   .frame:not(:defined) .copy {
     visibility: hidden;
   }
 
-  /* The whole frame is the button's hit area. The press scales the icon and not the button:
-     a transform would make the button the containing block and shrink the area mid-press. */
-  .row .copy::before {
+  /* The whole frame is the hit area, on the frame and not the button, so the button presses
+     exactly like the study pages' copy button. */
+  .frame:defined .row::after {
+    content: '';
+    position: absolute;
     inset: 0;
+    cursor: pointer;
   }
 
-  .row .copy:active {
-    transform: none;
+  .row .copy {
+    z-index: 1;
   }
 
-  .copy > svg {
-    transition-property: opacity, transform, filter, scale;
-  }
-
-  .copy:active > svg {
-    scale: 0.9;
-  }
-
-  .row .copy:focus-visible {
-    outline: none;
-  }
-
-  .frame:has(:focus-visible) {
-    outline: 2px solid var(--text);
-    outline-offset: 2px;
+  .frame:active .copy {
+    transform: scale(0.94);
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .frame:hover {
-      border-color: var(--line-strong);
+    .frame:hover .copy {
+      background: var(--surface-strong);
+      color: var(--text);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .copy:active > svg {
-      scale: 1;
+    .frame:active .copy {
+      transform: none;
     }
   }
 </style>
