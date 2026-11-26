@@ -1,10 +1,8 @@
-@import "tailwindcss";
-
-/* shadcn registry ports style the consumer's app, not this site. The Tailwind variants
-   are only shown as source (?raw), never rendered here. */
-@source not "../registry";
-@source not "../../consumer";
-@source not "../components/tailwind";
+/* Theme and preflight only: the site's own CSS uses no Tailwind utilities. The Tailwind
+   variants are shown as source, and the registry ports style the consumer's app. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 
 @import "./fonts.css";
 @import "./tokens.css";

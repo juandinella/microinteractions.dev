@@ -84,7 +84,7 @@ const socialVideo = video && new URL(video, Astro.site);
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <div class="site-shell">
-      <aside class="sidebar">
+      <header class="sidebar">
         <div class="sidebar-top">
           <a class="brand" href="/" aria-label="Microinteractions Gallery, index">
             <Logo />
@@ -102,7 +102,7 @@ const socialVideo = video && new URL(video, Astro.site);
           </button>
         </div>
         <div id="site-index" class="sidebar-scroll"><SpecimenNav active={active} /></div>
-      </aside>
+      </header>
 
       <main id="main" tabindex="-1">
         <slot />
