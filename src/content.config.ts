@@ -19,7 +19,7 @@ const studies = defineCollection({
       timing: z.array(z.string()).optional(),
       accessibility: z.array(z.string()),
       avoid: z.array(z.string()).default([]),
-    }).optional(),
+    }),
   }),
 });
 

@@ -1,10 +1,4 @@
 ---
-interface Props {
-  id: string;
-}
-
-const { id } = Astro.props;
-
 // Outline paths from public/logo.svg. TRACE is a hand-traced centerline of the
 // "m" stroke, extended past both round caps so the 46-unit mask covers them.
 const STROKE =
@@ -26,7 +20,7 @@ const TRACE =
 >
   <defs>
     <mask
-      id={id}
+      id="logo-trace"
       maskUnits="userSpaceOnUse"
       x="-40"
       y="-40"
@@ -44,7 +38,7 @@ const TRACE =
     </mask>
   </defs>
   <path class="logo-stroke" d={STROKE}></path>
-  <path class="logo-redraw" d={STROKE} mask={`url(#${id})`}></path>
+  <path class="logo-redraw" d={STROKE} mask="url(#logo-trace)"></path>
   <path class="logo-arrow" d={ARROW}></path>
 </svg>
 

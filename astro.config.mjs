@@ -88,7 +88,7 @@ export default defineConfig({
     environments: {
       ssr: {
         optimizeDeps: {
-          include: ['@base-ui/react/popover', '@base-ui/react/tabs', 'lucide-react', 'astro/zod', 'astro/components'],
+          include: ['@base-ui/react/popover', '@base-ui/react/tabs', 'astro/zod', 'astro/components'],
           exclude: ['@/lib/utils'],
         },
       },

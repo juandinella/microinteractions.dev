@@ -41,18 +41,16 @@ import tickRailTailwindSource from '../components/tailwind/TickRail.astro?raw';
 import alignedSelectSource from '../components/AlignedSelect.astro?raw';
 import alignedSelectTailwindSource from '../components/tailwind/AlignedSelect.astro?raw';
 import type { SpecimenId } from './specimens';
-import type { ReducedMotion } from './source';
 
 export type Inspection = 'timeline' | 'position' | 'none';
 
 interface Preview {
   component: typeof TextSwapButton;
   source: string;
-  tailwindSource?: string;
+  tailwindSource: string;
   filename: string;
   includeScript: boolean;
   inspection: Inspection;
-  reducedMotion: ReducedMotion;
   // Attribute the demo sets while it plays. The trace then follows each element's own clock.
   activeAttribute?: string;
 }
@@ -65,7 +63,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'TextSwapButton.astro',
     includeScript: false,
     inspection: 'timeline',
-    reducedMotion: 'component',
   },
   'chevron-morph': {
     component: ChevronMorphButtons,
@@ -74,7 +71,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'ChevronMorphButtons.astro',
     includeScript: false,
     inspection: 'timeline',
-    reducedMotion: 'component',
   },
   'hold-confirm': {
     component: HoldToConfirmButton,
@@ -83,7 +79,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'HoldToConfirmButton.astro',
     includeScript: true,
     inspection: 'timeline',
-    reducedMotion: 'component',
   },
   'edge-aware-tooltip': {
     component: EdgeAwareSlider,
@@ -92,7 +87,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'EdgeAwareSlider.astro',
     includeScript: true,
     inspection: 'position',
-    reducedMotion: 'component',
   },
   'plucked-underline': {
     component: PluckedUnderline,
@@ -101,7 +95,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'PluckedUnderline.astro',
     includeScript: true,
     inspection: 'timeline',
-    reducedMotion: 'component',
     activeAttribute: 'data-plucked',
   },
   'gooey-radio-group': {
@@ -111,7 +104,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'GooeyRadioGroup.astro',
     includeScript: true,
     inspection: 'timeline',
-    reducedMotion: 'component',
   },
   'drag-select': {
     component: DragSelectTable,
@@ -120,7 +112,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'DragSelectTable.astro',
     includeScript: true,
     inspection: 'none',
-    reducedMotion: 'component',
   },
   'resize-handle': {
     component: ResizableSidebar,
@@ -129,7 +120,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'ResizableSidebar.astro',
     includeScript: true,
     inspection: 'none',
-    reducedMotion: 'component',
   },
   'tab-indicator': {
     component: TabIndicator,
@@ -138,7 +128,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'TabIndicator.astro',
     includeScript: true,
     inspection: 'timeline',
-    reducedMotion: 'component',
   },
   'worm-dots': {
     component: WormDots,
@@ -147,7 +136,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'WormDots.astro',
     includeScript: true,
     inspection: 'none',
-    reducedMotion: 'component',
   },
   'drag-reorder': {
     component: DragReorder,
@@ -156,7 +144,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'DragReorder.astro',
     includeScript: true,
     inspection: 'none',
-    reducedMotion: 'component',
   },
   'faq-panel': {
     component: FaqPanel,
@@ -165,7 +152,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'FaqPanel.astro',
     includeScript: true,
     inspection: 'timeline',
-    reducedMotion: 'component',
   },
   'tick-rail': {
     component: TickRail,
@@ -174,7 +160,6 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'TickRail.astro',
     includeScript: true,
     inspection: 'none',
-    reducedMotion: 'component',
   },
   'aligned-select': {
     component: AlignedSelect,
@@ -183,6 +168,5 @@ export const previews: Record<SpecimenId, Preview> = {
     filename: 'AlignedSelect.astro',
     includeScript: true,
     inspection: 'none',
-    reducedMotion: 'component',
   },
 };

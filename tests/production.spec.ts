@@ -14,8 +14,15 @@ test('source formats and languages work without JavaScript', async ({ browser })
     const variant = page.locator(`[data-source-variant="${format.toLowerCase()}"]`);
     await variant.getByRole('radio', { name: 'CSS', exact: true }).check();
     await expect(variant.getByRole('region', { name: 'CSS source' })).toBeVisible();
-    await variant.getByRole('radio', { name: 'JavaScript', exact: true }).check();
-    await expect(variant.getByRole('region', { name: 'JavaScript source' })).toContainText('HOLD_DURATION');
+    // Tailwind reuses the CSS version's script, so only the CSS version shows it.
+    if (format === 'CSS') {
+      await variant.getByRole('radio', { name: 'JavaScript', exact: true }).check();
+      await expect(variant.getByRole('region', { name: 'JavaScript source' })).toContainText('HOLD_DURATION');
+    } else {
+      await expect(variant.getByRole('radio', { name: 'JavaScript', exact: true })).toHaveCount(0);
+      const exported = JSON.parse(await variant.locator('input[name="data"]').inputValue());
+      expect(exported.js).toContain('HOLD_DURATION');
+    }
     await expect(variant.getByRole('button', { name: 'Edit on CodePen (opens in a new tab)' })).toBeVisible();
     await expect(variant.getByRole('button', { name: /^Copy/ })).toBeHidden();
   }

@@ -1,5 +1,4 @@
 import { Popover } from '@base-ui/react/popover';
-import { Info } from 'lucide-react';
 import styles from './SpecNote.module.css';
 
 type Props = {
@@ -17,7 +16,10 @@ export default function SpecNote({ label, ariaLabel, value, note }: Props) {
         className={styles.trigger}
         aria-label={ariaLabel ?? `Why this ${label.toLowerCase()}?`}
       >
-        <Info size={12} strokeWidth={1.5} aria-hidden="true" />
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4M12 8h.01" />
+        </svg>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner

@@ -11,7 +11,6 @@ import { previews } from '../data/previews';
 import { categorySlug, specimens, type Specimen } from '../data/specimens';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import InstallPopover from '../components/InstallPopover.tsx';
-import { registryItems } from '../data/registry';
 import { socialImageAlt } from '../lib/social-image';
 
 export const prerender = true;
@@ -39,7 +38,6 @@ interface Props {
 const { specimen, study, previous, next } = Astro.props;
 const { component: Preview, inspection, activeAttribute } = previews[specimen.id];
 const { Content } = await render(study);
-const installable = registryItems.some(({ name }) => name === specimen.id);
 const { observe, references } = study.data;
 // Recorded by pnpm run og:videos. A study without a clip keeps only its cover.
 const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : undefined;
@@ -54,7 +52,7 @@ const video = videos.includes(specimen.id) ? `/og/videos/${specimen.id}.mp4` : u
         <a href={`/#category-${categorySlug(specimen.category)}`}>{specimen.category}</a>
       </div>
       <h1>{specimen.title}</h1>
-      {installable && <div class="install"><InstallPopover client:load url={new URL(`/r/${specimen.id}.json`, Astro.site).href} /></div>}
+      <div class="install"><InstallPopover client:load url={new URL(`/r/${specimen.id}.json`, Astro.site).href} /></div>
       <p class="summary">{specimen.summary}</p>
     </header>
 
