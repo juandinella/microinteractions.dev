@@ -60,6 +60,17 @@
 
   class TabIndicator extends HTMLElement {
     #controller: AbortController | undefined;
+    #select: ((index: number) => void) | undefined;
+
+    get selectedIndex() {
+      return [...this.querySelectorAll('[data-tab]')].findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
+    }
+
+    // Selecting from code, such as from the URL, moves the line and the scroll at once: motion answers a hand.
+    // Focus on a tab follows the selection, so it never rests on a tab out of the tab order.
+    set selectedIndex(index: number) {
+      this.#select?.(index);
+    }
 
     connectedCallback() {
       this.#controller = new AbortController();
@@ -185,6 +196,13 @@
       list.addEventListener('pointerdown', remember, { passive: true, signal });
 
       tabs.forEach((tab, i) => tab.addEventListener('click', () => select(i, true), { signal }));
+      this.#select = (index) => {
+        if (!tabs[index]) return;
+        const focused = tabs.includes(document.activeElement as HTMLButtonElement);
+        select(index, false);
+        if (focused) tabs[index].focus({ preventScroll: true });
+      };
+      signal.addEventListener('abort', () => (this.#select = undefined));
 
       // Arrow keys move focus and selection together. Keyboard changes are not animated.
       list.addEventListener(

@@ -23,6 +23,9 @@ type GooeyRadioGroupProps = {
   defaultValue?: string;
   name?: string;
   onValueChange?: (value: string) => void;
+  // Disables every option, as a disabled fieldset does: the form leaves the value out. A disabled
+  // fieldset around the group does the same.
+  disabled?: boolean;
   className?: string;
 };
 
@@ -36,6 +39,7 @@ export function GooeyRadioGroup({
   defaultValue,
   name,
   onValueChange,
+  disabled,
   className,
 }: GooeyRadioGroupProps) {
   const id = React.useId();
@@ -83,7 +87,7 @@ export function GooeyRadioGroup({
   }, [key]);
 
   return (
-    <fieldset className={cn('m-0 min-w-0 border-0 p-0 text-foreground', className)}>
+    <fieldset className={cn('m-0 min-w-0 border-0 p-0 text-foreground', className)} disabled={disabled}>
       <legend className="mb-1.5 p-0 text-xs text-muted-foreground">{legend}</legend>
       <gooey-radio-group
         key={key}
@@ -98,13 +102,13 @@ export function GooeyRadioGroup({
             <feComposite in="SourceGraphic" in2="goo" operator="atop" />
           </filter>
         </svg>
-        <span className="pointer-events-none absolute top-0 inset-s-0 z-1 h-full w-11 not-group-has-checked/goo:opacity-0 *:absolute *:top-4.25 *:inset-s-4.25 *:size-2.5 *:transform-[translateY(calc(var(--goo-index)*44px))] *:rounded-full *:bg-foreground" aria-hidden="true">
+        <span className="pointer-events-none absolute top-0 inset-s-0 z-1 h-full w-11 not-group-has-checked/goo:opacity-0 group-has-[:checked:disabled]/goo:opacity-50 *:absolute *:top-4.25 *:inset-s-4.25 *:size-2.5 *:transform-[translateY(calc(var(--goo-index)*44px))] *:rounded-full *:bg-foreground" aria-hidden="true">
           {Array.from({ length: 8 }, (_, blob) => (
             <span key={blob} data-goo-blob />
           ))}
         </span>
         {options.map((option, optionIndex) => (
-          <label key={option.value} className="group/option relative flex h-11 cursor-pointer items-center rounded-[10px] ps-11 pe-4 text-sm text-muted-foreground transition-[color] delay-100 duration-140 ease-[ease] [-webkit-tap-highlight-color:transparent] has-checked:text-foreground has-checked:delay-(--goo-arrive,225ms) in-data-keyboard:transition-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring in-data-keyboard:has-focus:outline-2 in-data-keyboard:has-focus:outline-offset-2 in-data-keyboard:has-focus:outline-ring motion-reduce:delay-0 motion-reduce:has-checked:delay-0">
+          <label key={option.value} className="group/option relative flex h-11 cursor-pointer items-center rounded-[10px] ps-11 pe-4 text-sm text-muted-foreground transition-[color] delay-100 duration-140 ease-[ease] [-webkit-tap-highlight-color:transparent] has-checked:text-foreground has-checked:delay-(--goo-arrive,225ms) in-data-keyboard:transition-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring in-data-keyboard:has-focus:outline-2 in-data-keyboard:has-focus:outline-offset-2 in-data-keyboard:has-focus:outline-ring has-disabled:cursor-not-allowed has-disabled:opacity-50 motion-reduce:delay-0 motion-reduce:has-checked:delay-0">
             <input
               className="absolute inset-0 m-0 cursor-[inherit] appearance-none rounded-[inherit] opacity-0"
               type="radio"
@@ -117,7 +121,7 @@ export function GooeyRadioGroup({
                 onValueChange?.(option.value);
               }}
             />
-            <span className="absolute top-3 inset-s-3 size-5 rounded-full border-2 border-muted-foreground/80 transition-[border-color] delay-100 duration-140 ease-[ease] group-has-checked/option:border-foreground group-has-checked/option:delay-(--goo-arrive,225ms) in-data-keyboard:transition-none motion-reduce:delay-0 motion-reduce:group-has-checked/option:delay-0 after:absolute after:-inset-0.5 after:rounded-[inherit] after:border-2 after:border-muted-foreground after:opacity-0 after:transition-opacity after:duration-150 after:ease-out pointer-fine:group-hover/option:not-group-has-checked/option:after:opacity-100 group-has-checked/option:after:delay-(--goo-arrive,225ms) in-data-keyboard:after:transition-none motion-reduce:group-has-checked/option:after:delay-0" aria-hidden="true" />
+            <span className="absolute top-3 inset-s-3 size-5 rounded-full border-2 border-muted-foreground/80 transition-[border-color] delay-100 duration-140 ease-[ease] group-has-checked/option:border-foreground group-has-checked/option:delay-(--goo-arrive,225ms) in-data-keyboard:transition-none motion-reduce:delay-0 motion-reduce:group-has-checked/option:delay-0 after:absolute after:-inset-0.5 after:rounded-[inherit] after:border-2 after:border-muted-foreground after:opacity-0 after:transition-opacity after:duration-150 after:ease-out pointer-fine:group-hover/option:not-group-has-checked/option:not-group-has-disabled/option:after:opacity-100 group-has-checked/option:after:delay-(--goo-arrive,225ms) in-data-keyboard:after:transition-none motion-reduce:group-has-checked/option:after:delay-0" aria-hidden="true" />
             {option.label}
           </label>
         ))}

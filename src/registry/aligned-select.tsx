@@ -23,15 +23,24 @@ type AlignedSelectProps = Omit<
 > & AlignedSelectName & {
   // The choices. Each string is both the value and the label.
   options: string[];
-  // The option selected at first. Without one, the first option. Uncontrolled: the element keeps the
-  // value from then on.
+  // The selected option, controlled: a pick calls onValueChange, and the select shows the pick only once
+  // value says so. Set it in the same update, as with a controlled input, or the select goes back to value.
+  // A change from here shows at once. A value that isn't an option shows the first one.
+  value?: string;
+  // The option selected at first when value isn't set. Without one, the first option.
   defaultValue?: string;
-  // Called when a pick changes the value, never when it picks the same one again.
+  // Called when a pick or a form reset changes the value, never when a pick keeps the same one or value
+  // changes it.
   onValueChange?: (value: string) => void;
   // Submits the value with a surrounding form under this name, as a native select does. A form reset
-  // restores defaultValue without calling onValueChange; disabled (or a disabled fieldset) leaves it out.
+  // restores the value it started with; disabled (or a disabled fieldset) leaves it out.
   name?: string;
 };
+
+type SelectElement = HTMLElement & { value: string };
+
+// React 18 warns about a layout effect during server rendering; React 19 skips it quietly.
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
 
 // The element writes the selection itself (aria-selected, the trigger's text, a bubbling change event),
 // so the value React renders follows that event instead of racing it. The element reads its options
@@ -40,6 +49,7 @@ type AlignedSelectProps = Omit<
 // and the other props go to the trigger.
 export function AlignedSelect({
   options,
+  value,
   defaultValue,
   onValueChange,
   name,
@@ -49,10 +59,13 @@ export function AlignedSelect({
   ...props
 }: AlignedSelectProps) {
   const id = React.useId();
-  const element = React.useRef<HTMLElement>(null);
+  const element = React.useRef<SelectElement>(null);
   const [current, setCurrent] = React.useState(defaultValue ?? options[0]);
+  const [, rerender] = React.useReducer((count: number) => count + 1, 0);
   const key = JSON.stringify(options);
   const onValueChangeRef = React.useRef(onValueChange);
+  const controlled = React.useRef(false);
+  const shown = React.useRef('');
 
   React.useEffect(() => {
     onValueChangeRef.current = onValueChange;
@@ -67,17 +80,44 @@ export function AlignedSelect({
     const target = element.current;
     if (!target) return;
     const onChange = () => {
-      const value = (target as HTMLElement & { value: string }).value;
-      setCurrent(value);
-      onValueChangeRef.current?.(value);
+      const picked = target.value;
+      if (picked === shown.current) return;
+      // Controlled, the render below puts value back unless onValueChange changed it.
+      if (controlled.current) rerender();
+      else setCurrent(picked);
+      onValueChangeRef.current?.(picked);
     };
     target.addEventListener('change', onChange);
-    return () => target.removeEventListener('change', onChange);
+    // A form reset restores the element without a change event, in a task of its own after the reset; this reads
+    // it in the task after that.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => (timer = setTimeout(onChange)));
+    };
+    const form = target.closest('form');
+    form?.addEventListener('reset', reset);
+    return () => {
+      target.removeEventListener('change', onChange);
+      form?.removeEventListener('reset', reset);
+      clearTimeout(timer);
+    };
   }, [key]);
 
-  if (options.length === 0) return null;
+  const wanted = value ?? current;
+  const selected = options.includes(wanted) ? wanted : options[0];
 
-  const selected = options.includes(current) ? current : options[0];
+  useIsomorphicLayoutEffect(() => {
+    controlled.current = value !== undefined;
+    shown.current = selected;
+    if (value === undefined) return;
+    const target = element.current;
+    // React has already rendered aria-selected, so the getter can't tell; setting the same value is silent.
+    // Before the element upgrades, the markup already shows selected; a value set then would hide its setter.
+    if (target && customElements.get('aligned-select')) target.value = selected;
+  });
+
+  if (options.length === 0) return null;
 
   return (
     <aligned-select key={key} ref={element} className="contents" name={name}>
