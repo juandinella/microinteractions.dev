@@ -65,6 +65,6 @@ Each row is a button. Space or Enter picks it up, the arrow keys, Home, and End 
 
 On touch the row scrolls the page and the grip lifts it. The button has `touch-action: pan-y` and the grip `touch-action: none`, with a 44px hit area that reaches the row's edge. A finger has to move 10px before the row lifts, a mouse 3px.
 
-Two limits. Rows must be the same height, and the layout is measured once when the drag starts. If the page or a scrolling container moves mid-drag, the gap stops matching what you see, and there is no autoscroll at the edges.
+Two limits. Rows must be the same height, and the layout is measured once when the drag starts. If the page or a scrolling container moves mid-drag, the gap stops matching what you see, and there is no autoscroll at the edges, which [Drag to select](/drag-select/) adds.
 
 With reduced motion nothing glides: the rows jump to their slots, the two beside the gap part by 8px in place, the line only fades, and the lifted row still follows your hand. While you drag, every row's number shows where it would be after a drop at the gap, so the target never depends on motion. In forced colors mode a lifted row gets a `Highlight` outline.

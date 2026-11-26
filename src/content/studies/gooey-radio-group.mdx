@@ -70,7 +70,7 @@ To recolor the CSS version, set `--goo-fg`, `--goo-ring-color`, or `--goo-muted`
 
 ## Keyboard, touch, and reduced motion
 
-Native radios make the group one Tab stop and move the selection with the arrow keys. The focus ring wraps the whole row through `label:has(:focus-visible)`. Arrow keys can repeat faster than the drop travels, so keyboard changes skip the drop and switch at once.
+Native radios make the group one Tab stop and move the selection with the arrow keys, which [Aligned select](/aligned-select/) has to script itself. The focus ring wraps the whole row through `label:has(:focus-visible)`. Arrow keys can repeat faster than the drop travels, so keyboard changes skip the drop and switch at once.
 
 Safari stops matching `:focus-visible` once the arrow keys move focus to the next radio. The script sets `data-keyboard` on a key press and clears it on the next pointer press, and CSS treats `:focus` inside it as keyboard focus.
 

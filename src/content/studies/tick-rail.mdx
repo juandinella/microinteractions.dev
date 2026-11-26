@@ -56,7 +56,7 @@ A tick's length depends on its distance from the pointer, in rows, on a cosine t
 
 ## One card for the whole rail
 
-Hover or focus a tick and a card shows the section's name and description. The rail has one card, which slides from tick to tick. Its text moves the same way: the old line leaves 4px ahead with a 3px blur while the new one comes in from behind.
+Hover or focus a tick and a card shows the section's name and description. The rail has one card, which slides from tick to tick, as the single panel does in [FAQ panel](/faq-panel/). Its text moves the same way: the old line leaves 4px ahead with a 3px blur while the new one comes in from behind.
 
 The card opens once the pointer has stopped moving sideways for 80ms. A pointer crossing the rail on the way to the content keeps moving across it, so it doesn't flash a card, while one moving down the ticks still gets it after 80ms. The card stays 120ms after the pointer leaves. Back within 400ms, it skips the wait: a card still fading out turns back and slides to the new tick, and one that has already gone appears without a fade.
 

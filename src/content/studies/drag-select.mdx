@@ -71,7 +71,7 @@ The band and the sticky header share a stacking context created by `isolation: i
 
 The list scrolls on its own when the pointer moves into the 48px next to its top or bottom edge, faster the deeper it goes. It only scrolls toward an edge the pointer has moved toward: 2px past where the press started with a mouse, 10px with a finger. A still press on the last visible row would otherwise scroll new rows under the pointer and select them. Because rows move under a still pointer while the list scrolls, every `scroll` event recomputes the row under the last pointer position. Autoscroll and the wheel extend the range the same way.
 
-`setPointerCapture()` keeps the drag alive when the pointer leaves the table. Only the box column sets `touch-action: none`, so a finger on the names still scrolls. With a mouse or trackpad, `overscroll-behavior: contain` keeps a scroll that hits the end of the list from moving the page. On touch it's off: on a phone the list can fill the screen, and a finger scrolling it would never reach the page.
+`setPointerCapture()` keeps the drag alive when the pointer leaves the table. Only the box column sets `touch-action: none`, like the grip in [Drag to reorder](/drag-reorder/), so a finger on the names still scrolls. With a mouse or trackpad, `overscroll-behavior: contain` keeps a scroll that hits the end of the list from moving the page. On touch it's off: on a phone the list can fill the screen, and a finger scrolling it would never reach the page.
 
 ## Clicks, keys, and announcements
 
