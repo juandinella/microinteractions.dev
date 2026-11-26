@@ -8,10 +8,11 @@ interface Props {
   description: string;
   articleTitle?: string;
   published?: string;
+  modified?: string;
   image: URL;
 }
 
-const { canonical, title, description, articleTitle, published, image } = Astro.props;
+const { canonical, title, description, articleTitle, published, modified, image } = Astro.props;
 const home = new URL('/', canonical).href;
 const personId = `${home}#author`;
 const websiteId = `${home}#website`;
@@ -80,6 +81,7 @@ const structuredData = {
             description,
             image: image.href,
             ...(published && { datePublished: published }),
+            ...(modified && { dateModified: modified }),
             inLanguage: 'en',
             author: { '@id': personId },
             isPartOf: { '@id': websiteId },

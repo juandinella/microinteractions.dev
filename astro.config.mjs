@@ -7,7 +7,7 @@ import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 import { codeTheme } from './src/styles/code-theme.ts';
 import { securityHeaders } from './src/lib/security-headers.ts';
-import { specimens } from './src/data/specimens.ts';
+import { specimens, updated } from './src/data/specimens.ts';
 
 import cloudflare from '@astrojs/cloudflare';
 import { access, readdir, readFile, writeFile } from 'node:fs/promises';
@@ -45,7 +45,7 @@ export default defineConfig({
   integrations: [react(), mdx(), sitemap({
     serialize(item) {
       const slug = new URL(item.url).pathname.replace(/^\/|\/$/g, '');
-      const dates = slug ? specimens.filter((specimen) => specimen.id === slug).map((specimen) => specimen.published) : specimens.map((specimen) => specimen.published).sort().slice(-1);
+      const dates = slug ? specimens.filter((specimen) => specimen.id === slug).map(updated) : specimens.map(updated).sort().slice(-1);
       return dates.length ? { ...item, lastmod: dates[0] } : item;
     },
   }), {
