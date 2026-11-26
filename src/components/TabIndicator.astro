@@ -60,6 +60,16 @@
 
   class TabIndicator extends HTMLElement {
     #controller: AbortController | undefined;
+    #select: ((index: number) => void) | undefined;
+
+    get selectedIndex() {
+      return [...this.querySelectorAll('[data-tab]')].findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
+    }
+
+    // Selecting from code, such as from the URL, moves the line and the scroll at once: motion answers a hand.
+    set selectedIndex(index: number) {
+      this.#select?.(index);
+    }
 
     connectedCallback() {
       this.#controller = new AbortController();
@@ -185,6 +195,8 @@
       list.addEventListener('pointerdown', remember, { passive: true, signal });
 
       tabs.forEach((tab, i) => tab.addEventListener('click', () => select(i, true), { signal }));
+      this.#select = (index) => tabs[index] && select(index, false);
+      signal.addEventListener('abort', () => (this.#select = undefined));
 
       // Arrow keys move focus and selection together. Keyboard changes are not animated.
       list.addEventListener(

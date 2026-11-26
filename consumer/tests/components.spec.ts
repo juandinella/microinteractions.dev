@@ -40,7 +40,7 @@ test('hold to confirm confirms a full hold, ignores a disabled fieldset, and con
   expect(await calls(app)).toEqual(['hold', 'hold']);
 });
 
-test('the slider keeps its tooltip inside and follows a form reset', async ({ app }) => {
+test('the slider keeps its tooltip inside, and follows and reports a form reset', async ({ app }) => {
   const slider = app.getByRole('slider', { name: 'Volume' });
   await slider.focus();
   await app.keyboard.press('End');
@@ -54,6 +54,7 @@ test('the slider keeps its tooltip inside and follows a form reset', async ({ ap
   await app.getByRole('button', { name: 'Reset form' }).click();
   await expect(app.locator('[data-volume]')).toHaveText('50');
   await expect(slider).toHaveAttribute('aria-valuetext', '50 percent');
+  await expect.poll(() => calls(app)).toEqual(['volume:100', 'volume:50']);
 });
 
 test('the slider and the gooey group submit their values, and disabled leaves them out', async ({ app }) => {
@@ -134,12 +135,75 @@ test('the gooey drop pours, and a form reset moves the next pour back to the def
 test('tabs follow clicks and arrow keys', async ({ app }) => {
   const tab = app.getByRole('tab', { name: /Tab c/ });
   await tab.click();
-  await expect(app.getByRole('tabpanel')).toHaveText('Panel c');
+  await expect(app.getByRole('tabpanel', { name: /Tab c/ })).toHaveText('Panel c');
   // WebKit doesn't focus a button on click.
   await tab.focus();
   await app.keyboard.press('ArrowLeft');
   await expect(app.getByRole('tab', { name: /Tab b/ })).toHaveAttribute('aria-selected', 'true');
   expect(await calls(app)).toEqual(['tab:"c"', 'tab:"b"']);
+});
+
+test('controlled tabs follow value at once, animate a click value takes, and go back from one it refuses', async ({ app }) => {
+  const one = app.getByRole('tab', { name: 'View one' });
+  const line = app.locator('tab-indicator', { has: one }).locator('[data-line]');
+  // Clicks in the page and reads the line a frame later, after React has rendered the parent's answer.
+  const clickAndRead = (name: string) =>
+    app.evaluate(async (name) => {
+      const tab = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((tab) => tab.textContent === name)!;
+      tab.click();
+      await new Promise(requestAnimationFrame);
+      return tab.closest('tab-indicator')!.querySelector('[data-line]')!.getAnimations().length;
+    }, name);
+
+  await app.getByRole('button', { name: 'Show view three' }).click();
+  await expect(app.getByRole('tab', { name: 'View three' })).toHaveAttribute('aria-selected', 'true');
+  await expect(app.getByRole('tabpanel', { name: 'View three' })).toHaveText('View panel three');
+  expect(await line.evaluate((element) => element.getAnimations().length)).toBe(0);
+  expect(await calls(app)).toEqual([]);
+
+  expect(await clickAndRead('View one')).toBeGreaterThan(0);
+  await expect(one).toHaveAttribute('aria-selected', 'true');
+
+  await app.getByRole('button', { name: 'Toggle lock' }).click();
+  expect(await clickAndRead('View two')).toBe(0);
+  await expect(one).toHaveAttribute('aria-selected', 'true');
+  await expect(app.getByRole('tabpanel', { name: 'View one' })).toHaveText('View panel one');
+  expect(await calls(app)).toEqual(['view:"one"', 'view:"two"']);
+});
+
+test('a controlled select follows value, shows a pick only once value takes it, and reports a reset', async ({ app }) => {
+  const trigger = app.getByRole('combobox', { name: 'Size' });
+  const size = () => app.evaluate(() => new FormData(document.querySelector('form')!).get('size'));
+  await expect.poll(size).toBe('Medium');
+
+  await app.getByRole('button', { name: 'Set size Large' }).click();
+  await expect(trigger).toHaveText('Large');
+  expect(await size()).toBe('Large');
+  expect(await calls(app)).toEqual([]);
+
+  // Typeahead on the closed trigger picks.
+  await trigger.focus();
+  await app.keyboard.press('s');
+  await expect(trigger).toHaveText('Small');
+  expect(await size()).toBe('Small');
+
+  await app.getByRole('button', { name: 'Toggle lock' }).click();
+  // The arrow keys, since typeahead would still read "s" and "m" as one search.
+  await trigger.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await app.waitForTimeout(100);
+  await trigger.focus();
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('ArrowDown');
+  await app.keyboard.press('Enter');
+  await expect.poll(() => calls(app)).toEqual(['size:"Small"', 'size:"Medium"']);
+  await expect(trigger).toHaveText('Small');
+  expect(await size()).toBe('Small');
+  await app.getByRole('button', { name: 'Toggle lock' }).click();
+
+  // The reset goes back to the value the select started with, and reports it.
+  await app.getByRole('button', { name: 'Reset form' }).click();
+  await expect(trigger).toHaveText('Medium');
+  await expect.poll(() => calls(app)).toEqual(['size:"Small"', 'size:"Medium"', 'size:"Medium"']);
 });
 
 test('a drag down the boxes checks a run of rows, and a form reset clears them', async ({ app }) => {
@@ -265,8 +329,9 @@ test('the tick rail previews the section under the pointer and follows the scrol
 
 test('the aligned select opens on its value, picks by key, and reports only real changes', async ({ app }) => {
   const trigger = app.getByRole('combobox', { name: 'Region' });
+  const select = app.locator('aligned-select', { has: trigger });
   await expect(trigger).toHaveText('Lima');
-  await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lima');
+  await expect(select.locator('[role="option"][aria-selected="true"]')).toHaveText('Lima');
 
   // On screen first: the menu is placed in window pixels, and the site tests cover the focus that scrolls.
   await trigger.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
@@ -274,7 +339,7 @@ test('the aligned select opens on its value, picks by key, and reports only real
   await trigger.focus();
   await app.keyboard.press('ArrowDown');
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
-  const gap = await app.locator('aligned-select').evaluate((el) => {
+  const gap = await select.evaluate((el) => {
     const value = el.querySelector('[data-display]')!.getBoundingClientRect();
     const label = el.querySelector('[aria-selected="true"] [data-label]')!.getBoundingClientRect();
     return Math.abs(value.top + value.height / 2 - (label.top + label.height / 2));
@@ -294,10 +359,10 @@ test('the aligned select opens on its value, picks by key, and reports only real
   await app.keyboard.press('l');
   await expect(trigger).toHaveText('Lagos');
   expect(await calls(app)).toEqual(['select:"Tokyo"', 'select:"Lagos"']);
-  await expect(app.locator('aligned-select [role="option"][aria-selected="true"]')).toHaveText('Lagos');
+  await expect(select.locator('[role="option"][aria-selected="true"]')).toHaveText('Lagos');
 });
 
-test('the aligned select submits its value in a form, a reset restores it silently, and disabled leaves it out', async ({ app }) => {
+test('the aligned select submits its value in a form, a reset restores and reports it, and disabled leaves it out', async ({ app }) => {
   const trigger = app.getByRole('combobox', { name: 'Region' });
   const region = () => app.evaluate(() => new FormData(document.querySelector('form')!).get('region'));
   await expect.poll(region).toBe('Lima');
@@ -311,11 +376,11 @@ test('the aligned select submits its value in a form, a reset restores it silent
   expect(await region()).toBe('Tokyo');
   expect(await calls(app)).toEqual(['select:"Tokyo"']);
 
-  // The reset restores defaultValue and, like a native select, tells nobody.
+  // The element restores defaultValue without a change event, like a native select; the port reports it.
   await app.getByRole('button', { name: 'Reset form' }).click();
   await expect(trigger).toHaveText('Lima');
   await expect.poll(region).toBe('Lima');
-  expect(await calls(app)).toEqual(['select:"Tokyo"']);
+  await expect.poll(() => calls(app)).toEqual(['select:"Tokyo"', 'select:"Lima"']);
 
   await app.getByRole('button', { name: 'Toggle region' }).click();
   await expect(trigger).toBeDisabled();

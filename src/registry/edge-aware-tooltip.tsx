@@ -19,8 +19,8 @@ type EdgeAwareSliderProps = {
   max?: number;
   step?: number;
   onValueChange?: (value: number) => void;
-  // Submits the value with a surrounding form under this name. A form reset restores defaultValue
-  // without calling onValueChange; disabled (or a disabled fieldset) leaves it out and dims the slider.
+  // Submits the value with a surrounding form under this name. A form reset restores defaultValue and
+  // calls onValueChange; disabled (or a disabled fieldset) leaves it out and dims the slider.
   name?: string;
   disabled?: boolean;
   className?: string;
@@ -44,11 +44,32 @@ export function EdgeAwareSlider({
   // without an input event, and the tooltip would fall out of step.
   const initial = React.useRef(defaultValue).current;
   const decimals = String(step).split('.')[1]?.length ?? 0;
+  const input = React.useRef<HTMLInputElement>(null);
+  const last = React.useRef(initial);
+  const change = React.useRef(onValueChange);
+  change.current = onValueChange;
+  const report = (value: number) => {
+    if (value === last.current) return;
+    last.current = value;
+    change.current?.(value);
+  };
   const widest = [min, max].map((end) => end.toFixed(decimals)).reduce((a, b) => (b.length > a.length ? b : a));
 
   React.useEffect(() => {
     // The element only exists in the browser, so it upgrades the markup after hydration.
     void import('./edge-aware-tooltip-element');
+    // A form reset restores the input without an input event, once the reset event is over.
+    const form = input.current?.form;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => input.current && report(input.current.valueAsNumber));
+    };
+    form?.addEventListener('reset', reset);
+    return () => {
+      form?.removeEventListener('reset', reset);
+      clearTimeout(timer);
+    };
   }, []);
 
   return (
@@ -76,6 +97,7 @@ export function EdgeAwareSlider({
       </span>
       <span aria-hidden="true" className="pointer-events-none absolute bottom-10.5 left-[calc(12px+(100%-24px)*var(--x)-4px)] size-2 rotate-45 bg-foreground supports-[(position-anchor:--volume-thumb)_and_(justify-self:anchor-center)_and_(anchor-scope:--volume-thumb)]:[position-anchor:--volume-thumb] supports-[(position-anchor:--volume-thumb)_and_(justify-self:anchor-center)_and_(anchor-scope:--volume-thumb)]:bottom-[calc(anchor(top)+8px)] supports-[(position-anchor:--volume-thumb)_and_(justify-self:anchor-center)_and_(anchor-scope:--volume-thumb)]:left-[calc(anchor(center)-4px)]" />
       <input
+        ref={input}
         className="relative m-0 block h-11 w-full cursor-ew-resize touch-pan-y appearance-none disabled:cursor-not-allowed bg-transparent p-0 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-slider-runnable-track]:h-6 [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:h-6 [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background [&::-moz-range-thumb]:box-border [&::-moz-range-thumb]:size-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary [&::-moz-range-thumb]:bg-background"
         type="range"
         min={min}
@@ -86,7 +108,7 @@ export function EdgeAwareSlider({
         defaultValue={initial}
         aria-label={label}
         aria-valuetext={`${initial} percent`}
-        onChange={(event) => onValueChange?.(event.currentTarget.valueAsNumber)}
+        onChange={(event) => report(event.currentTarget.valueAsNumber)}
         data-position-input
       />
     </edge-aware-tooltip>

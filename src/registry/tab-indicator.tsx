@@ -21,26 +21,33 @@ type Tab = {
 
 type TabIndicatorProps = {
   tabs: Tab[];
+  // The selected tab, controlled: a click or an arrow key calls onValueChange, and the tab stays only once
+  // value says so. Set it in the same update, as with a controlled input, or the selection goes back to value.
+  // A change from here, such as from the URL, moves the line at once. A value that isn't a tab shows the first.
+  value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   'aria-label': string;
   className?: string;
 };
 
-// Uncontrolled: `defaultValue` is read once. The element manages selection, focus, and the line
+// Without `value`, `defaultValue` is read once. The element manages selection, focus, and the line
 // after it upgrades. It reads the tabs once, so a different set of tabs remounts it. The selected
 // tab survives while it's still there; otherwise `defaultValue`, or the first tab, takes over and
 // `onValueChange` reports it. With no tabs it renders nothing.
 export function TabIndicator({
   tabs,
+  value,
   defaultValue,
   onValueChange,
   'aria-label': ariaLabel,
   className,
 }: TabIndicatorProps) {
-  const root = React.useRef<HTMLElement>(null);
+  const root = React.useRef<HTMLElement & { selectedIndex: number }>(null);
   const change = React.useRef(onValueChange);
   change.current = onValueChange;
+  const controlled = React.useRef(false);
+  const [, rerender] = React.useReducer((count: number) => count + 1, 0);
   const initial = React.useRef(defaultValue).current;
   const selection = React.useRef<string | undefined>(undefined);
   const key = JSON.stringify(tabs.map((tab) => tab.value));
@@ -68,7 +75,10 @@ export function TabIndicator({
       // The first read only records the starting tab, so Strict Mode can't report it twice.
       const changed = selection.current !== undefined;
       selection.current = value;
-      if (changed) change.current?.(value);
+      if (!changed) return;
+      // Controlled, the render below puts value back unless onValueChange changed it.
+      if (controlled.current) rerender();
+      change.current?.(value);
     };
     report();
     element.addEventListener('click', report);
@@ -78,6 +88,19 @@ export function TabIndicator({
       element.removeEventListener('keydown', report);
     };
   }, [key]);
+
+  const values: string[] = JSON.parse(key);
+  const shown = value === undefined ? selected : values.includes(value) ? value : values[0];
+
+  React.useLayoutEffect(() => {
+    controlled.current = value !== undefined;
+    if (value === undefined || shown === undefined) return;
+    selection.current = shown;
+    const element = root.current;
+    // React has already rendered aria-selected, so the getter can't tell; the element skips the tab it has.
+    // Before the element upgrades, the markup already shows the tab; an index set then would hide its setter.
+    if (element && customElements.get('tab-indicator')) element.selectedIndex = values.indexOf(shown);
+  });
 
   if (tabs.length === 0) return null;
 
@@ -102,8 +125,8 @@ export function TabIndicator({
             className="group/tab relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground [-webkit-tap-highlight-color:transparent] before:absolute before:-inset-x-px before:-inset-y-1 before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-selected:text-foreground group-not-data-ready/tbi:aria-selected:after:absolute group-not-data-ready/tbi:aria-selected:after:inset-x-0 group-not-data-ready/tbi:aria-selected:after:-bottom-(--tbi-pad) group-not-data-ready/tbi:aria-selected:after:h-0.5 group-not-data-ready/tbi:aria-selected:after:bg-foreground group-not-data-ready/tbi:aria-selected:after:content-[''] pointer-coarse:before:-inset-y-1.5 group-not-data-scrolling/tbi:pointer-fine:hover:bg-muted/50 group-not-data-scrolling/tbi:pointer-fine:hover:text-foreground"
             type="button"
             role="tab"
-            aria-selected={tab.value === selected}
-            tabIndex={tab.value === selected ? undefined : -1}
+            aria-selected={tab.value === shown}
+            tabIndex={tab.value === shown ? undefined : -1}
             data-tab
           >
             {/* The hidden bold copy reserves the selected width, so the row doesn't shift. */}
@@ -132,7 +155,7 @@ export function TabIndicator({
           className="border-t border-border bg-muted/50 px-2 py-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           role="tabpanel"
           tabIndex={0}
-          hidden={tab.value !== selected}
+          hidden={tab.value !== shown}
           data-panel
         >
           {tab.content}

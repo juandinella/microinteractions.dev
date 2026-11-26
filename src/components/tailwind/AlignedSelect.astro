@@ -128,11 +128,18 @@
     #controller: AbortController | undefined;
     // The option selected when the element first connected, which a form reset restores.
     #initial: number | undefined;
+    #choose: ((value: string) => void) | undefined;
 
     // An option's value is its data-value, or its label when it has none.
     get value() {
       const option = this.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
       return option ? (option.dataset.value ?? option.querySelector('[data-label]')!.textContent!.trim()) : '';
+    }
+
+    // Setting the value selects that option without a change event, as on a native select. A value that isn't an
+    // option changes nothing.
+    set value(value: string) {
+      this.#choose?.(value);
     }
 
     connectedCallback() {
@@ -392,6 +399,11 @@
       };
       // Exactly one option is selected from here on. A reconnect (the element moved) keeps what was picked.
       choose(selected(), false);
+      this.#choose = (value) => {
+        const index = options.findIndex((option) => valueOf(option) === value);
+        if (index >= 0) choose(index, false);
+      };
+      signal.addEventListener('abort', () => (this.#choose = undefined));
 
       const disable = () => {
         if (input) input.disabled = trigger.hasAttribute('disabled');

@@ -34,6 +34,9 @@ export function App() {
   const [options, setOptions] = React.useState(['x', 'y', 'z']);
   const [regionDisabled, setRegionDisabled] = React.useState(false);
   const [fieldsDisabled, setFieldsDisabled] = React.useState(false);
+  const [size, setSize] = React.useState('Medium');
+  const [view, setView] = React.useState('one');
+  const [locked, setLocked] = React.useState(false);
   const [slides, setSlides] = React.useState(3);
   const [defaults, setDefaults] = React.useState({ tab: 'b', option: 'x', volume: 50 });
   const [saved, setSaved] = React.useState(['x', 'y', 'z']);
@@ -50,6 +53,9 @@ export function App() {
         <button type="button" onClick={() => setOptions((list) => without(list, 'z'))}>Remove option z</button>
         <button type="button" onClick={() => setRegionDisabled((value) => !value)}>Toggle region</button>
         <button type="button" onClick={() => setFieldsDisabled((value) => !value)}>Toggle volume and delivery</button>
+        <button type="button" onClick={() => setSize('Large')}>Set size Large</button>
+        <button type="button" onClick={() => setView('three')}>Show view three</button>
+        <button type="button" onClick={() => setLocked((value) => !value)}>Toggle lock</button>
         <button type="button" onClick={() => setSlides((count) => count + 1)}>Add slide</button>
         <button type="button" onClick={() => setDefaults({ tab: 'c', option: 'y', volume: 10 })}>Change defaults</button>
         <button type="button" onClick={() => setSaved((list) => [...list].reverse())}>Reverse saved tasks</button>
@@ -150,6 +156,26 @@ export function App() {
       <section aria-label="Aligned select" className="flex items-center justify-between gap-4">
         <span id="als-app-label">Region</span>
         <AlignedSelect aria-labelledby="als-app-label" name="region" disabled={regionDisabled} options={['Berlin', 'Lagos', 'Lima', 'Tokyo']} defaultValue="Lima" onValueChange={log('select')} />
+      </section>
+
+      {/* Controlled: while locked, the parent hears every change and keeps its value. */}
+      <section aria-label="Controlled" className="grid gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <span id="size-label">Size</span>
+          <AlignedSelect
+            aria-labelledby="size-label"
+            name="size"
+            options={['Small', 'Medium', 'Large']}
+            value={size}
+            onValueChange={(value) => (log('size')(value), locked || setSize(value))}
+          />
+        </div>
+        <TabIndicator
+          aria-label="Views"
+          value={view}
+          onValueChange={(value) => (log('view')(value), locked || setView(value))}
+          tabs={['one', 'two', 'three'].map((value) => ({ value, label: `View ${value}`, content: <p className="p-2">View panel {value}</p> }))}
+        />
       </section>
 
       <WormDots
